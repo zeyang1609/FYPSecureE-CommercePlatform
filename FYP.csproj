@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Folder Include="AiMicroservices\" />
+    <Folder Include="Views\Buyer\" />
   </ItemGroup>
 
   <ItemGroup>

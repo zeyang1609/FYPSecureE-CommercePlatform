@@ -38,7 +38,7 @@ namespace FYP.Controllers
                 .Where(n => n.UserID == buyerId)
                 .OrderByDescending(n => n.NotificationID)
                 .Take(10)
-                .ToListAsync();
+                .ToListAsync(); 
 
             // 3. Calculate spending KPIs for dashboard metric cards
             var allOrders = await _context.Orders.Where(o => o.BuyerID == buyerId).ToListAsync();
@@ -65,7 +65,7 @@ namespace FYP.Controllers
                 .Include(o => o.Payment)
                 .Where(o => o.BuyerID == buyerId)
                 .OrderByDescending(o => o.CreatedAt)
-                .ToListAsync();
+                .ToListAsync(); 
 
             ViewBag.BuyerID = buyerId;
             return View(orders);
@@ -80,7 +80,7 @@ namespace FYP.Controllers
                     .ThenInclude(oi => oi.Product)
                 .Include(o => o.Payment)
                 .Include(o => o.FraudAlert)
-                .FirstOrDefaultAsync(o => o.OrderID == orderId);
+                .FirstOrDefaultAsync(o => o.OrderID == orderId); 
 
             if (order == null)
             {
@@ -96,7 +96,7 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RequestRefund(string orderId, decimal refundAmount, string reason)
         {
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId);
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId); 
             if (order == null)
             {
                 return NotFound();
@@ -109,7 +109,7 @@ namespace FYP.Controllers
                 OrderID = orderId,
                 RefundAmount = refundAmount,
                 Status = "Requested"
-            };
+            }; 
 
             // Log security audit trail (Updated currency to RM)
             var auditLog = new AuditLog
@@ -128,10 +128,10 @@ namespace FYP.Controllers
                 UserID = order.BuyerID,
                 Type = "Refund Request",
                 Content = $"Refund requested for Order {orderId}. Reason: {reason}"
-            };
+            }; 
 
-            _context.Refunds.Add(refund);
-            _context.AuditLogs.Add(auditLog);
+            _context.Refunds.Add(refund); 
+            _context.AuditLogs.Add(auditLog); 
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
 

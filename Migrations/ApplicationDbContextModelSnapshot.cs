@@ -124,6 +124,7 @@ namespace FYP.Migrations
 
                     b.Property<string>("OrderID")
                         .IsRequired()
+                        .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("Reason")
@@ -263,6 +264,7 @@ namespace FYP.Migrations
 
                     b.Property<string>("OrderID")
                         .IsRequired()
+                        .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("PaymentMethod")

@@ -35,7 +35,7 @@ namespace FYP.Controllers
             if (!cart.Items.Any())
             {
                 return RedirectToAction("Index", "Home");
-            }
+        }
 
             ViewBag.BuyerID = "USR-BUYER-DEMO";
             ViewBag.IdempotencyKey = "IDEM-" + Guid.NewGuid().ToString("N").ToUpper();
@@ -47,6 +47,7 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ProcessPayment(
             string buyerId,
+            decimal amount,
             string rawCardNumber,
             string paymentMethod,
             string shippingAddress,
@@ -82,8 +83,10 @@ namespace FYP.Controllers
                 distanceFromShippingAddress = shippingDistanceKm
             };
 
+            // 4. Send transaction to Python microservice for real-time AI evaluation
             FraudEvaluationResult aiVerdict = await _aiClient.EvaluateTransactionRiskAsync(transactionPayload);
 
+            // 5. Generate explicit production primary keys
             string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
             string paymentId = "PAY-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
             string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
@@ -91,6 +94,7 @@ namespace FYP.Controllers
             // 4. Handle high-risk fraud flags (> 0.80 threshold or explicit AI block)
             if (aiVerdict.IsBlocked || aiVerdict.RiskScore > 0.80m)
             {
+                // Record the blocked attempt in the Order table as Declined
                 var blockedOrder = new Order
                 {
                     OrderID = orderId,
@@ -111,6 +115,7 @@ namespace FYP.Controllers
                     CreatedAt = DateTime.UtcNow
                 };
 
+                // Log to immutable AuditLogs
                 var auditLog = new AuditLog
                 {
                     LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
