@@ -1,0 +1,91 @@
+﻿@model IEnumerable<FYP.Models.Entities.OrderItem>
+@{
+    ViewData["Title"] = "Incoming Orders";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Order History</span>
+            </div>
+            <div>
+                <a asp-controller="Seller" asp-action="Dashboard" asp-route-sellerId="@ViewBag.SellerID" class="help-link" style="font-weight: 600;">← Back to Dashboard</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+
+        <div class="dashboard-header">
+            <div>
+                <h1>Verified Customer Orders</h1>
+                <p>Tracking all incoming buyer transactions for Seller ID: <strong>@ViewBag.SellerID</strong></p>
+            </div>
+            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🛡️ XGBoost Fraud Checked</span>
+        </div>
+
+        <div class="table-card">
+            @if (Model != null && Model.Any())
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Order Date</th>
+                            <th>Product Sold</th>
+                            <th>Buyer Contact</th>
+                            <th>Unit Price</th>
+                            <th>Qty</th>
+                            <th>Total Revenue</th>
+                            <th>Security Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td style="font-family: monospace; font-size: 0.85rem;">@item.OrderID</td>
+                                <td style="font-size: 0.85rem; color: var(--text-muted);">@item.Order?.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                <td>
+                                    <strong style="font-size: 0.95rem; display: block;">@item.Product?.Title</strong>
+                                    <small style="font-family: monospace; color: var(--text-muted);">ID: @item.ProductID</small>
+                                </td>
+                                <td>@item.Order?.Buyer?.Email</td>
+                                <td>RM @item.UnitPrice.ToString("0.00")</td>
+                                <td><strong>x @item.Quantity</strong></td>
+                                <td><strong style="color: #2E7D32; font-size: 1.05rem;">RM @((item.UnitPrice * item.Quantity).ToString("0.00"))</strong></td>
+                                <td>
+                                    <span class="badge badge-success">✓ Cleared by AI</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <h3>No incoming orders yet.</h3>
+                    <p>When buyers purchase your AI-verified products, the transactions will appear here.</p>
+                </div>
+            }
+        </div>
+    </main>
+</body>
+</html>

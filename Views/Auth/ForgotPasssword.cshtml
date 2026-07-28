@@ -1,0 +1,78 @@
+﻿@model FYP.Models.ViewModels.ForgotPasswordViewModel
+@{
+    ViewData["Title"] = "Password Recovery";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - E-Commerce Security Portal</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+</head>
+<body>
+
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+                    </svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Password Recovery</span>
+            </div>
+            <a href="#" class="help-link">Need Help?</a>
+        </div>
+    </header>
+
+    <main class="login-main">
+        <div class="layout-grid">
+
+            <section class="hero-column">
+                <h1 class="hero-title">Zero-Trust Account Recovery</h1>
+                <p class="hero-subtitle">To protect your account, password modifications require multi-factor verification via your registered email address.</p>
+                <div class="security-badge">
+                    MFA Security Gateway Active
+                </div>
+            </section>
+
+            <section class="auth-card">
+                <div class="card-header">
+                    <h2>Reset Password</h2>
+                </div>
+                <p style="font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.5;">
+                    Enter your registered email address below. We will send a 6-digit verification code to confirm your identity.
+                </p>
+
+                <form asp-controller="Auth" asp-action="ForgotPassword" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger" style="font-size: 13px; margin-bottom: 10px;"></div>
+
+                    <div class="form-group">
+                        <label asp-for="Email" class="field-label">Email Address:</label>
+                        <div class="input-wrapper">
+                            <input asp-for="Email" class="mvc-input" placeholder="Enter your registered email" autocomplete="email" autofocus />
+                        </div>
+                        <span asp-validation-for="Email" class="text-danger field-validation-error"></span>
+                    </div>
+
+                    <button type="submit" class="btn-submit-primary" style="margin-top: 15px;">SEND VERIFICATION CODE</button>
+                </form>
+
+                <div class="auth-footer" style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">
+                    Remembered your password? <a asp-controller="Auth" asp-action="Login">Back to Log In</a>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+</body>
+</html>

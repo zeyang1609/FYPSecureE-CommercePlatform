@@ -1,0 +1,162 @@
+﻿/* --- Specialized Merchant Studio Dashboard Layout --- */
+.studio-container {
+    width: 100%;
+    max-width: 960px;
+    margin: 30px auto 60px auto;
+    padding: 0 5%;
+}
+
+.studio-header {
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+    .studio-header h1 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--text-dark);
+        margin-bottom: 6px;
+    }
+
+    .studio-header p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+/* Wide 2-Column Dashboard Card */
+.studio-dashboard-card {
+    background: var(--white);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+/* Fixed: align-items: start prevents vertical overflow */
+.studio-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 30px;
+    padding: 30px;
+    align-items: start;
+}
+
+/* Section Headers Inside Grid */
+.section-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--brand-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--auth-bg-tint);
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+/* Fixed: Use flex column with gap instead of 100% height space-between */
+.vision-canvas-box {
+    background: #FAFAFA;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.file-drop-area {
+    border: 2px dashed var(--brand-primary);
+    border-radius: 6px;
+    padding: 30px 15px;
+    text-align: center;
+    background: var(--auth-bg-tint);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+}
+
+    .file-drop-area:hover {
+        background: #FFE2DB;
+        border-color: var(--brand-primary-hover);
+    }
+
+.file-input {
+    display: none;
+}
+
+/* Live Thumbnail Preview Image */
+#imagePreview {
+    max-width: 100%;
+    max-height: 180px;
+    border-radius: 4px;
+    object-fit: contain;
+    display: none;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Forensic Status Badge inside Upload Column */
+.forensic-status-box {
+    background: var(--white);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--brand-primary);
+    padding: 14px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+    .forensic-status-box strong {
+        color: var(--text-dark);
+        display: block;
+        margin-bottom: 4px;
+    }
+
+/* Fixed: Simplified Footer Layout without Cancel button */
+.studio-footer {
+    background: #FAFAFA;
+    border-top: 1px solid var(--border-color);
+    padding: 20px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+@media (max-width: 850px) {
+    .studio-grid {
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
+
+    .studio-footer {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+
+    .studio-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}

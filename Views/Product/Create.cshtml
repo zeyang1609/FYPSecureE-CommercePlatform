@@ -1,0 +1,198 @@
+﻿@model FYP.Models.ViewModels.ProductUploadViewModel
+@{
+    ViewData["Title"] = "AI Inventory Studio - List New Product";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <!-- Core Brand Variables & Inputs -->
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <!-- Seller Studio Dashboard Layout -->
+    <link rel="stylesheet" href="~/css/seller-studio.css" />
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+                    </svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Seller Studio</span>
+            </div>
+            <a asp-controller="Seller" asp-action="Dashboard" class="help-link" style="font-weight: 600;">← Back to Dashboard</a>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Studio -->
+    <main class="studio-container">
+
+        <div class="studio-header">
+            <div>
+                <h1>Add New Inventory</h1>
+                <p>Configure product specifications and submit imagery for automated security verification.</p>
+            </div>
+            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🛡️ Zero-Trust Verification Active</span>
+        </div>
+
+        <div class="studio-dashboard-card">
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div style="background: #FFF0F0; color: #D63031; padding: 12px 20px; border-bottom: 1px solid #FFCDCD; font-size: 0.9rem;">
+                    @Html.ValidationSummary(false, "", new { @style = "margin: 0; padding-left: 15px;" })
+                </div>
+            }
+
+            <form asp-controller="Product" asp-action="Create" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+
+                <div class="studio-grid">
+
+                    <!-- LEFT COLUMN: Product Specifications -->
+                    <div class="specs-column">
+                        <div class="section-title">
+                            <span>1. Product Specifications</span>
+                        </div>
+
+                        <!-- 1. Product Title -->
+                        <div class="form-group">
+                            <label asp-for="Title" class="field-label">Product Title:</label>
+                            <div class="input-wrapper">
+                                <input asp-for="Title" class="mvc-input" placeholder="e.g., Enterprise Biometric Fingerprint Scanner" required autofocus />
+                            </div>
+                            <span asp-validation-for="Title" class="field-validation-error"></span>
+                        </div>
+
+                        <!-- 2. Price & Stock Row -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label asp-for="Price" class="field-label">Price (RM):</label>
+                                <div class="input-wrapper">
+                                    <input asp-for="Price" type="number" step="0.01" min="0.01" class="mvc-input" placeholder="0.00" required />
+                                </div>
+                                <span asp-validation-for="Price" class="field-validation-error"></span>
+                            </div>
+
+                            <div class="form-group">
+                                <label asp-for="StockLevel" class="field-label">Stock Quantity:</label>
+                                <div class="input-wrapper">
+                                    <input asp-for="StockLevel" type="number" min="1" class="mvc-input" placeholder="e.g., 50" required />
+                                </div>
+                                <span asp-validation-for="StockLevel" class="field-validation-error"></span>
+                            </div>
+                        </div>
+
+                        <!-- 3. Storefront Category Dropdown -->
+                        <div class="form-group">
+                            <label class="field-label">Storefront Category:</label>
+                            <div class="input-wrapper">
+                                <select name="categoryId" class="mvc-input" style="padding-right: 14px; background: white; cursor: pointer;" required>
+                                    <option value="">-- Select Catalog Category --</option>
+                                    @if (ViewBag.Categories != null)
+                                    {
+                                        @foreach (var cat in (IEnumerable<FYP.Models.Entities.Category>)ViewBag.Categories)
+                                        {
+                                            <option value="@cat.CategoryID">@cat.Name</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 0.8rem; color: var(--text-muted); background: var(--auth-bg-tint); padding: 12px; border-radius: 6px; margin-top: 25px; line-height: 1.5;">
+                            <strong style="color: var(--brand-primary);">Important Notice:</strong> All product listings are subjected to algorithmic pricing anomaly evaluation and counterfeit keyword scanning before appearing on the public storefront.
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: AI Vision Studio & Image Upload -->
+                    <div class="vision-column">
+                        <div class="section-title">
+                            <span>2. AI Vision Verification</span>
+                        </div>
+
+                        <div class="vision-canvas-box">
+                            <div>
+                                <label class="field-label" style="margin-bottom: 10px;">Upload Product Image (Forensic Scan Required):</label>
+
+                                <div class="file-drop-area" onclick="document.getElementById('imageFile').click()">
+                                    <!-- Live Image Thumbnail Preview -->
+                                    <img id="imagePreview" alt="Image Preview" />
+
+                                    <!-- Upload Icon & Instructions (Hidden automatically when preview loads) -->
+                                    <div id="uploadInstructions">
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#EE4D2D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px;">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="17 8 12 3 7 8"></polyline>
+                                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                                        </svg>
+                                        <div id="file-label" style="font-weight: 600; font-size: 0.95rem; color: var(--brand-primary); margin-bottom: 4px;">Click to Browse or Drag Image Here</div>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">Supports High-Resolution JPG or PNG</span>
+                                    </div>
+
+                                    <input asp-for="ImageFile" id="imageFile" type="file" accept="image/jpeg, image/png" class="file-input" required onchange="handleFileSelect(this)" />
+                                </div>
+                                <span asp-validation-for="ImageFile" class="field-validation-error"></span>
+                            </div>
+
+                            <!-- Real-Time AI Telemetry Indicator -->
+                            <div class="forensic-status-box">
+                                <strong>🧠 Automated AI Security Pipeline:</strong>
+                                • SHA-256 Cryptographic Image Hash Computed on Upload<br />
+                                • OpenCV Error Level Analysis (ELA) for Photoshop Forgery<br />
+                                • Hugging Face Neural Network NSFW & Content Filter
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- BOTTOM ACTION BAR (Cancel Button Removed) -->
+                <div class="studio-footer">
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">
+                        By submitting, you agree to our <a asp-controller="Home" asp-action="Terms" class="legal-link" target="_blank">Merchant Terms of Service</a>.
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-submit-primary" style="width: auto; padding: 12px 30px; font-size: 0.95rem; margin: 0;">
+                            RUN AI VISION SCAN & LIST PRODUCT →
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </main>
+
+    <!-- Image Thumbnail Preview Engine -->
+    <script>
+            function handleFileSelect(input) {
+                const preview = document.getElementById('imagePreview');
+                const instructions = document.getElementById('uploadInstructions');
+
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+
+                    reader.onload = function(e) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                        instructions.style.display = 'none';
+                    }
+
+                    reader.readAsDataURL(input.files[0]);
+                } else {
+                    preview.style.display = 'none';
+                    instructions.style.display = 'block';
+                }
+            }
+    </script>
+</body>
+</html>

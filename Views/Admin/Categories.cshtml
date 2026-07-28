@@ -1,0 +1,81 @@
+﻿@model IEnumerable<FYP.Models.Entities.Category>
+@{
+    ViewData["Title"] = "Manage Categories";
+}
+
+<div style="padding: 30px; max-width: 1200px; margin: auto;">
+    <h2>Catalog Category Management</h2>
+    <hr />
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div style="padding: 15px; background: #d4edda; color: #155724; border-radius: 5px; margin-bottom: 20px;">
+            @TempData["SuccessMessage"]
+        </div>
+    }
+
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; margin-top: 20px;">
+        <!-- Add Category Form -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; height: fit-content;">
+            <h3>Add New Category</h3>
+            <form asp-controller="Admin" asp-action="CreateCategory" method="post">
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Category Name</label>
+                    <input type="text" name="name" required class="form-control" style="width: 100%; padding: 8px; box-sizing: border-box;" placeholder="e.g., Cyber Security Hardware" />
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Description</label>
+                    <textarea name="description" rows="3" style="width: 100%; padding: 8px; box-sizing: border-box;" placeholder="Brief description of products in this category..."></textarea>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Icon (Raw SVG XML)</label>
+                    <textarea name="iconSvg" rows="4" style="width: 100%; padding: 8px; font-family: monospace; font-size: 0.85rem; box-sizing: border-box;" placeholder="<svg>...</svg> (Leave blank for default grid icon)"></textarea>
+                    <small style="color: #6c757d;">Tip: Copy clean SVG vectors from lucide.dev or feathericons.com</small>
+                </div>
+
+                <button type="submit" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%;">Create Category</button>
+            </form>
+        </div>
+
+        <!-- Existing Categories List -->
+        <div>
+            <h3>Active Storefront Categories (@Model.Count())</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                    <tr style="background: #343a40; color: white; text-align: left;">
+                        <th style="padding: 12px;">Icon</th>
+                        <th style="padding: 12px;">Name & Description</th>
+                        <th style="padding: 12px;">Active Products</th>
+                        <th style="padding: 12px;">Category ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cat in Model)
+                    {
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 12px; width: 50px;">
+                                <div style="width: 32px; height: 32px; color: #333;">
+                                    @Html.Raw(cat.IconSvg)
+                                </div>
+                            </td>
+                            <td style="padding: 12px;">
+                                <strong style="font-size: 1.05rem;">@cat.Name</strong><br />
+                                <small style="color: #6c757d;">@cat.Description</small>
+                            </td>
+                            <td style="padding: 12px;">
+                                <span style="background: #e9ecef; padding: 4px 10px; border-radius: 20px; font-weight: bold;">
+                                    @cat.Products.Count items[cite: 10]
+                                </span>
+                            </td>
+                            <td style="padding: 12px; font-family: monospace; font-size: 0.85rem; color: #6c757d;">
+                                @cat.CategoryID
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

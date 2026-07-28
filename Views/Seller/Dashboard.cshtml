@@ -1,0 +1,191 @@
+﻿@model IEnumerable<FYP.Models.Entities.Product>
+@{
+    ViewData["Title"] = "Seller Centre Dashboard";
+    Layout = null;
+    var recentSales = ViewBag.RecentSales as IEnumerable<FYP.Models.Entities.OrderItem>;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <!-- Top Navigation Bar -->
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+                    </svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Seller Centre</span>
+            </div>
+            <div>
+                <a asp-controller="Home" asp-action="Index" class="help-link" style="margin-right: 20px;">View Storefront</a>
+                <a asp-controller="Auth" asp-action="Login" style="color: var(--text-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem;">Log Out</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Command Center -->
+    <main class="dashboard-container">
+
+        <!-- Welcome Banner & Quick Actions -->
+        <div class="dashboard-header">
+            <div>
+                <h1>Merchant Command Center</h1>
+                <p>Monitoring active inventory and verified sales for Seller ID: <strong>@ViewBag.SellerID</strong></p>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <a asp-controller="Seller" asp-action="MyProducts" asp-route-sellerId="@ViewBag.SellerID" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
+                    📦 Manage Stock
+                </a>
+                <a asp-controller="Seller" asp-action="Orders" asp-route-sellerId="@ViewBag.SellerID" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
+                    🛒 View Orders
+                </a>
+                <a asp-controller="Product" asp-action="Create" class="btn-add-product">
+                    <span>+ Add New Inventory</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 4 KPI Performance Metric Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <span class="kpi-label">Active Listings</span>
+                <span class="kpi-value">@ViewBag.TotalProducts</span>
+            </div>
+
+            <div class="kpi-card highlight">
+                <span class="kpi-label">Total Revenue (RM)</span>
+                <span class="kpi-value">RM @(((decimal)ViewBag.TotalRevenue).ToString("0.00"))</span>
+            </div>
+
+            <div class="kpi-card">
+                <span class="kpi-label">Low Stock Alerts</span>
+                <span class="kpi-value" style="color: @((int)ViewBag.LowStockCount > 0 ? "#D63031" : "#2E7D32");">
+                    @ViewBag.LowStockCount
+                </span>
+            </div>
+
+            <div class="kpi-card">
+                <span class="kpi-label">AI Security Guard</span>
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                    <span class="badge badge-success">✓ 100% Verified</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Inventory Table -->
+        <div class="table-card">
+            <div class="table-header">
+                <h2>Active Inventory Overview</h2>
+                <a asp-controller="Seller" asp-action="MyProducts" asp-route-sellerId="@ViewBag.SellerID" style="color: var(--brand-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">Edit All Stock →</a>
+            </div>
+
+            @if (Model != null && Model.Any())
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">Image</th>
+                            <th>Product Title</th>
+                            <th>Category</th>
+                            <th>Price (RM)</th>
+                            <th>Stock Level</th>
+                            <th>AI Forensic Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Take(5))
+                        {
+                            <tr>
+                                <td>
+                                    <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" class="product-thumb" onerror="this.src='/images/default-product.jpg';" />
+                                </td>
+                                <td><strong style="font-size: 0.95rem;">@item.Title</strong></td>
+                                <td><span style="background: #F0F0F0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">@(item.Category?.Name ?? "General")</span></td>
+                                <td><strong style="color: var(--brand-primary);">RM @item.Price.ToString("0.00")</strong></td>
+                                <td>
+                                    @if (item.StockLevel <= 0)
+                                    {
+                                        <span class="badge badge-danger">Out of Stock</span>
+                                    }
+                                    else if (item.StockLevel <= 5)
+                                    {
+                                        <span class="badge badge-warning">Low: @item.StockLevel left</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="font-weight: 600; color: #333;">@item.StockLevel units</span>
+                                    }
+                                </td>
+                                <td><span class="badge badge-success">🛡️ Vision Verified</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <h3>No inventory listed yet.</h3>
+                    <p>Click the <strong>Add New Inventory</strong> button above to run your first product through the AI vision scanner.</p>
+                </div>
+            }
+        </div>
+
+        <!-- Recent Sales Table -->
+        <div class="table-card">
+            <div class="table-header">
+                <h2>Recent Order Activity</h2>
+                <a asp-controller="Seller" asp-action="Orders" asp-route-sellerId="@ViewBag.SellerID" style="color: var(--brand-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">View All Orders →</a>
+            </div>
+
+            @if (recentSales != null && recentSales.Any())
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Product Sold</th>
+                            <th>Buyer Email</th>
+                            <th>Quantity</th>
+                            <th>Total Earned</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var sale in recentSales)
+                        {
+                            <tr>
+                                <td style="font-family: monospace; font-size: 0.85rem;">@sale.OrderID</td>
+                                <td><strong>@sale.Product?.Title</strong></td>
+                                <td>@sale.Order?.Buyer?.Email</td>
+                                <td>x @sale.Quantity</td>
+                                <td><strong style="color: #2E7D32;">RM @((sale.UnitPrice * sale.Quantity).ToString("0.00"))</strong></td>
+                                <td style="font-size: 0.85rem; color: var(--text-muted);">@sale.Order?.CreatedAt.ToString("MMM dd, yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    <p>No recent transactions recorded for your inventory.</p>
+                </div>
+            }
+        </div>
+
+    </main>
+</body>
+</html>
