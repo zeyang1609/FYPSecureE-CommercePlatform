@@ -1,0 +1,120 @@
+﻿@model IEnumerable<FYP.Models.Entities.Product>
+@{
+    ViewData["Title"] = "Manage Inventory";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Inventory Management</span>
+            </div>
+            <div>
+                <a asp-controller="Seller" asp-action="Dashboard" asp-route-sellerId="@ViewBag.SellerID" class="help-link" style="font-weight: 600;">← Back to Dashboard</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+
+        <div class="dashboard-header">
+            <div>
+                <h1>Manage Product Stock Levels</h1>
+                <p>Update inventory quantities directly. All changes are permanently recorded in the immutable audit log.</p>
+            </div>
+            <a asp-controller="Product" asp-action="Create" class="btn-add-product">+ Add New Inventory</a>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background-color: #d4edda; color: #155724; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #c3e6cb; font-weight: 600;">
+                ✓ @TempData["SuccessMessage"]
+            </div>
+        }
+
+        <div class="table-card">
+            @if (Model != null && Model.Any())
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">Image</th>
+                            <th>Product Details</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th style="width: 240px;">Update Stock Level</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>
+                                    <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" class="product-thumb" onerror="this.src='/images/default-product.jpg';" />
+                                </td>
+                                <td>
+                                    <strong style="font-size: 0.95rem; display: block;">@item.Title</strong>
+                                    <small style="font-family: monospace; color: var(--text-muted);">ID: @item.ProductID</small>
+                                </td>
+                                <td><span style="background: #F0F0F0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">@(item.Category?.Name ?? "General")</span></td>
+                                <td><strong style="color: var(--brand-primary);">RM @item.Price.ToString("0.00")</strong></td>
+                                <td>
+                                    <!-- Inline Stock Update Form -->
+                                    <form asp-controller="Seller" asp-action="UpdateStock" method="post" style="display: flex; gap: 8px; align-items: center;">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="productId" value="@item.ProductID" />
+                                        <input type="hidden" name="sellerId" value="@ViewBag.SellerID" />
+
+                                        <input type="number" name="newStockLevel" value="@item.StockLevel" min="0" class="mvc-input" style="width: 80px; padding: 6px 10px; text-align: center;" required />
+
+                                        <button type="submit" class="btn-submit-primary" style="width: auto; padding: 6px 14px; font-size: 0.8rem; margin: 0; background: #333;">
+                                            Update
+                                        </button>
+                                    </form>
+                                </td>
+                                <td>
+                                    @if (item.StockLevel <= 0)
+                                    {
+                                        <span class="badge badge-danger">Out of Stock</span>
+                                    }
+                                    else if (item.StockLevel <= 5)
+                                    {
+                                        <span class="badge badge-warning">Low Stock</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-success">Optimal</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <h3>No products found.</h3>
+                    <p>Start listing products to manage their stock levels here.</p>
+                </div>
+            }
+        </div>
+    </main>
+</body>
+</html>

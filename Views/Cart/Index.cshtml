@@ -1,0 +1,148 @@
+﻿@model FYP.Models.ViewModels.CartViewModel
+@{
+    ViewData["Title"] = "Shopping Cart";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/buyer-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Shopping Cart</span>
+            </div>
+            <div>
+                <a asp-controller="Home" asp-action="Index" class="help-link" style="font-weight: 600;">← Continue Shopping</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="buyer-container">
+
+        <div class="buyer-header">
+            <div>
+                <h1>Your Active Cart</h1>
+                <p>Review your selected items before running automated XGBoost behavioral fraud analysis.</p>
+            </div>
+            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🛡️ Zero-Trust Protected</span>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background-color: #d4edda; color: #155724; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #c3e6cb; font-weight: 600;">
+                ✓ @TempData["SuccessMessage"]
+            </div>
+        }
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 30px; align-items: start;">
+
+            <!-- Cart Items Table -->
+            <div class="table-card" style="margin-bottom: 0;">
+                <div class="table-header">
+                    <h2>Selected Inventory (@Model.Items.Sum(i => i.Quantity) Items)</h2>
+                </div>
+
+                @if (Model.Items.Any())
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">Image</th>
+                                <th>Product Details</th>
+                                <th>Unit Price</th>
+                                <th>Quantity</th>
+                                <th>Subtotal</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" class="product-thumb" onerror="this.src='/images/default-product.jpg';" />
+                                    </td>
+                                    <td>
+                                        <strong style="font-size: 0.95rem; display: block;">@item.Title</strong>
+                                        <small style="font-family: monospace; color: var(--text-muted);">ID: @item.ProductID</small>
+                                    </td>
+                                    <td>RM @item.Price.ToString("0.00")</td>
+                                    <td><strong style="background: #F0F0F0; padding: 4px 10px; border-radius: 4px;">@item.Quantity</strong></td>
+                                    <td><strong style="color: var(--brand-primary); font-size: 1.05rem;">RM @item.Subtotal.ToString("0.00")</strong></td>
+                                    <td>
+                                        <form asp-controller="Cart" asp-action="RemoveItem" method="post">
+                                            <input type="hidden" name="productId" value="@item.ProductID" />
+                                            <button type="submit" style="background: none; border: none; color: #D63031; font-weight: bold; cursor: pointer; font-size: 0.85rem;">Remove</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div style="text-align: center; padding: 50px; color: var(--text-muted);">
+                        <h3>Your cart is empty.</h3>
+                        <p>Browse the daily discover section on the homepage to add items.</p>
+                        <a asp-controller="Home" asp-action="Index" class="btn-submit-primary" style="display: inline-block; width: auto; padding: 10px 24px; margin-top: 15px; text-decoration: none;">Browse Storefront →</a>
+                    </div>
+                }
+            </div>
+
+            <!-- Order Summary & Checkout Gateway -->
+            <div class="table-card" style="margin-bottom: 0; padding: 25px;">
+                <h3 style="font-size: 1.1rem; color: var(--text-dark); margin-bottom: 18px; border-bottom: 2px solid var(--auth-bg-tint); padding-bottom: 10px;">
+                    Order Summary
+                </h3>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; color: #555;">
+                    <span>Subtotal:</span>
+                    <span>RM @Model.GrandTotal.ToString("0.00")</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; color: #555;">
+                    <span>Algorithmic Shipping:</span>
+                    <span style="color: #2E7D32; font-weight: bold;">FREE</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); font-size: 1.2rem; font-weight: bold; color: var(--text-dark);">
+                    <span>Grand Total:</span>
+                    <span style="color: var(--brand-primary);">RM @Model.GrandTotal.ToString("0.00")</span>
+                </div>
+
+                @if (Model.Items.Any())
+                {
+                    <a asp-controller="Cart" asp-action="Checkout" class="btn-submit-primary" style="display: block; text-align: center; text-decoration: none; margin-top: 25px; padding: 14px;">
+                        PROCEED TO AI FRAUD CHECKOUT →
+                    </a>
+                }
+                else
+                {
+                    <button disabled class="btn-submit-primary" style="background: #ccc; cursor: not-allowed; margin-top: 25px; padding: 14px;">
+                        CART IS EMPTY
+                    </button>
+                }
+
+                <div style="margin-top: 18px; font-size: 0.75rem; color: var(--text-muted); text-align: center; line-height: 1.4;">
+                    🔒 All checkouts are evaluated by XGBoost behavioral anomaly models prior to payment capture.
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+</body>
+</html>

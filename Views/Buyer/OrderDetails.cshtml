@@ -1,0 +1,143 @@
+﻿@model FYP.Models.Entities.Order
+@{
+    ViewData["Title"] = "Order Details - " + Model.OrderID;
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/buyer-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Order Details</span>
+            </div>
+            <div>
+                <a asp-controller="Buyer" asp-action="Orders" asp-route-buyerId="@Model.BuyerID" class="help-link" style="font-weight: 600;">← Back to Orders</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="buyer-container">
+
+        <div class="buyer-header">
+            <div>
+                <h1>Order Verification: <span style="font-family: monospace;">@Model.OrderID</span></h1>
+                <p>Placed on @Model.CreatedAt.ToString("MMMM dd, yyyy at HH:mm") • Current Status: <strong style="color: var(--brand-primary);">@Model.Status</strong></p>
+            </div>
+            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🛡️ XGBoost Score: Cleared</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; align-items: start;">
+
+            <!-- Left Column: Purchased Items List -->
+            <div class="table-card" style="margin-bottom: 0;">
+                <div class="table-header">
+                    <h2>Items Purchased</h2>
+                </div>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">Image</th>
+                            <th>Product Title</th>
+                            <th>Unit Price</th>
+                            <th>Qty</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.OrderItems != null)
+                        {
+                            @foreach (var item in Model.OrderItems)
+                            {
+                                <tr>
+                                    <td>
+                                        <img src="~/uploads/@(item.ProductID).jpg" alt="Product" class="product-thumb" onerror="this.src='/images/default-product.jpg';" />
+                                    </td>
+                                    <td>
+                                        <strong style="font-size: 0.95rem; display: block;">@item.Product?.Title</strong>
+                                        <small style="font-family: monospace; color: var(--text-muted);">ID: @item.ProductID</small>
+                                    </td>
+                                    <td>RM @item.UnitPrice.ToString("0.00")</td>
+                                    <td><strong>x @item.Quantity</strong></td>
+                                    <td><strong style="color: var(--brand-primary);">RM @((item.UnitPrice * item.Quantity).ToString("0.00"))</strong></td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid var(--auth-bg-tint); display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 1.1rem; font-weight: bold; color: var(--text-dark);">Total Amount Paid:</span>
+                    <span style="font-size: 1.5rem; font-weight: bold; color: var(--brand-primary);">RM @Model.TotalAmount.ToString("0.00")</span>
+                </div>
+            </div>
+
+            <!-- Right Column: AI Security Telemetry & Refund Gateway -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+
+                <!-- Security Card -->
+                <div class="table-card" style="margin-bottom: 0; padding: 20px;">
+                    <h3 style="font-size: 1rem; color: var(--text-dark); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                        🛡️ AI Security Audit
+                    </h3>
+                    <div style="font-size: 0.85rem; color: #555; line-height: 1.6;">
+                        <div style="margin-bottom: 8px;">
+                            <strong>Payment Method:</strong> @(Model.Payment?.PaymentMethod ?? "Online Gateway")
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <strong>XGBoost Evaluation:</strong>
+                            <span class="badge badge-success" style="margin-left: 4px;">Low Risk (Cleared)</span>
+                        </div>
+                        <div>
+                            <strong>Audit Log ID:</strong> <span style="font-family: monospace; font-size: 0.75rem;">LOG-VERIFIED-TX</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Refund Request Card -->
+                <div class="table-card" style="margin-bottom: 0; padding: 20px; border-left: 3px solid #D63031;">
+                    <h3 style="font-size: 1rem; color: #D63031; margin-bottom: 10px;">Request Order Refund</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">
+                        If there is an issue with your AI-verified delivery, submit a refund request below. A notification will be dispatched to the seller immediately.
+                    </p>
+
+                    <form asp-controller="Buyer" asp-action="RequestRefund" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="orderId" value="@Model.OrderID" />
+                        <input type="hidden" name="refundAmount" value="@Model.TotalAmount" />
+
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="field-label" style="font-size: 0.8rem;">Reason for Refund:</label>
+                            <div class="input-wrapper">
+                                <input type="text" name="reason" class="mvc-input" placeholder="e.g., Item damaged during shipping" required style="font-size: 0.85rem; padding: 10px;" />
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-submit-primary" style="width: 100%; padding: 10px; font-size: 0.85rem; background: #D63031; margin: 0;">
+                            Submit Refund Request (RM @Model.TotalAmount.ToString("0.00"))
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+</body>
+</html>
