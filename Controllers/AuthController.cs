@@ -1,7 +1,11 @@
-﻿using System;
+using System;
 using System.Linq;
+using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using FYP.Data;
 using FYP.Models.Entities;
 using FYP.Models.ViewModels;
@@ -134,7 +138,18 @@ namespace FYP.Controllers
                 });
                 await _context.SaveChangesAsync();
 
-                return RedirectToUserDashboard(user.Role, user.UserID);
+                var claims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.UserID),
+                    new Claim(ClaimTypes.Name, user.Email.Split('@')[0]), // use username part as name
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, user.Role)
+                };
+
+                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
+
+                return RedirectToAction("Index", "Home");
             }
             return View(model);
         }
@@ -160,8 +175,19 @@ namespace FYP.Controllers
                     var user = _context.Users.FirstOrDefault(u => u.Email == model.Email);
                     if (user != null)
                     {
+                        var claims = new List<Claim>
+                        {
+                            new Claim(ClaimTypes.NameIdentifier, user.UserID),
+                            new Claim(ClaimTypes.Name, user.Email.Split('@')[0]),
+                            new Claim(ClaimTypes.Email, user.Email),
+                            new Claim(ClaimTypes.Role, user.Role)
+                        };
+
+                        var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+                        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
+
                         TempData["SuccessMessage"] = "Identity verified! Welcome to SecurePlatform.";
-                        return RedirectToUserDashboard(user.Role, user.UserID);
+                        return RedirectToAction("Index", "Home");
                     }
                     return RedirectToAction("Index", "Home");
                 }
@@ -234,6 +260,13 @@ namespace FYP.Controllers
                 var user = _context.Users.FirstOrDefault(u => u.Email == model.Email);
                 if (user != null)
                 {
+                    // Ensure the new password isn't the same as the current password
+                    if (Argon2idHasher.VerifyHash(model.NewPassword, user.PasswordHash))
+                    {
+                        ModelState.AddModelError("NewPassword", "New password cannot be the same as your current password.");
+                        return View(model);
+                    }
+
                     user.PasswordHash = Argon2idHasher.HashPassword(model.NewPassword);
 
                     _context.AuditLogs.Add(new AuditLog
@@ -253,6 +286,13 @@ namespace FYP.Controllers
                 ModelState.AddModelError("", "User account not found.");
             }
             return View(model);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Logout()
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Index", "Home");
         }
 
         private IActionResult RedirectToUserDashboard(string role, string userId)

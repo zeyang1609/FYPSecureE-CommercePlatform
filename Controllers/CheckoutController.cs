@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using FYP.Data;
@@ -12,9 +12,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FYP.Controllers
 {
+    [Authorize]
     public class CheckoutController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -62,7 +64,7 @@ namespace FYP.Controllers
                 return BadRequest(new { success = false, message = "Your cart is empty." });
             }
 
-            decimal amount = cart.GrandTotal;
+            amount = cart.GrandTotal;
 
             // 1. Idempotency Check: Prevent duplicate charges from network retries or double-clicks
             bool isDuplicate = await _context.Payments.AnyAsync(p => p.IdempotencyKey == idempotencyKey);

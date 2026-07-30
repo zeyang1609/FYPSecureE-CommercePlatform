@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FYP.Data;
 using FYP.Models.Entities;
@@ -8,22 +8,31 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using FYP.Services;
 
 namespace FYP.Controllers
 {
+    [Authorize]
     public class BuyerController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IOtpService _otpService;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-        public BuyerController(ApplicationDbContext context)
+        public BuyerController(ApplicationDbContext context, IOtpService otpService, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _context = context;
+            _otpService = otpService;
+            _configuration = configuration;
         }
 
         // GET: /Buyer/Dashboard
         [HttpGet]
-        public async Task<IActionResult> Dashboard(string buyerId = "USR-BUYER-DEMO")
+        public async Task<IActionResult> Dashboard()
         {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(buyerId)) return RedirectToAction("Login", "Auth");
             // 1. Fetch recent orders for table display
             var recentOrders = await _context.Orders
                 .Include(o => o.OrderItems)
@@ -57,8 +66,10 @@ namespace FYP.Controllers
 
         // GET: /Buyer/Orders
         [HttpGet]
-        public async Task<IActionResult> Orders(string buyerId = "USR-BUYER-DEMO")
+        public async Task<IActionResult> Orders()
         {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(buyerId)) return RedirectToAction("Login", "Auth");
             var orders = await _context.Orders
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
@@ -141,8 +152,32 @@ namespace FYP.Controllers
 
         // GET: /Buyer/Profile
         [HttpGet]
-        public async Task<IActionResult> Profile(string buyerId = "USR-BUYER-DEMO")
+        public async Task<IActionResult> Profile()
         {
+            // Transfer email-change state to ViewBag (one-time read, won't persist across visits)
+            var emailStep = TempData["EmailChangeStep"];
+            var pendingEmail = TempData["PendingNewEmail"];
+            
+            if (emailStep != null)
+            {
+                ViewBag.EmailChangeStep = (int)emailStep;
+                ViewBag.PendingNewEmail = pendingEmail?.ToString();
+                // Re-store PendingNewEmail so VerifyEmailChange can read it on form submit
+                TempData["PendingNewEmail"] = pendingEmail;
+            }
+
+            // Phone change state
+            var phoneStep = TempData["PhoneChangeStep"];
+            var phoneError = TempData["PhoneChangeError"];
+            if (phoneStep != null)
+            {
+                ViewBag.PhoneChangeStep = (int)phoneStep;
+                ViewBag.PhoneChangeError = phoneError?.ToString();
+            }
+            
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(buyerId)) return RedirectToAction("Login", "Auth");
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == buyerId);
             if (user == null)
             {
@@ -153,6 +188,10 @@ namespace FYP.Controllers
             {
                 UserID = user.UserID,
                 Email = user.Email,
+                Name = user.Name,
+                PhoneNumber = user.PhoneNumber,
+                Gender = user.Gender,
+                DateOfBirth = user.DateOfBirth,
                 Role = user.Role,
                 MfaEnabled = user.MFA_Enabled,
                 DeviceHash = user.DeviceHash ?? "No Device Hash Recorded"
@@ -166,18 +205,28 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateProfile(BuyerProfileViewModel model)
         {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || userId != model.UserID)
+            {
+                return Unauthorized();
+            }
+
             if (!ModelState.IsValid)
             {
                 return View("Profile", model);
             }
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == model.UserID);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
             if (user == null)
             {
                 return NotFound("User profile not found.");
             }
 
             user.Email = model.Email;
+            user.Name = model.Name;
+            user.PhoneNumber = model.PhoneNumber;
+            user.Gender = model.Gender;
+            user.DateOfBirth = model.DateOfBirth;
             user.MFA_Enabled = model.MfaEnabled;
 
             if (!string.IsNullOrWhiteSpace(model.NewPassword))
@@ -195,10 +244,532 @@ namespace FYP.Controllers
             };
 
             _context.AuditLogs.Add(auditLog);
+            _context.Users.Update(user);
             await _context.SaveChangesAsync();
 
-            TempData["SuccessMessage"] = "Your security profile and zero-trust preferences have been updated!";
-            return RedirectToAction("Profile", new { buyerId = user.UserID });
+            TempData["SuccessMessage"] = "Your profile has been updated!";
+            return RedirectToAction("Profile");
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> InitiateEmailChange(string newEmail)
+        {
+            if (string.IsNullOrWhiteSpace(newEmail) || !newEmail.Contains("@"))
+            {
+                TempData["ErrorMessage"] = "Please enter a valid email address.";
+                return RedirectToAction("Profile");
+            }
+
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+
+            if (user != null && user.Email.Equals(newEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["ErrorMessage"] = "The new email address cannot be the same as your current email address.";
+                return RedirectToAction("Profile");
+            }
+
+            // Generate and send OTP to the new email
+            await _otpService.GenerateAndSendOtpAsync(newEmail, "Email Update Verification");
+
+            // Store pending email securely in session/tempdata
+            TempData["PendingNewEmail"] = newEmail;
+            TempData["EmailChangeStep"] = 2; // Trigger step 2 UI
+
+            return RedirectToAction("Profile");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangePhoneNumber(string newPhoneNumber)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user == null) return NotFound("User profile not found.");
+
+            // Normalize: strip spaces, dashes, and leading +
+            var cleaned = (newPhoneNumber ?? "").Replace(" ", "").Replace("-", "").Replace("+", "").Trim();
+
+            // Malaysian phone number validation
+            // Valid: 60 + 1x + 7-8 digits (total 11-12) or 01x + 7-8 digits (total 10-11)
+            bool isValid = false;
+            if (cleaned.StartsWith("60") && cleaned.Length >= 11 && cleaned.Length <= 12)
+            {
+                isValid = System.Text.RegularExpressions.Regex.IsMatch(cleaned, @"^601[0-9]\d{7,8}$");
+            }
+            else if (cleaned.StartsWith("01") && cleaned.Length >= 10 && cleaned.Length <= 11)
+            {
+                isValid = System.Text.RegularExpressions.Regex.IsMatch(cleaned, @"^01[0-9]\d{7,8}$");
+            }
+
+            if (!isValid)
+            {
+                TempData["PhoneChangeError"] = "Please enter a valid Malaysian phone number (e.g. 012-3456789 or +6012-3456789).";
+                TempData["PhoneChangeStep"] = 1;
+                return RedirectToAction("Profile");
+            }
+
+            // Check if same as current
+            var currentCleaned = (user.PhoneNumber ?? "").Replace(" ", "").Replace("-", "").Replace("+", "").Trim();
+            if (cleaned == currentCleaned)
+            {
+                TempData["PhoneChangeError"] = "The new phone number cannot be the same as your current phone number.";
+                TempData["PhoneChangeStep"] = 1;
+                return RedirectToAction("Profile");
+            }
+
+            // Format and save as +60xxxxxxxxx
+            if (cleaned.StartsWith("01"))
+            {
+                cleaned = "60" + cleaned.Substring(1);
+            }
+            user.PhoneNumber = "+" + cleaned;
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Phone number successfully updated.";
+            return RedirectToAction("Profile");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VerifyEmailChange(string otpCode, string pendingEmail)
+        {
+            Console.WriteLine($"[VerifyEmailChange] pendingEmail='{pendingEmail}', otpCode='{otpCode}'");
+            
+            if (string.IsNullOrEmpty(pendingEmail) || string.IsNullOrEmpty(otpCode))
+            {
+                Console.WriteLine("[VerifyEmailChange] FAILED: pendingEmail or otpCode is null/empty");
+                TempData["ErrorMessage"] = "Session expired or invalid request. Please try again.";
+                return RedirectToAction("Profile");
+            }
+
+            var isValid = _otpService.ValidateOtp(pendingEmail, otpCode);
+            Console.WriteLine($"[VerifyEmailChange] ValidateOtp result: {isValid}");
+            
+            if (!isValid)
+            {
+                TempData["ErrorMessage"] = "Invalid or expired verification code. Please try again.";
+                TempData["PendingNewEmail"] = pendingEmail;
+                TempData["EmailChangeStep"] = 2;
+                return RedirectToAction("Profile");
+            }
+
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            
+            if (user != null)
+            {
+                user.Email = pendingEmail;
+                _context.Users.Update(user);
+                await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = "Email address successfully updated.";
+            }
+
+            return RedirectToAction("Profile");
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> BanksAndCards()
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+            var savedCards = await _context.SavedBankCards
+                .Where(c => c.UserID == userId)
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+
+            var viewModel = new BanksAndCardsViewModel
+            {
+                SavedCards = savedCards,
+                StripePublishableKey = _configuration["PaymentGateway:PublishableKey"] ?? ""
+            };
+
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateSetupIntent()
+        {
+            try
+            {
+                var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId)) return Unauthorized(new { error = "Not authenticated" });
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+                if (user == null) return NotFound(new { error = "User not found" });
+
+                Stripe.StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
+
+                var customerService = new Stripe.CustomerService();
+                Stripe.Customer customer;
+
+                if (string.IsNullOrEmpty(user.PaymentGatewayCustomerId))
+                {
+                    // Create a new customer on the gateway
+                    var customerOptions = new Stripe.CustomerCreateOptions
+                    {
+                        Email = user.Email,
+                        Name = user.Name
+                    };
+                    customer = await customerService.CreateAsync(customerOptions);
+                    
+                    user.PaymentGatewayCustomerId = customer.Id;
+                    _context.Users.Update(user);
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    customer = await customerService.GetAsync(user.PaymentGatewayCustomerId);
+                }
+
+                var setupIntentService = new Stripe.SetupIntentService();
+                var setupIntentOptions = new Stripe.SetupIntentCreateOptions
+                {
+                    Customer = customer.Id,
+                    PaymentMethodTypes = new List<string> { "card" },
+                };
+                var setupIntent = await setupIntentService.CreateAsync(setupIntentOptions);
+
+                return Json(new { clientSecret = setupIntent.ClientSecret });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SyncSavedCard([FromBody] SyncCardRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.PaymentMethodId)) return BadRequest(new { error = "Invalid payment method" });
+
+                var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId)) return Unauthorized(new { error = "Not authenticated" });
+
+                Stripe.StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
+                var paymentMethodService = new Stripe.PaymentMethodService();
+                var pm = await paymentMethodService.GetAsync(request.PaymentMethodId);
+
+                if (pm == null || pm.Type != "card") return BadRequest(new { error = "Invalid card" });
+
+                // Duplicate Check: PCI DSS compliant check using Stripe Fingerprint with fallback for test mode
+                var fingerprint = pm.Card.Fingerprint;
+                var isDuplicate = await _context.SavedBankCards.AnyAsync(c => 
+                    c.UserID == userId && 
+                    (
+                        (!string.IsNullOrEmpty(fingerprint) && c.Fingerprint == fingerprint) || 
+                        (c.Last4 == pm.Card.Last4 && c.Brand == pm.Card.Brand && c.ExpMonth == pm.Card.ExpMonth && c.ExpYear == pm.Card.ExpYear)
+                    )
+                );
+
+                if (isDuplicate)
+                {
+                    // Optionally detach the duplicate PaymentMethod from Stripe to keep it clean
+                    try { await paymentMethodService.DetachAsync(request.PaymentMethodId); } catch { }
+                    return BadRequest(new { error = "This card has already been added to your account." });
+                }
+
+                var isFirstCard = !await _context.SavedBankCards.AnyAsync(c => c.UserID == userId);
+                var setAsDefault = isFirstCard || request.IsDefault;
+
+                if (setAsDefault)
+                {
+                    var existingDefault = await _context.SavedBankCards.Where(c => c.UserID == userId && c.IsDefault).ToListAsync();
+                    foreach (var c in existingDefault)
+                    {
+                        c.IsDefault = false;
+                    }
+                }
+
+                var savedCard = new SavedBankCard
+                {
+                    UserID = userId,
+                    PaymentToken = pm.Id,
+                    Fingerprint = fingerprint,
+                    Brand = pm.Card.Brand,
+                    Last4 = pm.Card.Last4,
+                    ExpMonth = (int)pm.Card.ExpMonth,
+                    ExpYear = (int)pm.Card.ExpYear,
+                    CardHolderName = pm.BillingDetails?.Name,
+                    IsDefault = setAsDefault
+                };
+
+                _context.SavedBankCards.Add(savedCard);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Card successfully added.";
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteCard(string cardId)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var card = await _context.SavedBankCards.FirstOrDefaultAsync(c => c.CardID == cardId && c.UserID == userId);
+
+            if (card != null)
+            {
+                try
+                {
+                    Stripe.StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
+                    var paymentMethodService = new Stripe.PaymentMethodService();
+                    await paymentMethodService.DetachAsync(card.PaymentToken);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DeleteCard] Failed to detach from Stripe: {ex.Message}");
+                    // Proceed to delete from local DB anyway
+                }
+
+                _context.SavedBankCards.Remove(card);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Card successfully deleted.";
+            }
+
+            return RedirectToAction("BanksAndCards");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SetDefaultCard(string cardId)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var newDefault = await _context.SavedBankCards.FirstOrDefaultAsync(c => c.CardID == cardId && c.UserID == userId);
+
+            if (newDefault != null)
+            {
+                var existingDefaults = await _context.SavedBankCards.Where(c => c.UserID == userId && c.IsDefault).ToListAsync();
+                foreach (var c in existingDefaults)
+                {
+                    c.IsDefault = false;
+                }
+
+                newDefault.IsDefault = true;
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Default card updated successfully.";
+            }
+
+            return RedirectToAction("BanksAndCards");
+        }
+    [HttpGet]
+    public async Task<IActionResult> Addresses()
+    {
+        var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+        var addresses = await _context.Addresses
+            .Where(a => a.UserID == userId)
+            .OrderByDescending(a => a.IsDefault)
+            .ToListAsync();
+
+        return View(addresses);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SaveAddress(int? AddressID, string FullName, string PhoneNumber, string StateArea, string PostalCode, string UnitNumber, string HouseBuildingStreet, string Label, bool IsDefault)
+    {
+        var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+        var isFirst = !await _context.Addresses.AnyAsync(a => a.UserID == userId);
+        
+        if (IsDefault || isFirst)
+        {
+            var existingDefaults = await _context.Addresses.Where(a => a.UserID == userId && a.IsDefault).ToListAsync();
+            foreach (var a in existingDefaults) a.IsDefault = false;
+            IsDefault = true;
+        }
+
+        if (AddressID.HasValue && AddressID.Value > 0)
+        {
+            // Edit Existing
+            var addr = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == AddressID.Value && a.UserID == userId);
+            if (addr != null)
+            {
+                addr.FullName = FullName;
+                addr.PhoneNumber = PhoneNumber;
+                addr.StateArea = StateArea;
+                addr.PostalCode = PostalCode;
+                addr.UnitNumber = UnitNumber;
+                addr.HouseBuildingStreet = HouseBuildingStreet;
+                addr.Label = Label;
+                addr.IsDefault = IsDefault;
+                TempData["SuccessMessage"] = "Address updated successfully.";
+            }
+        }
+        else
+        {
+            // Add New
+            var addr = new Address
+            {
+                UserID = userId,
+                FullName = FullName,
+                PhoneNumber = PhoneNumber,
+                StateArea = StateArea,
+                PostalCode = PostalCode,
+                UnitNumber = UnitNumber,
+                HouseBuildingStreet = HouseBuildingStreet,
+                Label = Label,
+                IsDefault = IsDefault
+            };
+            _context.Addresses.Add(addr);
+            TempData["SuccessMessage"] = "Address added successfully.";
+        }
+
+        await _context.SaveChangesAsync();
+        return RedirectToAction("Addresses");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SetDefaultAddress(int id)
+    {
+        var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var addr = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == id && a.UserID == userId);
+
+        if (addr != null)
+        {
+            var existingDefaults = await _context.Addresses.Where(a => a.UserID == userId && a.IsDefault).ToListAsync();
+            foreach (var a in existingDefaults) a.IsDefault = false;
+
+            addr.IsDefault = true;
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Default address updated successfully.";
+        }
+
+        return RedirectToAction("Addresses");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteAddress(int id)
+    {
+        var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var addr = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == id && a.UserID == userId);
+
+        if (addr != null)
+        {
+            _context.Addresses.Remove(addr);
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Address successfully deleted.";
+        }
+
+        return RedirectToAction("Addresses");
+    }
+
+    // ==========================================
+    // CHANGE PASSWORD FLOW
+    // ==========================================
+
+    [HttpGet]
+    public IActionResult ChangePasswordVerify()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePasswordVerify(ChangePasswordVerifyViewModel model)
+    {
+        if (ModelState.IsValid)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+
+            if (user != null)
+            {
+                if (Argon2idHasher.VerifyHash(model.CurrentPassword, user.PasswordHash))
+                {
+                    await _otpService.GenerateAndSendOtpAsync(user.Email, "Change Password");
+                    return RedirectToAction("ChangePasswordOtp");
+                }
+                ModelState.AddModelError("CurrentPassword", "Incorrect current password.");
+            }
+        }
+        return View(model);
+    }
+
+    [HttpGet]
+    public IActionResult ChangePasswordOtp()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePasswordOtp(ChangePasswordOtpViewModel model)
+    {
+        if (ModelState.IsValid)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+
+            if (user != null && _otpService.ValidateOtp(user.Email, model.OtpCode))
+            {
+                return RedirectToAction("ChangePasswordNew");
+            }
+            ModelState.AddModelError("OtpCode", "Invalid or expired reset code.");
+        }
+        return View(model);
+    }
+
+    [HttpGet]
+    public IActionResult ChangePasswordNew()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePasswordNew(ChangePasswordNewViewModel model)
+    {
+        if (ModelState.IsValid)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            
+            if (user != null)
+            {
+                if (Argon2idHasher.VerifyHash(model.NewPassword, user.PasswordHash))
+                {
+                    ModelState.AddModelError("NewPassword", "New password cannot be the same as your current password.");
+                    return View(model);
+                }
+
+                user.PasswordHash = Argon2idHasher.HashPassword(model.NewPassword);
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = user.UserID,
+                    Action = "User successfully changed their password via Profile settings.",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Your password has been changed successfully.";
+                return RedirectToAction("Profile");
+            }
+        }
+        return View(model);
+    }
+}
+
+    public class SyncCardRequest
+    {
+        public string PaymentMethodId { get; set; }
+        public bool IsDefault { get; set; }
     }
 }

@@ -1,0 +1,162 @@
+@model FYP.Models.Entities.Product
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<style>
+    body { background-color: #f5f5f5; }
+    .product-page-container { max-width: 1200px; margin: 20px auto; display: flex; flex-direction: column; gap: 20px; }
+    .product-main-card { background: #fff; padding: 20px; border-radius: 4px; display: flex; gap: 30px; box-shadow: 0 1px 1px rgba(0,0,0,.05); }
+    .product-image-container { flex: 0 0 450px; }
+    .product-image-container img { width: 100%; height: auto; border: 1px solid #eee; border-radius: 4px; }
+    
+    .product-details { flex: 1; display: flex; flex-direction: column; }
+    .product-title { font-size: 1.25rem; font-weight: 500; color: #222; margin-bottom: 10px; line-height: 1.4; }
+    
+    .product-price-box { background: #fafafa; padding: 15px 20px; margin-bottom: 25px; border-left: 4px solid #ee4d2d; }
+    .product-price { font-size: 1.8rem; font-weight: 500; color: #ee4d2d; }
+
+    .action-row { display: flex; align-items: center; margin-bottom: 25px; }
+    .action-label { width: 110px; color: #757575; font-size: 0.9rem; }
+    
+    .quantity-selector { display: flex; align-items: center; border: 1px solid #e8e8e8; border-radius: 2px; overflow: hidden; width: max-content; }
+    .qty-btn { background: #fff; border: none; width: 32px; height: 32px; font-size: 16px; cursor: pointer; color: #555; outline: none; }
+    .qty-btn:hover { background: #f8f8f8; }
+    .qty-input { width: 50px; height: 32px; border: none; border-left: 1px solid #e8e8e8; border-right: 1px solid #e8e8e8; text-align: center; font-size: 16px; outline: none; -moz-appearance: textfield; }
+    .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .stock-info { margin-left: 15px; color: #757575; font-size: 0.9rem; }
+
+    .button-group { display: flex; gap: 15px; margin-top: auto; }
+    .btn-add-cart { padding: 0 20px; height: 48px; border: 1px solid #ee4d2d; background: #ffeee8; color: #ee4d2d; font-size: 1rem; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.2s; text-decoration: none; }
+    .btn-add-cart:hover { background: #ffdcd3; }
+    .btn-buy-now { padding: 0 20px; height: 48px; min-width: 140px; border: none; background: #ee4d2d; color: #fff; font-size: 1rem; border-radius: 2px; cursor: pointer; transition: background 0.2s; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+    .btn-buy-now:hover { background: #d73211; }
+
+    .shop-card { background: #fff; padding: 20px; border-radius: 4px; display: flex; align-items: center; box-shadow: 0 1px 1px rgba(0,0,0,.05); gap: 20px; }
+    .shop-avatar { width: 80px; height: 80px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999; border: 1px solid #e0e0e0; font-size: 24px; }
+    .shop-info { flex: 1; }
+    .shop-name { font-size: 1rem; font-weight: 500; color: #333; margin-bottom: 5px; }
+    .shop-status { font-size: 0.8rem; color: #28a745; background: #e8f5e9; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; }
+
+    .specs-card { background: #fff; padding: 25px; border-radius: 4px; box-shadow: 0 1px 1px rgba(0,0,0,.05); }
+    .specs-card h3 { background: #fafafa; padding: 15px; font-size: 1.1rem; font-weight: 500; color: #333; margin: -25px -25px 20px -25px; border-bottom: 1px solid #eee; }
+    
+    .spec-row { display: flex; margin-bottom: 15px; font-size: 0.9rem; }
+    .spec-label { width: 140px; color: #757575; }
+    .spec-value { color: #333; font-weight: 500; }
+</style>
+
+<div class="product-page-container">
+    <!-- Top Details -->
+    <div class="product-main-card">
+        <div class="product-image-container">
+            <img src="~/uploads/@(Model.ProductID).jpg" alt="@Model.Title" onerror="this.src='/images/default-product.jpg';" />
+        </div>
+        
+        <div class="product-details">
+            <h1 class="product-title">@Model.Title</h1>
+            
+            <div class="product-price-box">
+                <div class="product-price">RM @Model.Price.ToString("0.00")</div>
+            </div>
+
+            <form asp-controller="Cart" asp-action="AddToCart" method="post" id="addToCartForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="productId" value="@Model.ProductID" />
+                
+                <div class="action-row">
+                    <div class="action-label">Quantity</div>
+                    <div class="quantity-selector">
+                        <button type="button" class="qty-btn" onclick="decreaseQty()">−</button>
+                        <input type="number" name="quantity" id="qtyInput" class="qty-input" value="1" min="1" max="@Model.StockLevel" />
+                        <button type="button" class="qty-btn" onclick="increaseQty()">+</button>
+                    </div>
+                    <div class="stock-info">@Model.StockLevel piece(s) available</div>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn-add-cart">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                        </svg>
+                        Add To Cart
+                    </button>
+                    <button type="button" class="btn-buy-now" onclick="buyNow()">Buy Now</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shop Info -->
+    <div class="shop-card">
+        <div class="shop-avatar">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
+            </svg>
+        </div>
+        <div class="shop-info">
+            <div class="shop-name">@(Model.Seller?.Name ?? Model.SellerID)</div>
+            <div class="shop-status">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                AI Verified Merchant
+            </div>
+        </div>
+        <div style="margin-left: auto;">
+            <button style="background: white; border: 1px solid #ee4d2d; color: #ee4d2d; padding: 8px 15px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                View Shop
+            </button>
+        </div>
+    </div>
+
+    <!-- Specifications -->
+    <div class="specs-card">
+        <h3>Product Specifications</h3>
+        <div class="spec-row">
+            <div class="spec-label">Category</div>
+            <div class="spec-value">@(Model.Category?.Name ?? Model.CategoryID)</div>
+        </div>
+        <div class="spec-row">
+            <div class="spec-label">Stock</div>
+            <div class="spec-value">@Model.StockLevel</div>
+        </div>
+        <div class="spec-row">
+            <div class="spec-label">Item ID</div>
+            <div class="spec-value">@Model.ProductID</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var maxStock = parseInt('@Model.StockLevel');
+    var qtyInput = document.getElementById('qtyInput');
+
+    function decreaseQty() {
+        var current = parseInt(qtyInput.value);
+        if (current > 1) {
+            qtyInput.value = current - 1;
+        }
+    }
+
+    function increaseQty() {
+        var current = parseInt(qtyInput.value);
+        if (current < maxStock) {
+            qtyInput.value = current + 1;
+        }
+    }
+
+    qtyInput.addEventListener('change', function() {
+        var val = parseInt(this.value);
+        if (isNaN(val) || val < 1) this.value = 1;
+        if (val > maxStock) this.value = maxStock;
+    });
+
+    function buyNow() {
+        var form = document.getElementById('addToCartForm');
+        form.action = '/Cart/BuyNow';
+        form.submit();
+    }
+</script>
