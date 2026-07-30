@@ -1,0 +1,105 @@
+﻿@model FYP.Models.Entities.FraudAlert
+@{
+    ViewData["Title"] = "XAI Diagnostics";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AdminOS</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="admin-navbar">
+        <div style="display: flex; align-items: center;">
+            <span style="color: white; font-weight: 700; font-size: 1.2rem;">ADMIN<span style="color: #EE4D2D;">OS</span></span>
+        </div>
+        <div class="admin-nav-links">
+            <a asp-action="Dashboard">← Back to Dashboard</a>
+        </div>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 900px;">
+        <div class="dashboard-header">
+            <div>
+                <h1>SHAP Tensor Diagnostics</h1>
+                <p>Explainable AI (XAI) breakdown for Alert ID: <strong style="font-family: monospace;">@Model.AlertID</strong></p>
+            </div>
+            <span class="badge badge-danger" style="font-size: 1rem; padding: 8px 16px;">Risk Score: @Model.RiskScore.ToString("P1")</span>
+        </div>
+
+        <div class="table-card" style="padding: 30px;">
+            <h2 style="font-size: 1.1rem; border-bottom: 2px solid #EDF2F7; padding-bottom: 10px; margin-bottom: 20px;">
+                Feature Contribution Analysis (SHAP Values)
+            </h2>
+            <p style="font-size: 0.85rem; color: #718096; margin-bottom: 25px;">
+                The chart below illustrates how much each transaction feature contributed to pushing the risk score higher (red) or lower (green) compared to the baseline model average.
+            </p>
+
+            <!-- SHAP Data Container -->
+            <div id="shapChartContainer"></div>
+
+            <!-- Hidden raw JSON payload from database -->
+            <input type="hidden" id="rawShapData" value="@Model.SHAP_Data" />
+        </div>
+
+        <div class="table-card" style="padding: 20px; background: #FFF5F5; border-left: 4px solid #E53E3E;">
+            <h3 style="font-size: 1rem; color: #C53030; margin-bottom: 8px;">AI Assessment Reason</h3>
+            <p style="font-size: 0.9rem; color: #742A2A; margin: 0;">@Model.Reason</p>
+            <div style="margin-top: 15px; font-size: 0.8rem; font-family: monospace; color: #4A5568;">
+                Linked Order ID: @Model.OrderID
+            </div>
+        </div>
+    </main>
+
+    <!-- JavaScript to Parse and Visualize the JSON SHAP Data -->
+    <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                const rawData = document.getElementById('rawShapData').value;
+                const container = document.getElementById('shapChartContainer');
+
+                try {
+                    // Parse the JSON string from the database (e.g. {"transactionAmount": 0.45, "shippingDistanceKm": 0.38})
+                    const shapData = JSON.parse(rawData);
+
+                    for (const [feature, value] of Object.entries(shapData)) {
+                        const numValue = parseFloat(value);
+                        const isHighRisk = numValue > 0;
+                        // Calculate visual width based on magnitude (max width capped for UI safety)
+                        const widthPercent = Math.min(Math.abs(numValue) * 100, 100);
+
+                        const row = document.createElement('div');
+                        row.className = 'shap-bar-container';
+
+                        row.innerHTML = `
+                            <div class="shap-label">${formatFeatureName(feature)}</div>
+                            <div class="shap-track">
+                                <div class="shap-fill ${isHighRisk ? 'risk-high' : 'risk-low'}"
+                                     style="width: ${widthPercent}%; height: 100%; float: ${isHighRisk ? 'right' : 'left'};">
+                                </div>
+                            </div>
+                            <div class="shap-value" style="color: ${isHighRisk ? '#E53E3E' : '#38A169'}">
+                                ${numValue > 0 ? '+' : ''}${numValue.toFixed(3)}
+                            </div>
+                        `;
+                        container.appendChild(row);
+                    }
+                } catch (e) {
+                    container.innerHTML = `<div style="color: red; font-size: 0.85rem;">Error parsing SHAP data: Ensure SHAP_Data in database is valid JSON.</div>`;
+                }
+            });
+
+            // Helper to make camelCase JSON keys readable (e.g., "transactionAmount" -> "Transaction Amount")
+            function formatFeatureName(str) {
+                const result = str.replace(/([A-Z])/g, " $1");
+                return result.charAt(0).toUpperCase() + result.slice(1);
+            }
+    </script>
+</body>
+</html>

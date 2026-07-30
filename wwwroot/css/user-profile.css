@@ -1,0 +1,270 @@
+body {
+    background-color: #f5f5f5;
+}
+
+.profile-container {
+    display: flex;
+    max-width: 1200px;
+    margin: 40px auto;
+    gap: 30px;
+}
+
+/* Sidebar */
+.profile-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+}
+
+.user-brief {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #efefef;
+    margin-bottom: 20px;
+}
+
+.avatar-circle {
+    width: 48px;
+    height: 48px;
+    background-color: #e0e0e0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.user-brief-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.username-text {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+}
+
+.edit-profile-link {
+    color: #888;
+    font-size: 0.85rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.profile-nav .nav-group {
+    margin-bottom: 15px;
+}
+
+.nav-group-header, .nav-group-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    color: #333;
+    font-size: 0.95rem;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.nav-group-header svg, .nav-group-link svg {
+    color: #0b5ed7; /* A nice blue, or brand color */
+}
+
+.nav-group.active .nav-group-header svg {
+    color: #ee4d2d; /* Brand orange */
+}
+
+.nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0 26px;
+}
+
+.nav-list li {
+    margin-bottom: 10px;
+}
+
+.nav-list a {
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.nav-list a:hover {
+    color: #ee4d2d;
+}
+
+.nav-list a.active {
+    color: #ee4d2d;
+}
+
+/* Main Content */
+.profile-content {
+    flex-grow: 1;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+    padding: 30px;
+}
+
+.content-header {
+    border-bottom: 1px solid #efefef;
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+}
+
+.content-header h2 {
+    font-size: 1.15rem;
+    font-weight: 500;
+    margin: 0 0 5px 0;
+    color: #333;
+}
+
+.content-header p {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0;
+}
+
+.content-body {
+    display: flex;
+    gap: 50px;
+}
+
+.profile-form-section {
+    flex-grow: 1;
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.form-row label {
+    width: 25%;
+    text-align: right;
+    padding-right: 20px;
+    color: #555;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.form-field {
+    width: 75%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    font-size: 0.9rem;
+}
+
+.form-control:focus {
+    border-color: #ee4d2d;
+    outline: none;
+}
+
+.static-text {
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.inline-action {
+    color: #0b5ed7;
+    font-size: 0.85rem;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.radio-group label {
+    width: auto;
+    text-align: left;
+    padding: 0;
+    margin-right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.checkbox-group {
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.form-actions {
+    padding-left: 25%;
+    margin-top: 40px;
+}
+
+.btn-save {
+    background-color: #ee4d2d;
+    color: #fff;
+    border: none;
+    padding: 10px 30px;
+    border-radius: 2px;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.btn-save:hover {
+    background-color: #d73a1c;
+}
+
+/* Avatar Section */
+.profile-avatar-section {
+    width: 280px;
+    border-left: 1px solid #efefef;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 20px;
+}
+
+.avatar-preview {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background-color: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.btn-select-image {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    padding: 8px 15px;
+    border-radius: 2px;
+    color: #555;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+.btn-select-image:hover {
+    background-color: #f9f9f9;
+}
+
+.avatar-hints {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #999;
+    line-height: 1.5;
+}

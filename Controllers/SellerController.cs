@@ -1,14 +1,20 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using FYP.Data;
 using FYP.Models.Entities;
+using FYP.Models.ViewModels;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace FYP.Controllers
 {
+    [Authorize]
     public class SellerController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -18,11 +24,74 @@ namespace FYP.Controllers
             _context = context;
         }
 
+        // GET: /Seller/Onboard
+        [HttpGet]
+        public IActionResult Onboard()
+        {
+            if (User.IsInRole("Seller"))
+            {
+                return RedirectToAction("Dashboard");
+            }
+            return View();
+        }
+
+        // POST: /Seller/UpgradeAccount
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpgradeAccount(string storeName, string ssmNumber)
+        {
+            string userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+
+            if (user == null) return NotFound();
+
+            user.Role = "Seller";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = user.UserID,
+                Action = $"Account upgraded to Merchant. Store: {storeName}, SSM: {ssmNumber}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            // Destroy old cookie and re-issue new cookie containing "Seller" role claim
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.UserID),
+                new Claim(ClaimTypes.Name, user.Email.Split('@')[0]),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, "Seller")
+            };
+
+            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
+
+            TempData["SuccessMessage"] = $"Welcome aboard, {storeName}! Your merchant account is now active.";
+            return RedirectToAction("Dashboard");
+        }
+
+        // GET: /Seller/Login (Dedicated B2B Login Gateway)
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult Login()
+        {
+            return View(new LoginViewModel());
+        }
+
         // GET: /Seller/Dashboard
         [HttpGet]
-        public async Task<IActionResult> Dashboard(string sellerId = "USR-SELLER-DEMO")
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> Dashboard()
         {
-            // 1. Fetch products with eager loading for Category names
+            // IDOR Protection: Read Seller ID directly from authenticated claims
+            string sellerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
             var products = await _context.Products
                 .Include(p => p.Category)
                 .Where(p => p.SellerID == sellerId)
@@ -31,7 +100,6 @@ namespace FYP.Controllers
 
             var productIds = products.Select(p => p.ProductID).ToList();
 
-            // 2. Fetch order items containing this seller's products
             var recentSales = await _context.OrderItems
                 .Include(oi => oi.Order)
                     .ThenInclude(o => o.Buyer)
@@ -41,7 +109,6 @@ namespace FYP.Controllers
                 .Take(10)
                 .ToListAsync();
 
-            // 3. Populate ViewBag KPIs for the dashboard layout
             ViewBag.SellerID = sellerId;
             ViewBag.TotalProducts = products.Count;
             ViewBag.LowStockCount = products.Count(p => p.StockLevel < 5);
@@ -53,8 +120,12 @@ namespace FYP.Controllers
 
         // GET: /Seller/MyProducts
         [HttpGet]
-        public async Task<IActionResult> MyProducts(string sellerId = "USR-SELLER-DEMO")
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> MyProducts()
         {
+            // IDOR Protection: Read Seller ID directly from authenticated claims
+            string sellerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
             var products = await _context.Products
                 .Include(p => p.Category)
                 .Where(p => p.SellerID == sellerId)
@@ -67,9 +138,13 @@ namespace FYP.Controllers
 
         // POST: /Seller/UpdateStock
         [HttpPost]
+        [Authorize(Roles = "Seller")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateStock(string productId, int newStockLevel, string sellerId = "USR-SELLER-DEMO")
+        public async Task<IActionResult> UpdateStock(string productId, int newStockLevel)
         {
+            // IDOR Protection: Restrict stock modifications strictly to the authenticated seller's items
+            string sellerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
             var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductID == productId && p.SellerID == sellerId);
             if (product == null)
             {
@@ -92,13 +167,17 @@ namespace FYP.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Stock level updated for {product.Title}.";
-            return RedirectToAction(nameof(MyProducts), new { sellerId = sellerId });
+            return RedirectToAction(nameof(MyProducts));
         }
 
         // GET: /Seller/Orders
         [HttpGet]
-        public async Task<IActionResult> Orders(string sellerId = "USR-SELLER-DEMO")
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> Orders()
         {
+            // IDOR Protection: Read Seller ID directly from authenticated claims
+            string sellerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
             var productIds = await _context.Products
                 .Where(p => p.SellerID == sellerId)
                 .Select(p => p.ProductID)

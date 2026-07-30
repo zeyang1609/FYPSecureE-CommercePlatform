@@ -1,0 +1,100 @@
+﻿@model IEnumerable<FYP.Models.Entities.User>
+@{
+    ViewData["Title"] = "User Management";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AdminOS</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="admin-navbar">
+        <div style="display: flex; align-items: center;">
+            <span style="color: white; font-weight: 700; font-size: 1.2rem;">ADMIN<span style="color: #EE4D2D;">OS</span></span>
+        </div>
+        <div class="admin-nav-links">
+            <a asp-action="Dashboard">🛡️ Security Dashboard</a>
+            <a asp-action="Users" class="active">👥 User Management</a>
+            <a asp-action="Categories">📁 Categories</a>
+            <a asp-controller="Auth" asp-action="Login">Log Out</a>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+
+        <div class="dashboard-header">
+            <div>
+                <h1>Global User Registry</h1>
+                <p>Auditing all registered platform accounts and MFA adoption metrics.</p>
+            </div>
+            <div style="text-align: right; font-size: 0.85rem; color: #666;">
+                <strong>Total Users:</strong> @ViewBag.TotalUsers <br />
+                <strong style="color: #38A169;">MFA Protected:</strong> @ViewBag.MfaEnabledCount
+            </div>
+        </div>
+
+        <div class="table-card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Zero-Trust MFA</th>
+                        <th>Device Fingerprint Hash</th>
+                        <th>Joined Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        <tr>
+                            <td style="font-family: monospace; font-size: 0.85rem;">@user.UserID</td>
+                            <td style="font-weight: 600;">@user.Email</td>
+                            <td>
+                                @if (user.Role == "Admin")
+                                {
+                                    <span class="badge" style="background: #EBF8FF; color: #2B6CB0;">Administrator</span>
+                                }
+                                else if (user.Role == "Seller")
+                                {
+
+                                    <span class="badge" style="background: #FFF5F5; color: #C53030;">Merchant</span>
+                                }
+                                else
+                                {
+
+                                    <span class="badge" style="background: #F0F4F8; color: #4A5568;">Buyer</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.MFA_Enabled)
+                                {
+                                    <span class="badge badge-success">✓ Enabled</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-warning">Disabled</span>
+                                }
+                            </td>
+                            <td style="font-family: monospace; font-size: 0.75rem; color: #A0ABC0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                @(user.DeviceHash ?? "N/A")
+                            </td>
+                            <td style="font-size: 0.8rem; color: #718096;">@user.CreatedAt.ToString("yyyy-MM-dd")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </main>
+</body>
+</html>

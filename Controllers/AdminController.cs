@@ -1,12 +1,15 @@
-﻿using FYP.Data;
+using FYP.Data;
 using FYP.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FYP.Controllers
 {
+    [Authorize(Roles = "Admin")] 
     public class AdminController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -16,6 +19,37 @@ namespace FYP.Controllers
             _context = context;
         }
 
+        // GET: /Admin/Login
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult Login()
+        {
+            // 1. Network Geofencing (IP Allowlist Simulation)
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+
+            // Example: Only allow localhost (::1 or 127.0.0.1) or specific university network IPs
+            List<string> allowedIps = new List<string> { "::1", "127.0.0.1" };
+
+            if (!allowedIps.Contains(clientIp))
+            {
+                // Drop the connection immediately for unauthorized networks
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = "SYSTEM",
+                    Action = $"SECURITY BLOCK: Unauthorized network {clientIp} attempted to access AdminOS gateway.",
+                    IP_Address = clientIp,
+                    Timestamp = DateTime.UtcNow
+                });
+                _context.SaveChanges();
+
+                return Unauthorized("Error 401: Connection dropped. Unauthorized network IP.");
+            }
+
+            // 2. Render the dedicated AdminOS Login View
+            return View(new FYP.Models.ViewModels.LoginViewModel());
+        }
+        // 1. MAIN DASHBOARD: Fraud Alerts & Audit Logs
         [HttpGet]
         public async Task<IActionResult> Dashboard()
         {
@@ -37,6 +71,7 @@ namespace FYP.Controllers
             return View(alerts);
         }
 
+        // 2. EXPLAINABLE AI (XAI): Deep dive into SHAP tensors
         [HttpGet]
         public async Task<IActionResult> XaiDetails(string alertId)
         {
@@ -44,16 +79,26 @@ namespace FYP.Controllers
                 .Include(f => f.Order)
                 .FirstOrDefaultAsync(a => a.AlertID == alertId);
 
-            if (alert == null)
-            {
-                return NotFound();
-            }
+            if (alert == null) return NotFound();
 
-            // Returns alert containing SHAP_Data JSON string to the Razor View for rendering
             return View(alert);
         }
 
-        // GET: /Admin/Categories
+        // 3. USER MANAGEMENT: Monitor accounts and MFA status
+        [HttpGet]
+        public async Task<IActionResult> Users()
+        {
+            var users = await _context.Users
+                .OrderByDescending(u => u.CreatedAt)
+                .ToListAsync();
+
+            ViewBag.TotalUsers = users.Count;
+            ViewBag.MfaEnabledCount = users.Count(u => u.MFA_Enabled);
+
+            return View(users);
+        }
+
+        // 4. CATEGORY MANAGEMENT: Storefront taxonomy
         [HttpGet]
         public async Task<IActionResult> Categories()
         {
@@ -65,7 +110,6 @@ namespace FYP.Controllers
             return View(categories);
         }
 
-        // POST: /Admin/CreateCategory
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateCategory(string name, string description, string iconSvg)
@@ -76,7 +120,6 @@ namespace FYP.Controllers
                 return RedirectToAction(nameof(Categories));
             }
 
-            // Default icon if admin leaves it blank
             if (string.IsNullOrWhiteSpace(iconSvg))
             {
                 iconSvg = "<svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><line x1=\"3\" y1=\"9\" x2=\"21\" y2=\"9\"></line><line x1=\"9\" y1=\"21\" x2=\"9\" y2=\"9\"></line></svg>";
@@ -91,19 +134,18 @@ namespace FYP.Controllers
                 IconSvg = iconSvg
             };
 
-            // Log security audit trail[cite: 3]
             var auditLog = new AuditLog
             {
                 LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                UserID = "ADMIN", // In production, retrieve from authenticated session[cite: 12]
-                Action = $"Created new catalog category: {name} ({categoryId})",
+                UserID = "ADMIN-SYS",
+                Action = $"Created new catalog category: {name}",
                 IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
                 Timestamp = DateTime.UtcNow
             };
 
-    _context.Categories.Add(category);
-            _context.AuditLogs.Add(auditLog); 
-    await _context.SaveChangesAsync();
+            _context.Categories.Add(category);
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Category '{name}' added successfully!";
             return RedirectToAction(nameof(Categories));

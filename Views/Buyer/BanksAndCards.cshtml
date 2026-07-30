@@ -1,0 +1,310 @@
+@model FYP.Models.ViewModels.BanksAndCardsViewModel
+@{
+    ViewData["Title"] = "Banks & Cards";
+}
+
+<link rel="stylesheet" href="~/css/user-profile.css" />
+<!-- Stripe JS -->
+<script src="https://js.stripe.com/v3/"></script>
+
+<div class="profile-container">
+    <div class="profile-sidebar">
+        <div class="user-brief">
+            <div class="avatar-circle">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+            </div>
+            <div class="user-brief-info">
+                <div class="username-text">@User.Identity?.Name</div>
+                <a href="/Buyer/Profile" class="edit-profile-link">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg> Edit Profile
+                </a>
+            </div>
+        </div>
+        <nav class="profile-nav">
+            <div class="nav-group active">
+                <div class="nav-group-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <span>My Account</span>
+                </div>
+                <ul class="nav-list">
+                    <li><a href="/Buyer/Profile">Profile</a></li>
+                    <li><a href="/Buyer/BanksAndCards" class="active">Banks & Cards</a></li>
+                    <li><a href="/Buyer/Addresses">Addresses</a></li>
+                    <li><a href="/Buyer/ChangePasswordVerify">Change Password</a></li>
+                </ul>
+            </div>
+            <div class="nav-group">
+                <a href="/Buyer/Orders" class="nav-group-link">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span>My Purchase</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <div class="profile-content">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert" style="margin: 0 30px 20px 30px; background-color: #d4edda; color: #155724; padding: 15px; border-radius: 4px; border: 1px solid #c3e6cb;">@TempData["SuccessMessage"]</div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert" style="margin: 0 30px 20px 30px; background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 4px; border: 1px solid #f5c6cb;">@TempData["ErrorMessage"]</div>
+        }
+
+        <div class="content-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2>Credit / Debit Card</h2>
+            </div>
+            <button id="add-card-btn" class="btn btn-outline-secondary" style="font-size: 14px; background: #ee4d2d; color: white; border: none; padding: 8px 16px; border-radius: 2px;">
+                + Add New Card
+            </button>
+        </div>
+
+        <div class="content-body" style="padding-top: 10px;">
+            @if (Model.SavedCards.Count == 0)
+            {
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <p>You don't have any cards yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="card-list" style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
+                    @foreach (var card in Model.SavedCards)
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center; border: 1px solid #e1e1e1; padding: 20px 25px; border-radius: 4px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); width: 100%; box-sizing: border-box;">
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <!-- Card Brand Icon Placeholder -->
+                                <div style="width: 48px; height: 32px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #003366;">
+                                    @(card.Brand?.ToUpper() ?? "CARD")
+                                </div>
+                                <div style="font-size: 16px; color: #333; display: flex; gap: 10px; align-items: center;">
+                                    <span style="font-weight: 600; text-transform: capitalize;">@(card.Brand)</span> 
+                                    <span style="color: #666; font-family: monospace; font-size: 18px; margin-top: 2px;">**** **** **** @(card.Last4)</span>
+                                    @if (card.IsDefault)
+                                    {
+                                        <span style="border: 1px solid #ee4d2d; color: #ee4d2d; font-size: 10px; padding: 2px 4px; border-radius: 2px; text-transform: uppercase; font-weight: 500; margin-left: 5px;">Default</span>
+                                    }
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                @if (!card.IsDefault)
+                                {
+                                    <form asp-action="SetDefaultCard" method="post" style="margin: 0;">
+                                        <input type="hidden" name="cardId" value="@card.CardID" />
+                                        <button type="submit" class="btn btn-link" style="color: #444; font-size: 14px; font-weight: 500; text-decoration: none; border: 1px solid #ddd; background: #fff; padding: 6px 12px; border-radius: 2px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#ee4d2d'; this.style.color='#ee4d2d'" onmouseout="this.style.borderColor='#ddd'; this.style.color='#444'">Set as Default</button>
+                                    </form>
+                                }
+                                <form asp-action="DeleteCard" method="post" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this card?');">
+                                    <input type="hidden" name="cardId" value="@card.CardID" />
+                                    <button type="submit" class="btn btn-link" style="color: #ee4d2d; font-size: 14px; font-weight: 500; text-decoration: none; border: none; background: none; padding: 8px 12px; cursor: pointer;">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Add Card Modal (Stripe Elements) -->
+<div id="add-card-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 30px; border-radius: 4px; width: 100%; max-width: 500px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 500;">Add Card</h3>
+            <button type="button" id="close-modal-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #999;">&times;</button>
+        </div>
+        
+        <form id="payment-form" style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- SetupIntent ClientSecret will be fetched dynamically -->
+            
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label style="font-size: 14px; color: #333;">Name on Card</label>
+                <div style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white; margin-bottom: 10px;">
+                    <input type="text" id="cardholder-name" placeholder="Full Name" required pattern="[A-Za-z\s\-\']+" title="Only letters and spaces are allowed" style="width: 100%; border: none; outline: none; font-size: 16px; color: #32325d; font-family: 'Helvetica Neue', Helvetica, sans-serif;" oninput="this.value = this.value.replace(/[^a-zA-Z\s\-\']/g, '')" />
+                </div>
+
+                <label style="font-size: 14px; color: #333;">Card Number</label>
+                <div id="cardNumber-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white; margin-bottom: 10px;"></div>
+
+                <div style="display: flex; gap: 15px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 14px; color: #333; display: block; margin-bottom: 5px;">Expiry Date</label>
+                        <div id="cardExpiry-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white;"></div>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 14px; color: #333; display: block; margin-bottom: 5px;">CVV</label>
+                        <div id="cardCvc-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white;"></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                    <input type="checkbox" id="is-default-card" style="width: 16px; height: 16px; cursor: pointer;" />
+                    <label for="is-default-card" style="font-size: 14px; color: #333; cursor: pointer; user-select: none;">Set as default payment method</label>
+                </div>
+                
+                <div id="card-errors" role="alert" style="color: #ee4d2d; font-size: 13px; margin-top: 5px;"></div>
+            </div>
+
+            <button type="submit" id="submit-card-btn" class="btn" style="background: #ee4d2d; color: white; border: none; padding: 12px; border-radius: 2px; font-weight: 500; cursor: pointer;">
+                Submit
+            </button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const stripe = Stripe('@Model.StripePublishableKey');
+        const elements = stripe.elements();
+        
+        // Custom styling can be passed to options when creating an Element.
+        const style = {
+            base: {
+                color: '#32325d',
+                fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+                fontSmoothing: 'antialiased',
+                fontSize: '16px',
+                '::placeholder': {
+                    color: '#aab7c4'
+                }
+            },
+            invalid: {
+                color: '#fa755a',
+                iconColor: '#fa755a'
+            }
+        };
+
+        // Create individual instances of the card Elements.
+        const cardNumber = elements.create('cardNumber', {style: style, showIcon: true, disableLink: true});
+        const cardExpiry = elements.create('cardExpiry', {style: style});
+        const cardCvc = elements.create('cardCvc', {style: style});
+        
+        const modal = document.getElementById('add-card-modal');
+        const openBtn = document.getElementById('add-card-btn');
+        const closeBtn = document.getElementById('close-modal-btn');
+        let elementsMounted = false;
+
+        openBtn.addEventListener('click', () => {
+            modal.style.display = 'flex';
+            if (!elementsMounted) {
+                cardNumber.mount('#cardNumber-element');
+                cardExpiry.mount('#cardExpiry-element');
+                cardCvc.mount('#cardCvc-element');
+                elementsMounted = true;
+            }
+        });
+
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        // Handle real-time validation errors from the Elements.
+        const displayError = document.getElementById('card-errors');
+        function handleErrors(event) {
+            if (event.error) {
+                displayError.textContent = event.error.message;
+            } else {
+                displayError.textContent = '';
+            }
+        }
+        cardNumber.on('change', handleErrors);
+        cardExpiry.on('change', handleErrors);
+        cardCvc.on('change', handleErrors);
+
+        // Handle form submission.
+        const form = document.getElementById('payment-form');
+        const submitBtn = document.getElementById('submit-card-btn');
+
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            displayError.textContent = '';
+            
+            const cardholderName = document.getElementById('cardholder-name').value;
+            const nameRegex = /^[a-zA-Z\s\-\']+$/;
+            
+            if (!cardholderName.trim()) {
+                displayError.textContent = 'Please enter the name on the card.';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit';
+                return;
+            }
+            if (!nameRegex.test(cardholderName)) {
+                displayError.textContent = 'Name on card can only contain letters and spaces.';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit';
+                return;
+            }
+
+            try {
+                // 1. Ask backend for a SetupIntent client secret
+                const response = await fetch('/Buyer/CreateSetupIntent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                if (!data.clientSecret) {
+                    throw new Error(data.error || 'Failed to initialize setup');
+                }
+
+                // 2. Confirm the SetupIntent with Stripe
+                const result = await stripe.confirmCardSetup(data.clientSecret, {
+                    payment_method: {
+                        card: cardNumber,
+                        billing_details: {
+                            name: cardholderName
+                        }
+                    }
+                });
+
+                if (result.error) {
+                    // Inform the user if there was an error.
+                    document.getElementById('card-errors').textContent = result.error.message;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit';
+                } else {
+                    // The setup has succeeded. Backend webhook/callback isn't strictly necessary 
+                    // since we can just reload the page and let the backend sync, 
+                    // but we will tell our backend to sync this new PaymentMethod.
+                    
+                    const isDefaultChecked = document.getElementById('is-default-card').checked;
+
+                    const syncResponse = await fetch('/Buyer/SyncSavedCard', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            paymentMethodId: result.setupIntent.payment_method,
+                            isDefault: isDefaultChecked
+                        })
+                    });
+                    
+                    if (syncResponse.ok) {
+                        window.location.reload();
+                    } else {
+                        const syncData = await syncResponse.json();
+                        document.getElementById('card-errors').textContent = syncData.error || 'Failed to sync card.';
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Submit';
+                    }
+                }
+            } catch (err) {
+                document.getElementById('card-errors').textContent = err.message;
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit';
+            }
+        });
+    </script>
+}

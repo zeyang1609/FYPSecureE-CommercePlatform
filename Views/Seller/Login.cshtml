@@ -1,0 +1,112 @@
+﻿@model FYP.Models.ViewModels.LoginViewModel
+@{
+    ViewData["Title"] = "Seller Centre Gateway";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <style>
+            /* Custom Seller Branding */
+            .seller-bg {
+                background-color: #F8F9FA;
+            }
+
+            .seller-card {
+                background: white;
+                border-top: 4px solid #F6AD55;
+            }
+
+            .seller-primary-btn {
+                background: #DD6B20;
+                color: white;
+                border: none;
+                transition: background 0.2s;
+            }
+
+                .seller-primary-btn:hover {
+                    background: #C05621;
+                }
+    </style>
+</head>
+<body class="seller-bg" style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+
+    <div style="display: flex; width: 100%; max-width: 900px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border-radius: 8px; overflow: hidden;">
+
+        <!-- Left Side: Merchant Marketing & Value Proposition -->
+        <div style="flex: 1; background: #2D3748; color: white; padding: 50px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#F6AD55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <h2 style="margin: 0; font-size: 1.6rem; letter-spacing: 0.5px;">Seller<span style="color: #F6AD55;">Centre</span></h2>
+            </div>
+            <h1 style="font-size: 2rem; margin: 0 0 15px 0; line-height: 1.2;">Grow Your Business Securely.</h1>
+            <p style="color: #A0ABC0; font-size: 1rem; line-height: 1.6; margin-bottom: 30px;">
+                Manage your storefront, track inventory, and let our XGBoost AI engine automatically protect your earnings from fraudulent transactions.
+            </p>
+
+            <div style="display: flex; align-items: center; font-size: 0.9rem; color: #E2E8F0; margin-bottom: 15px;">
+                <span style="background: rgba(246, 173, 85, 0.2); color: #F6AD55; padding: 4px 8px; border-radius: 4px; margin-right: 10px; font-weight: bold;">✓</span> Real-Time Analytics
+            </div>
+            <div style="display: flex; align-items: center; font-size: 0.9rem; color: #E2E8F0; margin-bottom: 15px;">
+                <span style="background: rgba(246, 173, 85, 0.2); color: #F6AD55; padding: 4px 8px; border-radius: 4px; margin-right: 10px; font-weight: bold;">✓</span> Automated Fraud Defense
+            </div>
+            <div style="display: flex; align-items: center; font-size: 0.9rem; color: #E2E8F0;">
+                <span style="background: rgba(246, 173, 85, 0.2); color: #F6AD55; padding: 4px 8px; border-radius: 4px; margin-right: 10px; font-weight: bold;">✓</span> Zero-Trust MFA Security
+            </div>
+        </div>
+
+        <!-- Right Side: Login Form -->
+        <div class="seller-card" style="flex: 1; padding: 50px;">
+            <h3 style="margin: 0 0 5px 0; color: #2D3748; font-size: 1.4rem;">Merchant Log In</h3>
+            <p style="color: #718096; font-size: 0.9rem; margin-bottom: 25px;">Enter your seller account credentials.</p>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div style="background: #FFF5F5; color: #C53030; padding: 12px; border-radius: 4px; border: 1px solid #FEB2B2; margin-bottom: 20px; font-size: 0.85rem;">
+                    @Html.ValidationSummary(true, "", new { @style = "list-style: none; padding: 0; margin: 0;" })
+                </div>
+            }
+
+            <!-- POSTs exactly to your central authentication engine -->
+            <form asp-controller="Auth" asp-action="Login" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #4A5568; margin-bottom: 6px; display: block;">Email Address</label>
+                    <input asp-for="Email" type="email" placeholder="merchant@store.com" required autofocus
+                           style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E0; border-radius: 4px; font-size: 0.95rem; box-sizing: border-box;" />
+                </div>
+
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #4A5568; margin-bottom: 6px; display: block;">Password</label>
+                    <input asp-for="Password" type="password" placeholder="••••••••" required
+                           style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E0; border-radius: 4px; font-size: 0.95rem; box-sizing: border-box;" />
+                </div>
+
+                <div style="text-align: right; margin-bottom: 25px;">
+                    <a asp-controller="Auth" asp-action="ForgotPassword" style="font-size: 0.8rem; color: #DD6B20; text-decoration: none; font-weight: 600;">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="seller-primary-btn" style="width: 100%; padding: 12px; font-size: 1rem; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                    ACCESS DASHBOARD
+                </button>
+            </form>
+
+            <div style="text-align: center; margin-top: 30px; font-size: 0.85rem; color: #718096; border-top: 1px solid #E2E8F0; padding-top: 20px;">
+                Want to become a seller? <a asp-controller="Auth" asp-action="Register" style="color: #DD6B20; text-decoration: none; font-weight: 600;">Sign up here</a>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

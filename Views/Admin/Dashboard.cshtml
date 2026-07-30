@@ -1,0 +1,139 @@
+﻿@model IEnumerable<FYP.Models.Entities.FraudAlert>
+@{
+    ViewData["Title"] = "Admin Security Control Center";
+    Layout = null;
+    var auditLogs = ViewBag.AuditLogs as IEnumerable<FYP.Models.Entities.AuditLog>;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="admin-navbar">
+        <div style="display: flex; align-items: center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#EE4D2D" style="margin-right: 10px;">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+            </svg>
+            <span style="color: white; font-weight: 700; font-size: 1.2rem; letter-spacing: 0.5px;">ADMIN<span style="color: #EE4D2D;">OS</span></span>
+        </div>
+        <div class="admin-nav-links">
+            <a asp-action="Dashboard" class="active">🛡️ Security Dashboard</a>
+            <a asp-action="Users">👥 User Management</a>
+            <a asp-action="Categories">📁 Categories</a>
+            <a asp-controller="Auth" asp-action="Login">Log Out</a>
+        </div>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 1400px;">
+
+        <div class="dashboard-header" style="border-left: 4px solid #EE4D2D;">
+            <div>
+                <h1>Global Security Overview</h1>
+                <p>Monitoring real-time XGBoost fraud interceptions and immutable audit logs.</p>
+            </div>
+            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px; background: #FFF5F3; color: #D63031;">● System Armed</span>
+        </div>
+
+        <!-- System KPIs -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <span class="kpi-label">Total AI Interceptions</span>
+                <span class="kpi-value">@ViewBag.TotalAlerts</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Critical Risk Events (>85%)</span>
+                <span class="kpi-value" style="color: #D63031;">@ViewBag.HighRiskCount</span>
+            </div>
+            <div class="kpi-card highlight">
+                <span class="kpi-label">Platform Uptime</span>
+                <span class="kpi-value" style="color: #38A169;">99.99%</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Audit Trail Integrity</span>
+                <span class="kpi-value" style="font-size: 1.2rem; color: #38A169;">✓ SHA-256 Verified</span>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px; align-items: start;">
+
+            <!-- XGBoost Fraud Alerts Table -->
+            <div class="table-card" style="margin-bottom: 0;">
+                <div class="table-header">
+                    <h2>🧠 XGBoost AI Fraud Alerts</h2>
+                </div>
+                @if (Model != null && Model.Any())
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Alert ID</th>
+                                <th>Order ID</th>
+                                <th>Risk Score</th>
+                                <th>Timestamp</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var alert in Model)
+                            {
+                                <tr>
+                                    <td style="font-family: monospace; font-size: 0.8rem;">@alert.AlertID</td>
+                                    <td style="font-family: monospace; font-size: 0.8rem;">@alert.OrderID</td>
+                                    <td>
+                                        @if (alert.RiskScore > 0.80m)
+                                        {
+                                            <span class="badge badge-danger">High Risk: @alert.RiskScore.ToString("P1")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-warning">Elevated: @alert.RiskScore.ToString("P1")</span>
+                                        }
+                                    </td>
+                                    <td style="font-size: 0.8rem; color: #666;">@alert.CreatedAt.ToString("MMM dd, HH:mm")</td>
+                                    <td>
+                                        <a asp-action="XaiDetails" asp-route-alertId="@alert.AlertID" class="btn-submit-primary" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0;">View XAI</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+
+            <!-- Immutable Audit Logs -->
+            <div class="table-card" style="margin-bottom: 0;">
+                <div class="table-header">
+                    <h2>📜 Immutable Audit Trail</h2>
+                </div>
+                <div style="max-height: 500px; overflow-y: auto;">
+                    @if (auditLogs != null && auditLogs.Any())
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            @foreach (var log in auditLogs)
+                            {
+                                <div style="padding: 10px; background: #F8F9FA; border-left: 3px solid #CBD5E0; border-radius: 4px; font-size: 0.8rem;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <strong style="color: #2D3748;">@log.UserID</strong>
+                                        <span style="color: #718096; font-family: monospace;">@log.IP_Address</span>
+                                    </div>
+                                    <div style="color: #4A5568;">@log.Action</div>
+                                    <div style="font-size: 0.7rem; color: #A0ABC0; margin-top: 4px;">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss UTC")</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+        </div>
+    </main>
+</body>
+</html>

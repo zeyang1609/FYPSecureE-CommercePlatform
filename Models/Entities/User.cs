@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -30,10 +30,27 @@ namespace FYP.Models.Entities
         [MaxLength(255)]
         public string DeviceHash { get; set; } // For Isolation Forest anomaly detection
 
+        [MaxLength(100)]
+        public string? Name { get; set; }
+
+        [MaxLength(20)]
+        public string? PhoneNumber { get; set; }
+
+        [MaxLength(10)]
+        public string? Gender { get; set; }
+
+        public DateTime? DateOfBirth { get; set; }
+
+        [MaxLength(255)]
+        public string? PaymentGatewayCustomerId { get; set; }
+
         // Navigation Properties
         public virtual ICollection<Order> Orders { get; set; }
         public virtual ICollection<Product> Products { get; set; }
         public virtual ICollection<AuditLog> AuditLogs { get; set; }
+        public virtual ICollection<Address> Addresses { get; set; }
+        public string? TotpSecret { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
 }

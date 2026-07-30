@@ -1,0 +1,62 @@
+﻿@model FYP.Models.ViewModels.LoginViewModel
+@{
+    ViewData["Title"] = "AdminOS Gateway";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+</head>
+<body style="background-color: #0B1120; color: #E2E8F0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+
+    <div style="width: 100%; max-width: 420px; background: #1A202C; padding: 40px; border-radius: 8px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 1px solid #2D3748;">
+
+        <div style="text-align: center; margin-bottom: 30px;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#EE4D2D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px;">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <h2 style="margin: 0; color: #FFFFFF; font-size: 1.5rem; letter-spacing: 1px;">ADMIN<span style="color: #EE4D2D;">OS</span></h2>
+            <p style="color: #A0ABC0; font-size: 0.85rem; margin-top: 8px; font-family: monospace;">RESTRICTED ACCESS GATEWAY</p>
+        </div>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div style="background: rgba(229, 62, 62, 0.1); color: #FC8181; padding: 12px; border-radius: 4px; border: 1px solid #E53E3E; margin-bottom: 20px; font-size: 0.85rem; text-align: center;">
+                @Html.ValidationSummary(true, "", new { @style = "list-style: none; padding: 0; margin: 0;" })
+            </div>
+        }
+
+        <!-- POST to the central AuthController logic -->
+        <form asp-controller="Auth" asp-action="Login" method="post">
+            @Html.AntiForgeryToken()
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="font-size: 0.8rem; font-weight: 600; color: #A0ABC0; margin-bottom: 8px; display: block;">Administrator Email</label>
+                <input asp-for="Email" type="email" placeholder="sysadmin@secureplatform.com" required autofocus
+                       style="width: 100%; padding: 12px; background: #2D3748; border: 1px solid #4A5568; color: white; border-radius: 4px; box-sizing: border-box;" />
+            </div>
+
+            <div class="form-group" style="margin-bottom: 30px;">
+                <label style="font-size: 0.8rem; font-weight: 600; color: #A0ABC0; margin-bottom: 8px; display: block;">Master Password</label>
+                <input asp-for="Password" type="password" placeholder="••••••••••••" required
+                       style="width: 100%; padding: 12px; background: #2D3748; border: 1px solid #4A5568; color: white; border-radius: 4px; box-sizing: border-box;" />
+            </div>
+
+            <button type="submit" style="width: 100%; padding: 14px; font-size: 0.9rem; background: #EE4D2D; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; letter-spacing: 1px;">
+                INITIALIZE SECURE UPLINK
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 25px; font-size: 0.75rem; color: #718096; line-height: 1.5; font-family: monospace;">
+            Zero-Trust MFA Required.<br />
+            IP Signature: @(Context.Connection.RemoteIpAddress?.ToString() ?? "Unknown") logged.
+        </div>
+    </div>
+
+</body>
+</html>

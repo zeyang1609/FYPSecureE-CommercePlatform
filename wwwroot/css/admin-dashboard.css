@@ -1,0 +1,65 @@
+﻿/* --- Admin Control Center Layout --- */
+.admin-navbar {
+    background: #0B1120; /* Deep authoritative navy */
+    padding: 15px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.admin-nav-links a {
+    color: #A0ABC0;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-left: 20px;
+    transition: color 0.2s;
+}
+
+    .admin-nav-links a:hover, .admin-nav-links a.active {
+        color: #FFFFFF;
+    }
+
+/* XAI SHAP Bar Chart Styles */
+.shap-bar-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.shap-label {
+    width: 200px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.shap-track {
+    flex: 1;
+    background: #E2E8F0;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 0 15px;
+    position: relative;
+}
+
+.shap-fill.risk-high {
+    background: #E53E3E;
+}
+
+.shap-fill.risk-low {
+    background: #38A169;
+}
+
+.shap-value {
+    width: 50px;
+    font-size: 0.85rem;
+    font-family: monospace;
+    font-weight: bold;
+    text-align: right;
+}

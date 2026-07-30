@@ -1,0 +1,102 @@
+﻿@{
+    ViewData["Title"] = "Multi-Factor Authenticator Setup";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="auth-navbar" style="@(ViewBag.Role == "Admin" ? "background: #0B1120;" : "")">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <span class="brand-text" style="@(ViewBag.Role == "Admin" ? "color: white;" : "")">
+                    @(ViewBag.Role == "Admin" ? "AdminOS" : (ViewBag.Role == "Seller" ? "Seller Centre" : "SecurePlatform"))
+                </span>
+                <span class="page-label" style="margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; @(ViewBag.Role == "Admin" ? "color: #A0ABC0;" : "")">Security Hub</span>
+            </div>
+            <div>
+                <a href="javascript:history.back()" class="help-link" style="font-weight: 600; @(ViewBag.Role == "Admin" ? "color: white;" : "")">← Cancel Setup</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="buyer-container" style="max-width: 800px; margin-top: 40px;">
+
+        <div class="buyer-header" style="border-left: 4px solid #38A169;">
+            <div>
+                <h1>Hardware / App Authenticator (TOTP)</h1>
+                <p>Enrolling RFC 6238 Time-Based One-Time Password key for: <strong>@ViewBag.UserEmail</strong></p>
+            </div>
+            <span class="qr-pill" style="font-size: 0.85rem; padding: 6px 12px; background: #E6FFFA; color: #234E52;">📱 Offline Cryptography</span>
+        </div>
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div style="background: #FFF5F5; color: #C53030; padding: 15px; border-radius: 6px; border: 1px solid #FEB2B2; margin-bottom: 20px; font-weight: bold;">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start;">
+
+            <!-- STEP 1: SCAN QR CODE -->
+            <div class="table-card" style="padding: 25px; text-align: center; margin-bottom: 0;">
+                <h3 style="font-size: 1.05rem; color: #2D3748; margin-bottom: 15px;">Step 1: Scan QR Code</h3>
+                <p style="font-size: 0.8rem; color: #718096; margin-bottom: 20px; line-height: 1.4;">
+                    Open <strong>Google Authenticator</strong>, <strong>Authy</strong>, or <strong>Microsoft Authenticator</strong> on your phone and scan:
+                </p>
+
+                <!-- Live Dynamic QR Code -->
+                <div style="background: white; padding: 15px; display: inline-block; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=@System.Net.WebUtility.UrlEncode(ViewBag.OtpauthUri)"
+                         alt="TOTP Authenticator QR Code" style="width: 180px; height: 180px; display: block;" />
+                </div>
+
+                <div style="margin-top: 20px; text-align: left; background: #EDF2F7; padding: 12px; border-radius: 6px;">
+                    <span style="font-size: 0.75rem; color: #4A5568; display: block; margin-bottom: 4px;">Manual Key Entry (Secret):</span>
+                    <strong style="font-family: monospace; font-size: 0.9rem; color: #2B6CB0; word-break: break-all;">@ViewBag.SecretKey</strong>
+                </div>
+            </div>
+
+            <!-- STEP 2: VERIFY LIVE CODE -->
+            <div class="table-card" style="padding: 25px; margin-bottom: 0;">
+                <h3 style="font-size: 1.05rem; color: #2D3748; margin-bottom: 15px;">Step 2: Verify & Activate</h3>
+                <p style="font-size: 0.8rem; color: #718096; margin-bottom: 20px; line-height: 1.4;">
+                    Enter the current 6-digit code displayed on your smartphone app to confirm cryptographic synchronization:
+                </p>
+
+                <form asp-controller="Auth" asp-action="EnableTotp" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="userId" value="@ViewBag.UserId" />
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="field-label" style="font-size: 0.85rem;">6-Digit Authenticator Code:</label>
+                        <div class="input-wrapper">
+                            <input type="text" name="verificationCode" class="mvc-input" placeholder="000 000" maxlength="6"
+                                   style="font-size: 1.4rem; letter-spacing: 6px; text-align: center; font-family: monospace; padding: 10px;" required autofocus autocomplete="off" />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-submit-primary" style="width: 100%; padding: 12px; font-size: 0.9rem; background: #2B6CB0;">
+                        ENFORCE ZERO-TRUST MFA →
+                    </button>
+                </form>
+
+                <div style="margin-top: 20px; padding: 12px; background: #F7FAFC; border-radius: 6px; font-size: 0.75rem; color: #718096; line-height: 1.4;">
+                    🔒 <strong>HMAC-SHA1 Time Drift:</strong> Evaluated every 30 seconds. Works completely offline without SMS or Email network dependencies.
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+</body>
+</html>
