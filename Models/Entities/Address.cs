@@ -9,15 +9,15 @@ namespace FYP.Models.Entities
 
         [Required]
         [MaxLength(50)]
-        public required string UserID { get; set; }
+        public string UserID { get; set; }
 
         [Required]
         [MaxLength(100)]
-        public required string FullName { get; set; }
+        public string FullName { get; set; }
 
         [Required]
         [MaxLength(20)]
-        public required string PhoneNumber { get; set; }
+        public string PhoneNumber { get; set; }
 
         [Required]
         [MaxLength(100)]
