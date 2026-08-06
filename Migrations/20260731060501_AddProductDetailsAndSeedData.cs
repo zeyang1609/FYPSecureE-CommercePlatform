@@ -40,6 +40,13 @@ namespace FYP.Migrations
                 nullable: false,
                 defaultValue: 0);
 
+            migrationBuilder.AddColumn<decimal>(
+                name: "WeightKg",
+                table: "Products",
+                type: "decimal(5,2)",
+                nullable: false,
+                defaultValue: 1.00m);
+
             migrationBuilder.InsertData(
                 table: "Categories",
                 columns: new[] { "CategoryID", "Description", "IconSvg", "Name" },
@@ -52,15 +59,17 @@ namespace FYP.Migrations
 
             migrationBuilder.InsertData(
                 table: "Products",
-                columns: new[] { "ProductID", "AverageRating", "CategoryID", "Description", "ImageHash", "Price", "ReviewCount", "SellerID", "StockLevel", "Title", "TotalSales" },
+                columns: new[] { "ProductID", "AverageRating", "CategoryID", "Description", "ImageHash", "Price", "WeightKg", "ReviewCount", "SellerID", "StockLevel", "Title", "TotalSales" },
+                // ADD THIS NEW ARRAY TO EXPLICITLY MAP THE SQL TYPES
+                columnTypes: new[] { "varchar(50)", "decimal(3,2)", "varchar(50)", "longtext", "varchar(128)", "decimal(10,2)", "decimal(5,2)", "int", "varchar(50)", "int", "varchar(150)", "int" },
                 values: new object[,]
                 {
-                    { "PROD_001", 4.9m, "cat_tech_1", "Experience pure sound with industry-leading active noise cancellation. Features 30-hour battery life, touch sensor controls, and speak-to-chat technology.", "SEED", 899.00m, 342, "seller_demo_1", 45, "Wireless Noise-Cancelling Headphones Pro", 1250 },
-                    { "PROD_002", 4.8m, "cat_tech_1", "Advanced health monitoring right on your wrist. Measure your blood oxygen level, take an ECG anytime, and track your daily activity.", "SEED", 1299.00m, 890, "seller_demo_1", 120, "Smart Fitness Watch Series 7", 3400 },
-                    { "PROD_003", 4.7m, "cat_tech_1", "Tactile mechanical switches for ultimate gaming performance. Features customizable per-key RGB lighting and an aircraft-grade aluminum alloy frame.", "SEED", 450.00m, 156, "seller_demo_1", 3, "Mechanical Gaming Keyboard RGB", 850 },
-                    { "PROD_004", 4.9m, "cat_tech_1", "Weighing only 63 grams, this mouse is designed for professional esports. Features a 25K DPI sensor and zero-additive PTFE feet for smooth gliding.", "SEED", 320.00m, 512, "seller_demo_1", 80, "Ultra-Light Wireless Esports Mouse", 2100 },
-                    { "PROD_005", 4.6m, "cat_tech_1", "Stunning 4K resolution with 99% sRGB color accuracy. Factory calibrated for creators who demand perfect color representation and crisp text.", "SEED", 1850.00m, 89, "seller_demo_1", 15, "27-inch 4K IPS Creator Monitor", 420 },
-                    { "PROD_006", 4.9m, "cat_tech_1", "Never run out of battery again. This high-capacity power bank supports 65W Power Delivery, allowing you to fast-charge your smartphone, tablet, and even your laptop on the go.", "SEED", 150.00m, 1240, "seller_demo_1", 250, "20,000mAh PD Fast Charge Power Bank", 5600 }
+                    { "PROD_001", 4.9m, "cat_tech_1", "Experience pure sound with industry-leading active noise cancellation. Features 30-hour battery life, touch sensor controls, and speak-to-chat technology.", "SEED", 899.00m, 0.25m, 342, "seller_demo_1", 45, "Wireless Noise-Cancelling Headphones Pro", 1250 },
+                    { "PROD_002", 4.8m, "cat_tech_1", "Advanced health monitoring right on your wrist. Measure your blood oxygen level, take an ECG anytime, and track your daily activity.", "SEED", 1299.00m, 0.05m, 890, "seller_demo_1", 120, "Smart Fitness Watch Series 7", 3400 },
+                    { "PROD_003", 4.7m, "cat_tech_1", "Tactile mechanical switches for ultimate gaming performance. Features customizable per-key RGB lighting and an aircraft-grade aluminum alloy frame.", "SEED", 450.00m, 0.90m, 156, "seller_demo_1", 3, "Mechanical Gaming Keyboard RGB", 850 },
+                    { "PROD_004", 4.9m, "cat_tech_1", "Weighing only 63 grams, this mouse is designed for professional esports. Features a 25K DPI sensor and zero-additive PTFE feet for smooth gliding.", "SEED", 320.00m, 0.06m, 512, "seller_demo_1", 80, "Ultra-Light Wireless Esports Mouse", 2100 },
+                    { "PROD_005", 4.6m, "cat_tech_1", "Stunning 4K resolution with 99% sRGB color accuracy. Factory calibrated for creators who demand perfect color representation and crisp text.", "SEED", 1850.00m, 4.20m, 89, "seller_demo_1", 15, "27-inch 4K IPS Creator Monitor", 420 },
+                    { "PROD_006", 4.9m, "cat_tech_1", "Never run out of battery again. This high-capacity power bank supports 65W Power Delivery, allowing you to fast-charge your smartphone, tablet, and even your laptop on the go.", "SEED", 150.00m, 0.45m, 1240, "seller_demo_1", 250, "20,000mAh PD Fast Charge Power Bank", 5600 }
                 });
         }
 
@@ -117,6 +126,10 @@ namespace FYP.Migrations
 
             migrationBuilder.DropColumn(
                 name: "ReviewCount",
+                table: "Products");
+
+            migrationBuilder.DropColumn(
+                name: "WeightKg",
                 table: "Products");
 
             migrationBuilder.DropColumn(

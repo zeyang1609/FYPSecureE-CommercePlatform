@@ -13,12 +13,7 @@ namespace FYP.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<decimal>(
-                name: "WeightKg",
-                table: "Products",
-                type: "decimal(5,2)",
-                nullable: false,
-                defaultValue: 0m);
+            
 
             migrationBuilder.AlterColumn<string>(
                 name: "DeliveryID",
@@ -210,9 +205,6 @@ namespace FYP.Migrations
             migrationBuilder.DropTable(
                 name: "Couriers");
 
-            migrationBuilder.DropColumn(
-                name: "WeightKg",
-                table: "Products");
 
             migrationBuilder.UpdateData(
                 table: "Orders",

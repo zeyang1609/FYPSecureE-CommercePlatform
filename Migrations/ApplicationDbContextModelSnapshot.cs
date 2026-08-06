@@ -993,7 +993,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "seller_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 6, 1, 7, 42, 836, DateTimeKind.Utc).AddTicks(1334),
+                            CreatedAt = new DateTime(2026, 8, 6, 5, 34, 28, 106, DateTimeKind.Utc).AddTicks(6671),
                             DeviceHash = "SEED",
                             Email = "demo_seller@secureplatform.com",
                             MFA_Enabled = true,

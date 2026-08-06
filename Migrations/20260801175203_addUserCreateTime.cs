@@ -16,7 +16,8 @@ namespace FYP.Migrations
                 table: "Users",
                 type: "datetime(6)",
                 nullable: false,
-                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+                // FIXED: Changed from year 0001 to a valid MySQL datetime 
+                defaultValue: new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc));
         }
 
         /// <inheritdoc />
