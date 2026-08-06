@@ -56,6 +56,20 @@
         <div class="product-details">
             <h1 class="product-title">@Model.Title</h1>
             
+            <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; font-size: 0.95rem;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="color: #ee4d2d; font-weight: bold; border-bottom: 1px solid #ee4d2d;">@Model.AverageRating.ToString("0.0")</span>
+                    <div style="color: #ee4d2d; font-size: 0.8rem;">
+                        @for(int i=0; i<Math.Round(Model.AverageRating); i++){<text>★ </text>}
+                        @for(int i=(int)Math.Round(Model.AverageRating); i<5; i++){<span style="color:#ddd;">★ </span>}
+                    </div>
+                </div>
+                <div style="width: 1px; height: 15px; background: #ddd;"></div>
+                <div><span style="border-bottom: 1px solid #333;">@Model.ReviewCount</span> <span style="color: #767676;">Ratings</span></div>
+                <div style="width: 1px; height: 15px; background: #ddd;"></div>
+                <div>@Model.TotalSales <span style="color: #767676;">Sold</span></div>
+            </div>
+            
             <div class="product-price-box">
                 <div class="product-price">RM @Model.Price.ToString("0.00")</div>
             </div>
@@ -105,11 +119,17 @@
             </div>
         </div>
         <div style="margin-left: auto;">
-            <button style="background: white; border: 1px solid #ee4d2d; color: #ee4d2d; padding: 8px 15px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <a href="/Home/ShopProfile/@Model.SellerID" style="background: white; border: 1px solid #ee4d2d; color: #ee4d2d; padding: 8px 15px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 8px; text-decoration: none;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                 View Shop
-            </button>
+            </a>
         </div>
+    </div>
+
+    <!-- Product Description -->
+    <div class="specs-card" style="margin-top: 20px; margin-bottom: 20px;">
+        <h3>Product Description</h3>
+        <div style="font-size: 0.95rem; line-height: 1.6; color: #333; white-space: pre-wrap;">@Model.Description</div>
     </div>
 
     <!-- Specifications -->
@@ -123,10 +143,85 @@
             <div class="spec-label">Stock</div>
             <div class="spec-value">@Model.StockLevel</div>
         </div>
-        <div class="spec-row">
-            <div class="spec-label">Item ID</div>
-            <div class="spec-value">@Model.ProductID</div>
-        </div>
+
+    </div>
+
+    <!-- Product Ratings -->
+    <div class="specs-card" style="margin-top: 20px;">
+        <h3>Product Ratings</h3>
+        @{
+            var reviews = ViewBag.Reviews as IEnumerable<FYP.Models.Entities.Review>;
+        }
+        @if (reviews != null && reviews.Any())
+        {
+            <div style="display: flex; gap: 20px; align-items: center; padding: 20px; background: #fffbf8; border: 1px solid #f9ece5; border-radius: 4px; margin-bottom: 20px;">
+                <div style="text-align: center;">
+                    <div style="color: #ee4d2d; font-size: 2rem; font-weight: bold;">@Model.AverageRating.ToString("0.0") <span style="font-size: 1.2rem; color: #ee4d2d;">out of 5</span></div>
+                    <div style="color: #ee4d2d; font-size: 1.2rem; margin: 5px 0;">
+                        @for(int i=0; i<Math.Round(Model.AverageRating); i++){<text>★ </text>}
+                        @for(int i=(int)Math.Round(Model.AverageRating); i<5; i++){<span style="color:#ddd;">★ </span>}
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                @foreach (var r in reviews)
+                {
+                    <div style="padding-bottom: 20px; border-bottom: 1px solid #eee; display: flex; gap: 15px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999; font-size: 20px; flex-shrink: 0;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </div>
+                        <div style="flex: 1;">
+                            @{
+                                bool isAnon = !string.IsNullOrEmpty(r.Comment) && r.Comment.StartsWith("[Anonymous Review]");
+                                string displayUser = isAnon ? "Anonymous" : (r.Buyer?.Name ?? r.BuyerID);
+                                string displayComment = r.Comment;
+                                if (isAnon && displayComment != null)
+                                {
+                                    displayComment = displayComment.Replace("[Anonymous Review]\n", "").Replace("[Anonymous Review]", "").TrimStart();
+                                }
+                            }
+                            <div style="font-size: 0.9rem; font-weight: 500; color: #333; margin-bottom: 4px;">@displayUser</div>
+                            <div style="color: #ee4d2d; font-size: 0.9rem; margin-bottom: 6px;">
+                                @for(int i=0; i<r.Rating; i++){<text>★ </text>}
+                                @for(int i=r.Rating; i<5; i++){<span style="color:#ddd;">★ </span>}
+                            </div>
+                            <div style="font-size: 0.8rem; color: #999; margin-bottom: 10px;">@r.CreatedAt.ToString("yyyy-MM-dd HH:mm")</div>
+                            
+                            @if (!string.IsNullOrWhiteSpace(displayComment))
+                            {
+                                <div style="font-size: 0.95rem; color: #444; line-height: 1.5; margin-bottom: 12px; white-space: pre-wrap;">@displayComment</div>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(r.MediaUrl))
+                            {
+                                <div style="display: flex; gap: 8px;">
+                                    @foreach(var url in r.MediaUrl.Split('|', StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        if (url.EndsWith(".mp4"))
+                                        {
+                                            <video src="@url" style="width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;" controls></video>
+                                        }
+                                        else
+                                        {
+                                            <img src="@url" style="width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;" />
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div style="padding: 30px; text-align: center; color: #666; background: #fafafa; border-radius: 4px; margin-top: 15px;">
+                No rating No reviews
+            </div>
+        }
     </div>
 </div>
 

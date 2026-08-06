@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using FYP.Models.Entities;
 
 namespace FYP.Models.ViewModels
 {
@@ -23,30 +24,38 @@ namespace FYP.Models.ViewModels
         [Range(0.01, 1000000.00)]
         public decimal TotalAmount { get; set; }
 
+        public decimal OriginalShippingFee { get; set; }
+        public decimal ShippingFee { get; set; }
+        public string CourierName { get; set; } = string.Empty;
+        public string CourierID { get; set; } = string.Empty;
+
         public List<CartItemViewModel> CartItems { get; set; } = new List<CartItemViewModel>();
 
+        public string? MessageToSeller { get; set; }
+        public int SelectedAddressID { get; set; }
+        public List<Address> AvailableAddresses { get; set; } = new List<Address>();
+
+        public string? SelectedSavedCardID { get; set; }
+        public List<SavedBankCard> SavedCards { get; set; } = new List<SavedBankCard>();
+
         // --- 2. Transient Payment Credentials (PCI-DSS compliant - Never saved to DB) ---
-        [Required(ErrorMessage = "Card number is required.")]
-        [CreditCard(ErrorMessage = "Invalid credit card number.")]
         [Display(Name = "Card Number")]
-        public string RawCardNumber { get; set; } = string.Empty;
+        public string? RawCardNumber { get; set; } = string.Empty;
 
         // ALIAS PROPERTY: This bridges 'CardNumber' directly to 'RawCardNumber' to stop the compiler errors
-        public string CardNumber
+        public string? CardNumber
         {
             get => RawCardNumber;
             set => RawCardNumber = value;
         }
 
-        [Required(ErrorMessage = "Expiration date required.")]
         [RegularExpression(@"^(0[1-9]|1[0-2])\/?([0-9]{2})$", ErrorMessage = "Format must be MM/YY")]
         [Display(Name = "Expiry Date (MM/YY)")]
-        public string ExpiryDate { get; set; } = string.Empty;
+        public string? ExpiryDate { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "CVV required.")]
         [StringLength(4, MinimumLength = 3, ErrorMessage = "CVV must be 3 or 4 digits.")]
         [Display(Name = "CVV")]
-        public string CVV { get; set; } = string.Empty;
+        public string? CVV { get; set; } = string.Empty;
 
         // --- 3. Telemetry Features for XGBoost AI Risk Scoring ---
         public int AccountAgeDays { get; set; }
@@ -56,5 +65,16 @@ namespace FYP.Models.ViewModels
         // --- 4. Network Security Shield ---
         [Required]
         public string IdempotencyKey { get; set; } = Guid.NewGuid().ToString("N").ToUpper();
+
+        // --- 5. Stripe Configuration ---
+        public string StripePublishableKey { get; set; } = string.Empty;
+    }
+
+    public class ShippingOptionViewModel
+    {
+        public string CourierID { get; set; } = string.Empty;
+        public string CourierName { get; set; } = string.Empty;
+        public decimal OriginalFee { get; set; }
+        public decimal FinalFee { get; set; }
     }
 }

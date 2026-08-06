@@ -41,12 +41,19 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
+            if (model.Role == "Courier" && string.IsNullOrWhiteSpace(model.PhoneNumber))
+            {
+                ModelState.AddModelError("PhoneNumber", "Phone Number is required for couriers.");
+            }
+
             if (ModelState.IsValid)
             {
                 var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
                 if (existingUser != null)
                 {
                     ModelState.AddModelError("Email", "Email is already registered.");
+                    if (model.Role == "Courier") return View("~/Views/Courier/Register.cshtml", model);
+                    if (model.Role == "Seller") return View("~/Views/Seller/Register.cshtml", model); // If it exists
                     return View(model);
                 }
 
@@ -56,6 +63,8 @@ namespace FYP.Controllers
                 var newUser = new User
                 {
                     UserID = userId,
+                    Name = model.Name,
+                    PhoneNumber = model.PhoneNumber,
                     Email = model.Email,
                     PasswordHash = hashedPassword,
                     Role = string.IsNullOrWhiteSpace(model.Role) ? "Buyer" : model.Role,
@@ -82,6 +91,8 @@ namespace FYP.Controllers
                 TempData["SuccessMessage"] = "Registration successful! Please check your email for the verification OTP.";
                 return RedirectToAction("VerifyOtp", new { email = model.Email });
             }
+            if (model.Role == "Courier") return View("~/Views/Courier/Register.cshtml", model);
+            if (model.Role == "Seller") return View("~/Views/Seller/Register.cshtml", model);
             return View(model);
         }
 
@@ -106,6 +117,16 @@ namespace FYP.Controllers
                 if (user == null || !Argon2idHasher.VerifyHash(model.Password, user.PasswordHash))
                 {
                     ModelState.AddModelError("", "Invalid email or password.");
+                    if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
+                    if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
+                    return View(model);
+                }
+
+                if (!string.IsNullOrEmpty(model.Role) && model.Role != "Buyer" && user.Role != model.Role)
+                {
+                    ModelState.AddModelError("", $"Unauthorized access. This account does not have {model.Role} privileges.");
+                    if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
+                    if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
                     return View(model);
                 }
 
@@ -164,6 +185,8 @@ namespace FYP.Controllers
                 // Dynamic Redirect: Centralized routing engine
                 return RedirectToUserDashboard(user.Role, user.UserID);
             }
+            if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
+            if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
             return View(model);
         }
 
@@ -171,8 +194,14 @@ namespace FYP.Controllers
         // 3. MFA 2FA VERIFICATION GATEWAY
         // ==========================================
         [HttpGet]
-        public IActionResult VerifyOtp(string email)
+        public async Task<IActionResult> VerifyOtp(string email)
         {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user != null && user.Role == "Courier")
+            {
+                return View("~/Views/Courier/VerifyOtp.cshtml", new VerifyOtpViewModel { Email = email });
+            }
+            
             return View(new VerifyOtpViewModel { Email = email });
         }
 
@@ -209,6 +238,13 @@ namespace FYP.Controllers
 
                 ModelState.AddModelError("OtpCode", "Invalid or expired verification code.");
             }
+
+            var fallbackUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+            if (fallbackUser != null && fallbackUser.Role == "Courier")
+            {
+                return View("~/Views/Courier/VerifyOtp.cshtml", model);
+            }
+
             return View(model);
         }
 
@@ -429,6 +465,7 @@ namespace FYP.Controllers
             {
                 "Admin" => RedirectToAction("Dashboard", "Admin"),
                 "Seller" => RedirectToAction("Dashboard", "Seller"),
+                "Courier" => RedirectToAction("Dashboard", "Courier"),
                 _ => RedirectToAction("Index", "Home")
             };
         }

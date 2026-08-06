@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace FYP.Models.ViewModels
 {
@@ -6,6 +6,7 @@ namespace FYP.Models.ViewModels
     {
         [Required(ErrorMessage = "Full Name is required.")]
         [StringLength(100, ErrorMessage = "Name cannot exceed 100 characters.")]
+        [RegularExpression(@"^[a-zA-Z\s.,'-]+$", ErrorMessage = "Name cannot contain emojis, numbers, or special characters.")]
         [Display(Name = "Full Name")]
         public string Name { get; set; } = string.Empty;
 
@@ -15,10 +16,15 @@ namespace FYP.Models.ViewModels
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Password is required.")]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 8)]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 9)]
+        [RegularExpression(@"^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&^#_.:,+-]).{9,}$", ErrorMessage = "Password must contain at least 1 uppercase letter, 1 number, and 1 special character.")]
         [DataType(DataType.Password)]
         [Display(Name = "Password")]
         public string Password { get; set; } = string.Empty;
+
+        [RegularExpression(@"^[0-9]{9,15}$", ErrorMessage = "Phone number can only contain digits (9-15 digits).")]
+        [Display(Name = "Phone Number")]
+        public string? PhoneNumber { get; set; }
 
         [Required]
         public string Role { get; set; } = "Buyer";
@@ -38,6 +44,8 @@ namespace FYP.Models.ViewModels
 
         [Display(Name = "Remember Me")]
         public bool RememberMe { get; set; }
+
+        public string? Role { get; set; }
     }
 
     public class VerifyOtpViewModel

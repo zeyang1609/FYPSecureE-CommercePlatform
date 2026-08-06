@@ -1,4 +1,4 @@
-﻿@model FYP.Models.ViewModels.CartViewModel
+@model FYP.Models.ViewModels.CartViewModel
 @{
     ViewData["Title"] = "Shopping Cart";
     Layout = null;
@@ -13,6 +13,17 @@
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
     <link rel="stylesheet" href="~/css/buyer-dashboard.css" />
+    <style>
+        /* Hide default number spin buttons */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+    </style>
 </head>
 <body style="background-color: #F8F9FA;">
 
@@ -31,15 +42,9 @@
         </div>
     </header>
 
-    <main class="buyer-container">
+    <main class="buyer-container" style="max-width: 1200px;">
 
-        <div class="buyer-header">
-            <div>
-                <h1>Your Active Cart</h1>
-                <p>Review your selected items before running automated XGBoost behavioral fraud analysis.</p>
-            </div>
-            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🛡️ Zero-Trust Protected</span>
-        </div>
+
 
         @if (TempData["SuccessMessage"] != null)
         {
@@ -48,12 +53,19 @@
             </div>
         }
 
-        <div style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 30px; align-items: start;">
+        <!-- Hidden Anti-Forgery Token for AJAX -->
+        <form id="antiForgeryForm">
+            @Html.AntiForgeryToken()
+        </form>
+
+        <div style="display: flex; flex-direction: column; gap: 40px; align-items: center; width: 100%; max-width: 1200px; margin: 0 auto; padding-top: 20px;">
 
             <!-- Cart Items Table -->
-            <div class="table-card" style="margin-bottom: 0;">
+            <div class="table-card" style="margin-bottom: 0; width: 100%;">
                 <div class="table-header">
-                    <h2>Selected Inventory (@Model.Items.Sum(i => i.Quantity) Items)</h2>
+                    <h2 style="display: flex; align-items: center; gap: 15px;">
+                        Cart Inventory
+                    </h2>
                 </div>
 
                 @if (Model.Items.Any())
@@ -61,6 +73,9 @@
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th style="width: 50px; text-align: center;">
+                                    <input type="checkbox" id="selectAll" @(Model.Items.Any() && Model.Items.All(i => i.IsSelected) ? "checked" : "") onchange="toggleSelectAll(this)" style="width: 18px; height: 18px; cursor: pointer;" />
+                                </th>
                                 <th style="width: 60px;">Image</th>
                                 <th>Product Details</th>
                                 <th>Unit Price</th>
@@ -73,16 +88,24 @@
                             @foreach (var item in Model.Items)
                             {
                                 <tr>
+                                    <td style="text-align: center;">
+                                        <input type="checkbox" class="item-checkbox" id="chk-@item.ProductID" @(item.IsSelected ? "checked" : "") onchange="toggleItemSelection('@item.ProductID', this)" style="width: 18px; height: 18px; cursor: pointer;" />
+                                    </td>
                                     <td>
                                         <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" class="product-thumb" onerror="this.src='/images/default-product.jpg';" />
                                     </td>
                                     <td>
                                         <strong style="font-size: 0.95rem; display: block;">@item.Title</strong>
-                                        <small style="font-family: monospace; color: var(--text-muted);">ID: @item.ProductID</small>
                                     </td>
                                     <td>RM @item.Price.ToString("0.00")</td>
-                                    <td><strong style="background: #F0F0F0; padding: 4px 10px; border-radius: 4px;">@item.Quantity</strong></td>
-                                    <td><strong style="color: var(--brand-primary); font-size: 1.05rem;">RM @item.Subtotal.ToString("0.00")</strong></td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 5px;">
+                                            <button type="button" onclick="changeQty('@item.ProductID', -1, @item.MaxStock)" style="width: 30px; height: 30px; border-radius: 4px; border: 1px solid #ccc; background: #fff; cursor: pointer;">-</button>
+                                            <input type="number" id="qty-@item.ProductID" value="@item.Quantity" min="1" max="@item.MaxStock" style="width: 50px; height: 30px; text-align: center; border: 1px solid #ccc; border-radius: 4px;" onchange="setQty('@item.ProductID', this.value, @item.MaxStock)" />
+                                            <button type="button" onclick="changeQty('@item.ProductID', 1, @item.MaxStock)" style="width: 30px; height: 30px; border-radius: 4px; border: 1px solid #ccc; background: #fff; cursor: pointer;">+</button>
+                                        </div>
+                                    </td>
+                                    <td><strong id="subtotal-@item.ProductID" style="color: var(--brand-primary); font-size: 1.05rem;">RM @item.Subtotal.ToString("0.00")</strong></td>
                                     <td>
                                         <form asp-controller="Cart" asp-action="RemoveItem" method="post">
                                             <input type="hidden" name="productId" value="@item.ProductID" />
@@ -105,44 +128,239 @@
             </div>
 
             <!-- Order Summary & Checkout Gateway -->
-            <div class="table-card" style="margin-bottom: 0; padding: 25px;">
+            <div class="table-card" style="margin-bottom: 0; padding: 25px; width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-top: 4px solid var(--brand-primary);">
                 <h3 style="font-size: 1.1rem; color: var(--text-dark); margin-bottom: 18px; border-bottom: 2px solid var(--auth-bg-tint); padding-bottom: 10px;">
                     Order Summary
                 </h3>
 
                 <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; color: #555;">
+                    <span>Selected Items:</span>
+                    <span id="summary-selected-count" style="font-weight: bold;">@Model.SelectedItemsCount</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; color: #555;">
                     <span>Subtotal:</span>
-                    <span>RM @Model.GrandTotal.ToString("0.00")</span>
+                    <span id="summary-subtotal">RM @Model.GrandTotal.ToString("0.00")</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; color: #555;">
                     <span>Algorithmic Shipping:</span>
-                    <span style="color: #2E7D32; font-weight: bold;">FREE</span>
+                    <span id="summary-shipping">
+                        @if (Model.OriginalShippingFee > Model.FinalShippingFee)
+                        {
+                            <span style="text-decoration: line-through; color: #999; margin-right: 8px;">RM @Model.OriginalShippingFee.ToString("0.00")</span>
+                        }
+                        @if (Model.FinalShippingFee == 0)
+                        {
+                            <span style="color: #2E7D32; font-weight: bold;">FREE</span>
+                        }
+                        else
+                        {
+                            <span style="color: #333; font-weight: bold;">RM @Model.FinalShippingFee.ToString("0.00")</span>
+                        }
+                    </span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); font-size: 1.2rem; font-weight: bold; color: var(--text-dark);">
                     <span>Grand Total:</span>
-                    <span style="color: var(--brand-primary);">RM @Model.GrandTotal.ToString("0.00")</span>
+                    <span id="summary-grandtotal" style="color: var(--brand-primary);">RM @Model.GrandTotal.ToString("0.00")</span>
                 </div>
 
-                @if (Model.Items.Any())
+                @if (Model.Items.Any(i => i.IsSelected))
                 {
-                    <a asp-controller="Cart" asp-action="Checkout" class="btn-submit-primary" style="display: block; text-align: center; text-decoration: none; margin-top: 25px; padding: 14px;">
-                        PROCEED TO AI FRAUD CHECKOUT →
-                    </a>
+                    <button id="checkoutBtn" onclick="window.location.href='/Cart/Checkout'" class="btn-submit-primary" style="display: block; width: 100%; text-align: center; text-decoration: none; margin-top: 25px; padding: 14px; border: none; cursor: pointer;">
+                        PROCEED TO CHECK OUT →
+                    </button>
                 }
                 else
                 {
-                    <button disabled class="btn-submit-primary" style="background: #ccc; cursor: not-allowed; margin-top: 25px; padding: 14px;">
-                        CART IS EMPTY
+                    <button id="checkoutBtn" disabled class="btn-submit-primary" style="background: #ccc; width: 100%; cursor: not-allowed; margin-top: 25px; padding: 14px; border: none;">
+                        SELECT ITEMS TO CHECKOUT
                     </button>
                 }
 
-                <div style="margin-top: 18px; font-size: 0.75rem; color: var(--text-muted); text-align: center; line-height: 1.4;">
-                    🔒 All checkouts are evaluated by XGBoost behavioral anomaly models prior to payment capture.
-                </div>
             </div>
 
         </div>
 
     </main>
+
+    <script>
+        async function updateCartAjax(productId, newQty) {
+            const token = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]').value;
+            const formData = new URLSearchParams();
+            formData.append('productId', productId);
+            formData.append('newQuantity', newQty);
+
+            try {
+                const response = await fetch('/Cart/UpdateQuantityAjax', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': token
+                    },
+                    body: formData.toString()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Update UI values
+                        document.getElementById('qty-' + productId).value = data.newQuantity;
+                        document.getElementById('subtotal-' + productId).innerText = 'RM ' + data.itemSubtotal.toFixed(2);
+                        document.getElementById('summary-subtotal').innerText = 'RM ' + data.grandTotal.toFixed(2);
+                        document.getElementById('summary-grandtotal').innerText = 'RM ' + data.grandTotal.toFixed(2);
+                        document.getElementById('summary-selected-count').innerText = data.selectedCount;
+                        
+                        let shippingHtml = '';
+                        if (data.originalShipping > data.finalShipping) {
+                            shippingHtml += `<span style="text-decoration: line-through; color: #999; margin-right: 8px;">RM ${data.originalShipping.toFixed(2)}</span>`;
+                        }
+                        if (data.finalShipping === 0) {
+                            shippingHtml += `<span style="color: #2E7D32; font-weight: bold;">FREE</span>`;
+                        } else {
+                            shippingHtml += `<span style="color: #333; font-weight: bold;">RM ${data.finalShipping.toFixed(2)}</span>`;
+                        }
+                        document.getElementById('summary-shipping').innerHTML = shippingHtml;
+                        
+                        updateCheckoutButton(data.selectedCount);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to update cart:", error);
+            }
+        }
+
+        function changeQty(productId, delta, maxStock) {
+            const input = document.getElementById('qty-' + productId);
+            let current = parseInt(input.value) || 1;
+            let target = current + delta;
+            
+            if (target < 1) target = 1;
+            if (target > maxStock) target = maxStock;
+            
+            if (target !== current) {
+                input.value = target;
+                updateCartAjax(productId, target);
+            }
+        }
+
+        function setQty(productId, value, maxStock) {
+            let target = parseInt(value) || 1;
+            if (target < 1) target = 1;
+            if (target > maxStock) target = maxStock;
+            
+            document.getElementById('qty-' + productId).value = target;
+            updateCartAjax(productId, target);
+        }
+
+        function updateCheckoutButton(selectedCount) {
+            const btn = document.getElementById('checkoutBtn');
+            if (btn) {
+                if (selectedCount > 0) {
+                    btn.disabled = false;
+                    btn.style.background = ''; // Reverts to CSS default
+                    btn.style.cursor = 'pointer';
+                    btn.innerText = 'PROCEED TO CHECK OUT →';
+                    btn.onclick = () => window.location.href = '/Cart/Checkout';
+                } else {
+                    btn.disabled = true;
+                    btn.style.background = '#ccc';
+                    btn.style.cursor = 'not-allowed';
+                    btn.innerText = 'SELECT ITEMS TO CHECKOUT';
+                    btn.onclick = null;
+                }
+            }
+        }
+
+        async function toggleItemSelection(productId, checkbox) {
+            const token = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]').value;
+            const formData = new URLSearchParams();
+            formData.append('productId', productId);
+            formData.append('isSelected', checkbox.checked);
+
+            try {
+                const response = await fetch('/Cart/UpdateItemSelectionAjax', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': token
+                    },
+                    body: formData.toString()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('summary-subtotal').innerText = 'RM ' + data.grandTotal.toFixed(2);
+                        document.getElementById('summary-grandtotal').innerText = 'RM ' + data.grandTotal.toFixed(2);
+                        document.getElementById('summary-selected-count').innerText = data.selectedCount;
+                        
+                        let shippingHtml = '';
+                        if (data.originalShipping > data.finalShipping) {
+                            shippingHtml += `<span style="text-decoration: line-through; color: #999; margin-right: 8px;">RM ${data.originalShipping.toFixed(2)}</span>`;
+                        }
+                        if (data.finalShipping === 0) {
+                            shippingHtml += `<span style="color: #2E7D32; font-weight: bold;">FREE</span>`;
+                        } else {
+                            shippingHtml += `<span style="color: #333; font-weight: bold;">RM ${data.finalShipping.toFixed(2)}</span>`;
+                        }
+                        document.getElementById('summary-shipping').innerHTML = shippingHtml;
+                        
+                        // Check if all are selected to update master checkbox
+                        const allCheckboxes = document.querySelectorAll('.item-checkbox');
+                        const allChecked = Array.from(allCheckboxes).every(c => c.checked);
+                        document.getElementById('selectAll').checked = allChecked;
+
+                        updateCheckoutButton(data.selectedCount);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to update selection:", error);
+            }
+        }
+
+        async function toggleSelectAll(masterCheckbox) {
+            const token = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]').value;
+            const isSelected = masterCheckbox.checked;
+            const formData = new URLSearchParams();
+            formData.append('isSelected', isSelected);
+
+            try {
+                const response = await fetch('/Cart/SelectAllAjax', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': token
+                    },
+                    body: formData.toString()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Update all checkboxes on UI
+                        document.querySelectorAll('.item-checkbox').forEach(c => c.checked = isSelected);
+                        
+                        document.getElementById('summary-subtotal').innerText = 'RM ' + data.grandTotal.toFixed(2);
+                        document.getElementById('summary-grandtotal').innerText = 'RM ' + data.grandTotal.toFixed(2);
+                        document.getElementById('summary-selected-count').innerText = data.selectedCount;
+                        
+                        let shippingHtml = '';
+                        if (data.originalShipping > data.finalShipping) {
+                            shippingHtml += `<span style="text-decoration: line-through; color: #999; margin-right: 8px;">RM ${data.originalShipping.toFixed(2)}</span>`;
+                        }
+                        if (data.finalShipping === 0) {
+                            shippingHtml += `<span style="color: #2E7D32; font-weight: bold;">FREE</span>`;
+                        } else {
+                            shippingHtml += `<span style="color: #333; font-weight: bold;">RM ${data.finalShipping.toFixed(2)}</span>`;
+                        }
+                        document.getElementById('summary-shipping').innerHTML = shippingHtml;
+                        
+                        updateCheckoutButton(data.selectedCount);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to update all selections:", error);
+            }
+        }
+    </script>
 </body>
 </html>

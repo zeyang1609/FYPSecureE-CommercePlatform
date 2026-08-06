@@ -9,13 +9,11 @@
     <link rel="stylesheet" href="~/FYP.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/platform-home.css" />
 </head>
-<body>
+<body style="display: flex; flex-direction: column; min-height: 100vh;">
     <header class="main-header">
         <div class="header-top">
             <div class="top-nav-left">
-                <a asp-controller="Seller" asp-action="Dashboard">Seller Centre</a>
-                <span class="nav-divider">|</span>
-                <a asp-controller="Product" asp-action="Create">Start Selling</a>
+                <a asp-controller="Seller" asp-action="Login">Seller Centre</a>
             </div>
 
             <div class="top-nav-right">
@@ -93,13 +91,13 @@
             </a>
         </div>
     </header>
-    <div>
+    <div style="flex-grow: 1;">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
+    <footer class="border-top footer text-muted" style="position: relative; text-align: center; padding: 20px 0; background: #fff; margin-top: auto; width: 100%;">
         <div class="container">
             &copy; 2026 - FYP - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>

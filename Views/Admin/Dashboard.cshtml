@@ -1,4 +1,4 @@
-﻿@model IEnumerable<FYP.Models.Entities.FraudAlert>
+@model IEnumerable<FYP.Models.Entities.FraudAlert>
 @{
     ViewData["Title"] = "Admin Security Control Center";
     Layout = null;
@@ -28,6 +28,7 @@
             <a asp-action="Dashboard" class="active">🛡️ Security Dashboard</a>
             <a asp-action="Users">👥 User Management</a>
             <a asp-action="Categories">📁 Categories</a>
+            <a asp-action="Disputes">⚖️ Disputes</a>
             <a asp-controller="Auth" asp-action="Login">Log Out</a>
         </div>
     </header>

@@ -51,6 +51,7 @@ namespace FYP.Models.Entities
         public virtual ICollection<Address> Addresses { get; set; }
         public string? TotpSecret { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public virtual Cart Cart { get; set; }
     }
 
 }

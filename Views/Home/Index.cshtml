@@ -1,8 +1,105 @@
 @model IEnumerable<FYP.Models.Entities.Product>
 @{
     ViewData["Title"] = "AI-Enhanced Secure E-Commerce";
+    Layout = null;
 }
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <!-- Links to your custom storefront styling -->
+    <link rel="stylesheet" href="~/css/platform-home.css" />
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh;">
+
+    <!-- Main Navigation Header -->
+    <header class="main-header">
+        <div class="header-top">
+            <div class="top-nav-left">
+                <a asp-controller="Seller" asp-action="Login">Seller Centre</a>
+            </div>
+
+            <div class="top-nav-right">
+
+                <a href="#" class="nav-icon-link" aria-label="Notifications">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span>Notifications</span>
+                </a>
+                <span class="nav-divider">|</span>
+
+                <a href="#" class="nav-icon-link" aria-label="Help">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span>Help</span>
+                </a>
+                <span class="nav-divider">|</span>
+
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <div class="profile-dropdown" style="position: relative; display: inline-block;">
+                        <a href="/@User.Claims.FirstOrDefault(c=>c.Type==System.Security.Claims.ClaimTypes.Role)?.Value/Dashboard" class="nav-icon-link" aria-label="Profile">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span>@User.Identity?.Name</span>
+                        </a>
+                        <div class="dropdown-menu">
+                            <a href="/@User.Claims.FirstOrDefault(c=>c.Type==System.Security.Claims.ClaimTypes.Role)?.Value/Profile">My Account</a>
+                            <a href="/@User.Claims.FirstOrDefault(c=>c.Type==System.Security.Claims.ClaimTypes.Role)?.Value/Orders">My Purchase</a>
+                            <a asp-controller="Auth" asp-action="Logout">Log Out</a>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <a asp-controller="Auth" asp-action="Register">Sign Up</a>
+                    <span class="nav-divider">|</span>
+                    <a asp-controller="Auth" asp-action="Login">Log In</a>
+                }
+            </div>
+        </div>
+
+        <div class="header-content">
+            <a asp-controller="Home" asp-action="Index" class="logo-container">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="min-width: 32px;">
+                    <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm0 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+                </svg>
+                <span>SecurePlatform</span>
+            </a>
+
+            <!-- Functional Live Search Form -->
+            <form asp-controller="Home" asp-action="Index" method="get" class="search-container">
+                <input type="text" name="searchQuery" value="@ViewBag.SearchQuery" class="search-input" placeholder="Search for products, brands and shops..." />
+                <button type="submit" class="search-btn" aria-label="Search">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+            </form>
+
+            <!-- Connected Shopping Cart Icon -->
+            <a asp-controller="Cart" asp-action="Index" class="cart-link" aria-label="Shopping Cart">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <main style="flex: 1; width: 100%;">
     <!-- Announcement Banner Section -->
     <section class="banner-section">
         <div class="banner-main">
@@ -61,29 +158,15 @@
 
                             <div class="product-info">
                                 <div>
-                                    @if (item.StockLevel <= 5)
-                                    {
-                                        <span class="badge-tag" style="background-color: #ff4d4f; color: white;">Low Stock: @item.StockLevel left</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge-tag">AI Verified</span>
-                                    }
                                     <div class="product-title">@item.Title</div>
                                 </div>
 
                                 <div class="product-footer">
                                     <span class="product-price">RM @item.Price.ToString("0.00")</span>
-                                    <span class="sold-count">@item.StockLevel available</span>
+                                    <span class="sold-count">@item.TotalSales sold</span>
                                 </div>
                             </div>
                         </a>
-
-                        <!-- Connected Action Gateways -->
-                        <div class="card-actions">
-                            <a asp-controller="Cart" asp-action="AddToCart" asp-route-productId="@item.ProductID" class="btn-cart">Add to Cart</a>
-                            <a asp-controller="Cart" asp-action="BuyNow" asp-route-productId="@item.ProductID" class="btn-buy">Buy Now</a>
-                        </div>
                     </div>
                 }
             }
@@ -92,8 +175,15 @@
                 <div style="grid-column: 1 / -1; text-align: center; padding: 50px; background: white; border-radius: 6px; border: 1px solid var(--border-color); color: #666;">
                     <h3 style="color: #333; margin-bottom: 8px;">No verified products found.</h3>
                     <p style="margin-bottom: 20px;">Merchants are currently uploading items through the AI vision verification pipeline.</p>
-                    <a asp-controller="Product" asp-action="Create" style="background: var(--brand-primary); color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 0.9rem;">List the First Product →</a>
                 </div>
             }
         </div>
     </section>
+    </main>
+    <footer style="text-align: center; padding: 20px 0; border-top: 1px solid #ddd; background: #fff; margin-top: auto; color: #6c757d; font-size: 0.9rem; width: 100%;">
+        <div class="container">
+            &copy; 2026 - FYP - <a asp-controller="Home" asp-action="Privacy" style="color: #007bff; text-decoration: none;">Privacy</a>
+        </div>
+    </footer>
+</body>
+</html>

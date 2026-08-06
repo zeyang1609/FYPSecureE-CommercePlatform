@@ -1,0 +1,454 @@
+@model IEnumerable<FYP.Models.Entities.Delivery>
+@{
+    ViewData["Title"] = "Courier Delivery Portal";
+    Layout = null;
+    
+    var orders = ViewBag.Orders as Dictionary<string, FYP.Models.Entities.Order>;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform Courier</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <style>
+        .courier-header {
+            background: linear-gradient(-180deg, #1e3c72, #2a5298);
+        }
+    </style>
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <header class="auth-navbar courier-header">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Courier" asp-action="Dashboard" class="brand-group">
+                    <svg viewBox="0 0 24 24" style="fill: white; width: 32px; height: 32px; margin-right: 8px;"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
+                    <span class="brand-text" style="color: white;">SPCourier</span>
+                </a>
+                <span class="page-label" style="color: rgba(255,255,255,0.8);">Delivery Operations</span>
+            </div>
+            <div>
+                <a asp-controller="Auth" asp-action="Logout" class="help-link" style="color: white; font-weight: 600;">Log Out</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+
+        <div class="dashboard-header">
+            <div>
+                <h1>Pending Deliveries</h1>
+                <p>Tracking parcels currently assigned to Courier ID: <strong>@User.Identity.Name</strong></p>
+            </div>
+            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🚚 Active Deliveries</span>
+        </div>
+
+        <div class="table-card">
+            @if (Model != null && Model.Any())
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tracking Info</th>
+                            <th>Parcel Information</th>
+                            <th>Delivery Address</th>
+                            <th>Buyer Contact</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            var order = orders != null && orders.ContainsKey(item.OrderID) ? orders[item.OrderID] : null;
+                            var address = order?.Buyer?.Addresses?.FirstOrDefault(a => a.IsDefault) ?? order?.Buyer?.Addresses?.FirstOrDefault();
+                            
+                            <tr>
+                                <td>
+                                    <strong style="font-size: 1.05rem; color: #1e3c72;">@item.TrackingNumber</strong><br/>
+                                    <span style="font-family: monospace; font-size: 0.85rem; color: #666;">@item.OrderID</span><br/>
+                                    <span style="font-size: 0.85rem;">Est: @item.EstimatedDeliveryDate?.ToString("MMM dd")</span>
+                                </td>
+                                <td style="max-width: 200px;">
+                                    @if(order?.OrderItems != null && order.OrderItems.Any())
+                                    {
+                                        <ul style="padding-left: 15px; margin: 0; font-size: 0.85rem; color: #444;">
+                                        @foreach(var oi in order.OrderItems)
+                                        {
+                                            <li>@oi.Quantity x @oi.Product?.Title</li>
+                                        }
+                                        </ul>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #999; font-size: 0.85rem;">No details</span>
+                                    }
+                                </td>
+                                <td style="max-width: 250px; font-size: 0.85rem;">
+                                    @if(address != null)
+                                    {
+                                        <strong>@address.FullName</strong><br/>
+                                        <text>@address.HouseBuildingStreet</text><br/>
+                                        @if(!string.IsNullOrEmpty(address.UnitNumber)) { <span>Unit @address.UnitNumber<br/></span> }
+                                        <text>@address.PostalCode, @address.StateArea</text><br/>
+                                        <span style="color: #666;">&#128222; @address.PhoneNumber</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #999;">Address not provided</span>
+                                    }
+                                </td>
+                                <td style="font-size: 0.85rem;">@(order?.Buyer?.Email ?? "N/A")</td>
+                                <td>
+                                    <span class="badge" style="background: #e8a317; color: white;">In Transit</span>
+                                </td>
+                                <td>
+                                    <form asp-controller="Courier" asp-action="MarkDelivered" method="post" style="margin:0;">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="deliveryId" value="@item.DeliveryID" />
+                                        <button type="submit" class="btn-submit-primary" style="padding: 6px 16px; font-size: 0.85rem; background: #28a745; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                                            Mark Delivered ✓
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <h3>No pending deliveries!</h3>
+                    <p>You have successfully delivered all packages currently assigned to you.</p>
+                </div>
+            }
+        </div>
+
+        <div class="dashboard-header" style="margin-top: 30px;">
+            <div>
+                <h2>Return & Refund Pickups</h2>
+                <p>Tracking buyer return parcels assigned to you.</p>
+            </div>
+            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px; background: #ee4d2d; color: white;">📦 Active Returns</span>
+        </div>
+
+        <div class="table-card">
+            @{ var returns = ViewBag.ReturnDeliveries as IEnumerable<FYP.Models.Entities.Refund>; }
+            @if (returns != null && returns.Any())
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tracking Info</th>
+                            <th>Items</th>
+                            <th>Pickup / Drop-off</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in returns)
+                        {
+                            var order = orders != null && orders.ContainsKey(item.OrderID) ? orders[item.OrderID] : null;
+                            var address = order?.Buyer?.Addresses?.FirstOrDefault(a => a.IsDefault) ?? order?.Buyer?.Addresses?.FirstOrDefault();
+                            
+                            <tr>
+                                <td>
+                                    <strong style="font-size: 1.05rem; color: #ee4d2d;">@item.ReturnTrackingNumber</strong><br/>
+                                    <span style="font-family: monospace; font-size: 0.85rem; color: #666;">@item.OrderID</span><br/>
+                                </td>
+                                <td style="max-width: 200px;">
+                                    @if(order?.OrderItems != null && order.OrderItems.Any())
+                                    {
+                                        <ul style="padding-left: 15px; margin: 0; font-size: 0.85rem; color: #444;">
+                                        @foreach(var oi in order.OrderItems)
+                                        {
+                                            <li>@oi.Quantity x @oi.Product?.Title</li>
+                                        }
+                                        </ul>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #999; font-size: 0.85rem;">No details</span>
+                                    }
+                                </td>
+                                <td style="max-width: 250px; font-size: 0.85rem;">
+                                    @if(item.ReturnMethod == "Pick-Up" && address != null)
+                                    {
+                                        <strong>@address.FullName | @address.PhoneNumber</strong><br/>
+                                        @address.HouseBuildingStreet<span>, </span>@address.StateArea<br/>
+                                        @address.PostalCode
+                                    }
+                                    else
+                                    {
+                                        <span>(Drop-Off at Branch)</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge" style="background: @(item.Status == "RETURN_APPROVED" ? "#e8a317" : "#0284c7"); color: white;">
+                                        @(item.Status == "RETURN_APPROVED" ? "Pending Pick Up" : "In Transit to Seller")
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (item.Status == "RETURN_APPROVED")
+                                    {
+                                        <form asp-controller="Courier" asp-action="PickupReturn" method="post" style="margin:0;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="refundId" value="@item.RefundID" />
+                                            <button type="submit" class="btn-submit-primary" style="padding: 6px 16px; font-size: 0.85rem; background: #e8a317; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                                                Accept Pick Up
+                                            </button>
+                                        </form>
+                                    }
+                                    else if (item.Status == "RETURN_IN_TRANSIT")
+                                    {
+                                        <form asp-controller="Courier" asp-action="DeliverReturn" method="post" style="margin:0;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="refundId" value="@item.RefundID" />
+                                            <button type="submit" class="btn-submit-primary" style="padding: 6px 16px; font-size: 0.85rem; background: #28a745; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                                                Mark Delivered ✓
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <h3>No pending returns!</h3>
+                    <p>There are no buyer returns assigned for pickup or delivery.</p>
+                </div>
+            }
+        </div>
+
+        <div class="dashboard-card" style="margin-top: 30px;">
+            <div class="card-header">
+                <h2>Delivery History</h2>
+            </div>
+            
+            @if (ViewBag.DeliveryHistory != null && ((IEnumerable<FYP.Models.Entities.Delivery>)ViewBag.DeliveryHistory).Any())
+            {
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tracking Info</th>
+                                <th>Delivery Address</th>
+                                <th>Status</th>
+                                <th>Delivered At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var historyItem in (IEnumerable<FYP.Models.Entities.Delivery>)ViewBag.DeliveryHistory)
+                            {
+                                var order = ViewBag.Orders != null && ((Dictionary<string, FYP.Models.Entities.Order>)ViewBag.Orders).ContainsKey(historyItem.OrderID) 
+                                            ? ((Dictionary<string, FYP.Models.Entities.Order>)ViewBag.Orders)[historyItem.OrderID] 
+                                            : null;
+                                var address = order?.Buyer?.Addresses?.FirstOrDefault(a => a.IsDefault);
+                                
+                                <tr>
+                                    <td>
+                                        <div style="font-weight: 600; color: #1e3c72; margin-bottom: 4px;">@historyItem.TrackingNumber</div>
+                                        <div style="font-size: 0.8rem; color: #666;">Order ID: @historyItem.OrderID</div>
+                                    </td>
+                                    <td>
+                                        @if(address != null)
+                                        {
+                                            <div style="font-size: 0.85rem;">
+                                                <strong>@address.FullName</strong><br/>
+                                                <span style="color: #666;">@address.PostalCode, @address.StateArea</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span style="color: #999; font-size: 0.85rem;">Address not provided</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background: #28a745; color: white;">Delivered ✓</span>
+                                    </td>
+                                    <td style="font-size: 0.85rem;">
+                                        @(historyItem.ActualDeliveryDate?.ToString("MMM dd, yyyy HH:mm") ?? "N/A")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            
+            @if (ViewBag.ReturnHistory != null && ((IEnumerable<FYP.Models.Entities.Refund>)ViewBag.ReturnHistory).Any())
+            {
+                <h3 style="margin-top: 30px; margin-bottom: 15px; font-size: 1.1rem; color: #444; border-bottom: 1px solid #eee; padding-bottom: 8px;">Completed Returns</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Return Tracking</th>
+                                <th>Pickup / Drop-off</th>
+                                <th>Status</th>
+                                <th>Requested At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var historyItem in (IEnumerable<FYP.Models.Entities.Refund>)ViewBag.ReturnHistory)
+                            {
+                                var order = ViewBag.Orders != null && ((Dictionary<string, FYP.Models.Entities.Order>)ViewBag.Orders).ContainsKey(historyItem.OrderID) 
+                                            ? ((Dictionary<string, FYP.Models.Entities.Order>)ViewBag.Orders)[historyItem.OrderID] 
+                                            : null;
+                                var address = order?.Buyer?.Addresses?.FirstOrDefault(a => a.IsDefault);
+                                
+                                <tr>
+                                    <td>
+                                        <div style="font-weight: 600; color: #ee4d2d; margin-bottom: 4px;">@historyItem.ReturnTrackingNumber</div>
+                                        <div style="font-size: 0.8rem; color: #666;">Order ID: @historyItem.OrderID</div>
+                                    </td>
+                                    <td>
+                                        @if(historyItem.ReturnMethod == "Pick-Up" && address != null)
+                                        {
+                                            <div style="font-size: 0.85rem;">
+                                                <strong>@address.FullName</strong><br/>
+                                                <span style="color: #666;">@address.PostalCode, @address.StateArea</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span style="color: #999; font-size: 0.85rem;">Drop-Off</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background: #28a745; color: white;">Delivered ✓</span>
+                                    </td>
+                                    <td style="font-size: 0.85rem;">
+                                        @(historyItem.RequestedAt?.ToString("MMM dd, yyyy HH:mm") ?? "N/A")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <h3>No history available</h3>
+                    <p>Your completed deliveries will appear here.</p>
+                </div>
+            }
+        </div>
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const forms = document.querySelectorAll('.data-table form');
+            
+            forms.forEach(form => {
+                form.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    
+                    const btn = form.querySelector('button[type="submit"]');
+                    const originalText = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<span style="opacity: 0.7;">Processing...</span>';
+                    
+                    const formData = new FormData(form);
+                    const url = form.getAttribute('action');
+                    
+                    try {
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            
+                            // Show toast
+                            showToast(result.message || 'Action completed successfully!', 'success');
+                            
+                            // Animate row removal
+                            const tr = form.closest('tr');
+                            tr.style.transition = 'all 0.5s ease';
+                            tr.style.opacity = '0';
+                            tr.style.transform = 'translateX(20px)';
+                            
+                            setTimeout(() => {
+                                tr.remove();
+                                
+                                // Check if tables are empty
+                                document.querySelectorAll('.data-table').forEach(table => {
+                                    if (table.querySelectorAll('tbody tr').length === 0) {
+                                        table.parentElement.innerHTML = '<div style="text-align: center; padding: 40px; color: #888;"><h3>All caught up!</h3><p>No more pending items here.</p></div>';
+                                    }
+                                });
+                            }, 500);
+                        } else {
+                            showToast('Error processing request. Please try again.', 'error');
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showToast('Network error occurred.', 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    }
+                });
+            });
+        });
+        
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.style.padding = '12px 20px';
+            toast.style.marginBottom = '10px';
+            toast.style.borderRadius = '4px';
+            toast.style.color = 'white';
+            toast.style.fontWeight = '500';
+            toast.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+            toast.style.transition = 'opacity 0.4s ease';
+            toast.style.opacity = '0';
+            
+            if (type === 'success') {
+                toast.style.background = '#10b981'; // Green
+            } else {
+                toast.style.background = '#ef4444'; // Red
+            }
+            
+            toast.innerText = message;
+            document.getElementById('toastContainer').appendChild(toast);
+            
+            // Fade in
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+            });
+            
+            // Fade out and remove
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

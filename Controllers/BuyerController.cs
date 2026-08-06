@@ -73,12 +73,37 @@ namespace FYP.Controllers
             var orders = await _context.Orders
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
+                        .ThenInclude(p => p.Seller)
                 .Include(o => o.Payment)
+                .Include(o => o.Reviews)
+                .Include(o => o.Refunds)
                 .Where(o => o.BuyerID == buyerId)
                 .OrderByDescending(o => o.CreatedAt)
-                .ToListAsync(); 
+                .ToListAsync();
 
             ViewBag.BuyerID = buyerId;
+
+            bool changesMade = false;
+            var now = DateTime.UtcNow;
+            foreach (var order in orders)
+            {
+                if (order.Status == "Pending" || order.Status == "Pending Payment")
+                {
+                    if (order.CreatedAt.AddHours(5) <= now)
+                    {
+                        order.Status = "Cancelled";
+                        if (!order.ServiceType.Contains("CancelledBySystem"))
+                            order.ServiceType += "|CancelledBySystem";
+                        changesMade = true;
+                    }
+                }
+            }
+
+            if (changesMade)
+            {
+                await _context.SaveChangesAsync();
+            }
+
             return View(orders);
         }
 
@@ -89,8 +114,11 @@ namespace FYP.Controllers
             var order = await _context.Orders
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
+                        .ThenInclude(p => p.Seller)
                 .Include(o => o.Payment)
                 .Include(o => o.FraudAlert)
+                .Include(o => o.Reviews)
+                .Include(o => o.Refunds)
                 .FirstOrDefaultAsync(o => o.OrderID == orderId); 
 
             if (order == null)
@@ -98,41 +126,324 @@ namespace FYP.Controllers
                 return NotFound("Order not found.");
             }
 
+            var delivery = await _context.Deliveries.FirstOrDefaultAsync(d => d.OrderID == orderId);
+
             ViewBag.BuyerID = order.BuyerID;
+            ViewBag.Delivery = delivery;
             return View(order);
         }
 
-        // POST: /Buyer/RequestRefund
+        // POST: /Buyer/MarkOrderReceived
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RequestRefund(string orderId, decimal refundAmount, string reason)
+        public async Task<IActionResult> MarkOrderReceived(string orderId)
+        {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId);
+            
+            if (order != null)
+            {
+                order.Status = "Completed";
+                order.CompletedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = $"Order {orderId} has been marked as received!";
+            }
+            
+            return RedirectToAction("Orders");
+        }
+
+        // POST: /Buyer/SubmitReview
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SubmitReview(
+            string orderId, 
+            string productId, 
+            int rating, 
+            string comment, 
+            string quality, 
+            string functionality, 
+            string[] tags, 
+            bool isAnonymous, 
+            List<IFormFile> imageFiles, 
+            IFormFile videoFile)
+        {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var order = await _context.Orders.Include(o => o.OrderItems).FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId);
+            
+            if (order == null || order.Status != "Completed")
+            {
+                return BadRequest("Invalid order or order not completed.");
+            }
+
+            string mediaUrl = "";
+            var urls = new List<string>();
+            string uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "reviews");
+            if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+            if (imageFiles != null && imageFiles.Count > 0)
+            {
+                int maxImages = Math.Min(imageFiles.Count, 5); // Limit to 5 images
+                for (int i = 0; i < maxImages; i++)
+                {
+                    var file = imageFiles[i];
+                    if (!IsValidImage(file)) return BadRequest("Invalid image format. Only .jpg, .jpeg, and .png are allowed.");
+                    if (file.Length > 0 && file.Length <= 10 * 1024 * 1024)
+                    {
+                        string uniqueFileName = Guid.NewGuid().ToString() + "_" + file.FileName;
+                        string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                        using (var fileStream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await file.CopyToAsync(fileStream);
+                        }
+                        urls.Add("/uploads/reviews/" + uniqueFileName);
+                    }
+                }
+            }
+
+            if (videoFile != null && videoFile.Length > 0)
+            {
+                if (!IsValidVideo(videoFile)) return BadRequest("Invalid video format. Only .mp4 is allowed.");
+                if (videoFile.Length <= 100 * 1024 * 1024)
+                {
+                    string uniqueFileName = Guid.NewGuid().ToString() + "_" + videoFile.FileName;
+                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await videoFile.CopyToAsync(fileStream);
+                    }
+                    urls.Add("/uploads/reviews/" + uniqueFileName);
+                }
+            }
+            mediaUrl = string.Join(";", urls);
+
+            var formattedComment = "";
+            if (isAnonymous)
+            {
+                formattedComment += "[Anonymous Review]\n";
+            }
+            if (!string.IsNullOrEmpty(quality))
+            {
+                formattedComment += $"Quality: {quality}\n";
+            }
+            if (!string.IsNullOrEmpty(functionality))
+            {
+                formattedComment += $"Functionality: {functionality}\n";
+            }
+            if (tags != null && tags.Length > 0)
+            {
+                formattedComment += $"Tags: {string.Join(", ", tags)}\n";
+            }
+            if (!string.IsNullOrEmpty(comment))
+            {
+                formattedComment += $"\n{comment}";
+            }
+
+            var reviewId = "REV-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            var review = new Review
+            {
+                ReviewID = reviewId,
+                OrderID = orderId,
+                ProductID = productId,
+                BuyerID = buyerId,
+                Rating = rating,
+                Comment = formattedComment.Trim(),
+                MediaUrl = mediaUrl,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            order.IsRated = true;
+            _context.Reviews.Add(review);
+            
+            // Print server-side debug info to terminal
+            Console.WriteLine($"[SubmitReview Debug] OrderId: {orderId}, ProductId: {productId}, Rating: {rating}");
+            Console.WriteLine($"[SubmitReview Debug] Image null? {imageFiles == null}, Count: {imageFiles?.Count}. Video null? {videoFile == null}, Length: {videoFile?.Length} B.");
+            Console.WriteLine($"[SubmitReview Debug] MediaUrl saved to DB: {mediaUrl}");
+
+            // Log security audit trail
+            var auditLog = new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = buyerId,
+                Action = $"Product rated for Order {orderId} (Rating: {rating}). Images: {imageFiles?.Count ?? 0}, Video: {(videoFile != null ? videoFile.FileName + " (" + videoFile.Length + "B)" : "None")}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+
+            await _context.SaveChangesAsync();
+            
+            TempData["SuccessMessage"] = "Review submitted successfully!";
+            return RedirectToAction("Orders");
+        }
+
+        // POST: /Buyer/UpdateReview
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateReview(string orderId, string comment, List<IFormFile> imageFiles, IFormFile videoFile)
+        {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var review = await _context.Reviews.FirstOrDefaultAsync(r => r.OrderID == orderId && r.BuyerID == buyerId);
+
+            if (review == null)
+            {
+                return Json(new { success = false, message = "Review not found." });
+            }
+
+            if ((imageFiles != null && imageFiles.Count > 0) || (videoFile != null && videoFile.Length > 0))
+            {
+                var urls = new List<string>();
+                string uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "reviews");
+                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+                if (imageFiles != null && imageFiles.Count > 0)
+                {
+                    int maxImages = Math.Min(imageFiles.Count, 5);
+                    for (int i = 0; i < maxImages; i++)
+                    {
+                        var file = imageFiles[i];
+                        if (!IsValidImage(file)) return Json(new { success = false, message = "Invalid image format. Only .jpg, .jpeg, and .png are allowed." });
+                        if (file.Length > 0 && file.Length <= 10 * 1024 * 1024)
+                        {
+                            string uniqueFileName = Guid.NewGuid().ToString() + "_" + file.FileName;
+                            string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                            using (var fileStream = new FileStream(filePath, FileMode.Create))
+                            {
+                                await file.CopyToAsync(fileStream);
+                            }
+                            urls.Add("/uploads/reviews/" + uniqueFileName);
+                        }
+                    }
+                }
+
+                if (videoFile != null && videoFile.Length > 0 && videoFile.Length <= 100 * 1024 * 1024)
+                {
+                    if (!IsValidVideo(videoFile)) return Json(new { success = false, message = "Invalid video format. Only .mp4 is allowed." });
+                    string uniqueFileName = Guid.NewGuid().ToString() + "_" + videoFile.FileName;
+                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await videoFile.CopyToAsync(fileStream);
+                    }
+                    urls.Add("/uploads/reviews/" + uniqueFileName);
+                }
+                
+                review.MediaUrl = string.Join(";", urls);
+            }
+
+            if (!string.IsNullOrWhiteSpace(comment))
+            {
+                review.Comment = comment.Trim();
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        // GET: /Buyer/RequestRefundForm
+        [HttpGet]
+        public async Task<IActionResult> RequestRefundForm(string orderId, string issueType)
+        {
+            var order = await _context.Orders
+                .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Seller)
+                .FirstOrDefaultAsync(o => o.OrderID == orderId);
+            
+            if (order == null)
+                return NotFound();
+            
+            ViewBag.IssueType = issueType;
+            return View(order);
+        }
+
+        // POST: /Buyer/SubmitRefundRequest
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SubmitRefundRequest(string orderId, string issueType, string reason, string description, string refundEmail, List<IFormFile> imageFiles, IFormFile videoFile)
         {
             var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId); 
-            if (order == null)
+            if (order == null) return NotFound();
+
+            string mediaUrl = "";
+            var urls = new List<string>();
+            string uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "refunds");
+            if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+            if (imageFiles != null && imageFiles.Count > 0)
             {
-                return NotFound();
+                int maxImages = Math.Min(imageFiles.Count, 5); // Limit to 5 images
+                for (int i = 0; i < maxImages; i++)
+                {
+                    var file = imageFiles[i];
+                    if (!IsValidImage(file))
+                    {
+                        TempData["ErrorMessage"] = "Invalid image format. Only .jpg, .jpeg, and .png are allowed.";
+                        return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+                    }
+                    if (file.Length > 10 * 1024 * 1024)
+                    {
+                        TempData["ErrorMessage"] = "Image size cannot exceed 10MB.";
+                        return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+                    }
+                    
+                    string uniqueFileName = Guid.NewGuid().ToString() + "_" + file.FileName;
+                    string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(fileStream);
+                    }
+                    urls.Add("/uploads/refunds/" + uniqueFileName);
+                }
             }
+
+            if (videoFile != null && videoFile.Length > 0)
+            {
+                if (!IsValidVideo(videoFile))
+                {
+                    TempData["ErrorMessage"] = "Invalid video format. Only .mp4 is allowed.";
+                    return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+                }
+                if (videoFile.Length > 100 * 1024 * 1024)
+                {
+                    TempData["ErrorMessage"] = "Video size cannot exceed 100MB.";
+                    return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+                }
+                
+                string uniqueFileName = Guid.NewGuid().ToString() + "_" + videoFile.FileName;
+                string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await videoFile.CopyToAsync(fileStream);
+                }
+                urls.Add("/uploads/refunds/" + uniqueFileName);
+            }
+
+            mediaUrl = string.Join(";", urls);
 
             string refundId = "RFD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
             var refund = new Refund
             {
                 RefundID = refundId,
                 OrderID = orderId,
-                RefundAmount = refundAmount,
-                Status = "Requested"
+                RefundAmount = order.TotalAmount,
+                Status = "RETURN_REQUESTED",
+                IssueType = issueType,
+                Reason = reason,
+                Description = description,
+                RefundEmail = refundEmail,
+                MediaUrl = mediaUrl,
+                ReturnMethod = "Drop-Off", // Default Return Method
+                RequestedAt = DateTime.UtcNow
             }; 
 
-            // Log security audit trail (Updated currency to RM)
             var auditLog = new AuditLog
             {
                 LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                 UserID = order.BuyerID,
-                Action = $"Refund requested for Order {orderId} (Amount: RM {refundAmount:0.00})",
+                Action = $"Refund requested for Order {orderId} (Amount: RM {order.TotalAmount:0.00})",
                 IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
                 Timestamp = DateTime.UtcNow
             };
 
-            // Notify buyer/platform
             var notification = new Notification
             {
                 NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
@@ -147,8 +458,9 @@ namespace FYP.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = "Refund request submitted successfully.";
-            return RedirectToAction(nameof(Orders), new { buyerId = order.BuyerID });
+            return RedirectToAction(nameof(RefundTracking), new { refundId = refundId });
         }
+
 
         // GET: /Buyer/Profile
         [HttpGet]
@@ -578,7 +890,7 @@ namespace FYP.Controllers
     }
 
     [HttpPost]
-    public async Task<IActionResult> SaveAddress(int? AddressID, string FullName, string PhoneNumber, string StateArea, string PostalCode, string UnitNumber, string HouseBuildingStreet, string Label, bool IsDefault)
+    public async Task<IActionResult> SaveAddress(int? AddressID, string FullName, string PhoneNumber, string StateArea, string PostalCode, string UnitNumber, string HouseBuildingStreet, string Label, bool IsDefault, decimal? Latitude, decimal? Longitude, string returnUrl = null)
     {
         var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
@@ -606,6 +918,8 @@ namespace FYP.Controllers
                 addr.HouseBuildingStreet = HouseBuildingStreet;
                 addr.Label = Label;
                 addr.IsDefault = IsDefault;
+                addr.Latitude = Latitude;
+                addr.Longitude = Longitude;
                 TempData["SuccessMessage"] = "Address updated successfully.";
             }
         }
@@ -622,13 +936,19 @@ namespace FYP.Controllers
                 UnitNumber = UnitNumber,
                 HouseBuildingStreet = HouseBuildingStreet,
                 Label = Label,
-                IsDefault = IsDefault
+                IsDefault = IsDefault,
+                Latitude = Latitude,
+                Longitude = Longitude
             };
             _context.Addresses.Add(addr);
             TempData["SuccessMessage"] = "Address added successfully.";
         }
 
         await _context.SaveChangesAsync();
+        if (!string.IsNullOrEmpty(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
         return RedirectToAction("Addresses");
     }
 
@@ -723,6 +1043,21 @@ namespace FYP.Controllers
         return View(model);
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResendChangePasswordOtp()
+    {
+        var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+
+        if (user != null)
+        {
+            await _otpService.GenerateAndSendOtpAsync(user.Email, "Change Password");
+            return Json(new { success = true, message = "OTP sent successfully." });
+        }
+        return Json(new { success = false, message = "User not found." });
+    }
+
     [HttpGet]
     public IActionResult ChangePasswordNew()
     {
@@ -765,6 +1100,121 @@ namespace FYP.Controllers
         }
         return View(model);
     }
+
+        public async Task<IActionResult> RefundTracking(string refundId)
+        {
+            var refund = await _context.Refunds
+                .Include(r => r.Order)
+                .ThenInclude(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .Include(r => r.Order.Buyer)
+                .ThenInclude(b => b.Addresses)
+                .FirstOrDefaultAsync(r => r.RefundID == refundId);
+
+            if (refund == null)
+            {
+                return NotFound("Refund request not found.");
+            }
+
+            return View(refund);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateReturnMethod(string refundId, string returnMethod, string? dropOffCourier, string? pickupDate, int? pickupAddressId)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            if (refund != null)
+            {
+                refund.ReturnMethod = returnMethod;
+                
+                if (returnMethod == "Drop-Off" && !string.IsNullOrEmpty(dropOffCourier))
+                {
+                    refund.ReturnCourier = dropOffCourier;
+                    refund.PickupDate = null;
+                    refund.PickupAddressID = null;
+                }
+                else if (returnMethod == "Pick-Up")
+                {
+                    refund.ReturnCourier = "J&T Express";
+                    
+                    if (!string.IsNullOrEmpty(pickupDate) && DateTime.TryParse(pickupDate, out DateTime pd))
+                    {
+                        refund.PickupDate = pd;
+                    }
+                    if (pickupAddressId.HasValue)
+                    {
+                        refund.PickupAddressID = pickupAddressId.Value;
+                    }
+                }
+                
+                await _context.SaveChangesAsync();
+                return Ok();
+            }
+            return NotFound();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CancelRefundRequest(string refundId)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            
+            // Only allow cancellation if the request is still pending seller approval or pending pickup/drop-off
+            if (refund != null && (refund.Status == "RETURN_REQUESTED" || refund.Status == "Requested" || refund.Status == "RETURN_APPROVED"))
+            {
+                _context.Refunds.Remove(refund);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Refund request cancelled successfully.";
+                return RedirectToAction("Orders", new { buyerId = refund.Order?.BuyerID });
+            }
+            
+            TempData["ErrorMessage"] = "Refund request cannot be cancelled at this stage.";
+            return RedirectToAction(nameof(RefundTracking), new { refundId = refundId });
+        }
+
+    [HttpPost]
+    public async Task<IActionResult> CancelOrder([FromBody] System.Text.Json.JsonElement requestData)
+    {
+        try
+        {
+            string orderId = requestData.GetProperty("orderId").GetString();
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == userId);
+            
+            if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
+            {
+                return BadRequest(new { success = false, message = "Order cannot be cancelled at this stage." });
+            }
+            
+            order.Status = "Cancelled";
+            if (!order.ServiceType.Contains("CancelledByUser"))
+                order.ServiceType += "|CancelledByUser";
+                
+            await _context.SaveChangesAsync();
+            
+            return Json(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+        private bool IsValidImage(IFormFile file)
+        {
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return allowedExtensions.Contains(extension);
+        }
+
+        private bool IsValidVideo(IFormFile file)
+        {
+            var allowedExtensions = new[] { ".mp4" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return allowedExtensions.Contains(extension);
+        }
 }
 
     public class SyncCardRequest

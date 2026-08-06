@@ -1,0 +1,425 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ccc;
+        border-top: none;
+        z-index: 2000;
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        display: none;
+    }
+    .autocomplete-item {
+        padding: 10px;
+        font-size: 13px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+    .autocomplete-item:hover {
+        background-color: #f5f5f5;
+    }
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+</style>
+
+<!-- Add Address Modal Overlay -->
+<div id="addAddressModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: white; width: 500px; border-radius: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden;">
+        <div style="padding: 20px; font-size: 18px; font-weight: 500; color: #333; border-bottom: 1px solid #efefef;">
+            New Address
+        </div>
+        
+        <form action="/Buyer/SaveAddress" method="post" id="addAddressForm" style="margin: 0; display: flex; flex-direction: column; flex: 1;">
+            <input type="hidden" name="returnUrl" id="AddressReturnUrl" value="@ViewData["ReturnUrl"]" />
+            <input type="hidden" id="AddressID" name="AddressID" value="0" />
+            <div style="padding: 20px; overflow-y: auto; max-height: 70vh;">
+                <!-- Full Name & Phone -->
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1; position: relative;">
+                        <input type="text" id="FullName" name="FullName" placeholder="Full Name" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 2px; font-size: 14px; outline: none;" onfocus="clearNameError()" autocomplete="off" />
+                        <div id="nameError" style="color: #ee4d2d; font-size: 12px; margin-top: 4px; display: none;"></div>
+                    </div>
+                    <div style="flex: 1; position: relative;">
+                        <input type="text" id="PhoneNumber" name="PhoneNumber" placeholder="Phone Number" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 2px; font-size: 14px; outline: none;" oninput="formatPhone(this)" onfocus="clearPhoneError()" autocomplete="off" />
+                        <div id="phoneError" style="color: #ee4d2d; font-size: 12px; margin-top: 4px; display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- State Area & Postal Code -->
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1; position: relative;">
+                        <input type="text" id="StateArea" name="StateArea" placeholder="State / Area" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 2px; font-size: 14px; outline: none;" autocomplete="off" oninput="checkStreetEnable()" />
+                        <div id="stateAreaDropdown" class="autocomplete-dropdown"></div>
+                    </div>
+                    <div style="flex: 1; position: relative;">
+                        <input type="text" id="PostalCode" name="PostalCode" placeholder="Postal Code" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 2px; font-size: 14px; outline: none;" onfocus="clearPostalError()" oninput="checkStreetEnable()" autocomplete="off" />
+                        <div id="postalError" style="color: #ee4d2d; font-size: 12px; margin-top: 4px; display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- Street / Building -->
+                <div style="margin-bottom: 15px; position: relative;">
+                    <input type="text" id="HouseBuildingStreet" name="HouseBuildingStreet" placeholder="House number, Building, Street name" required disabled style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 2px; font-size: 14px; outline: none; background-color: #f5f5f5;" autocomplete="off" title="Please enter State and Postal Code first" />
+                    <div id="streetDropdown" class="autocomplete-dropdown"></div>
+                </div>
+
+                <!-- Unit Number (Optional) -->
+                <div style="margin-bottom: 15px;">
+                    <input type="text" name="UnitNumber" placeholder="Unit number (Optional)" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 2px; font-size: 14px; outline: none;" />
+                </div>
+
+                <!-- Map Display -->
+                <div style="margin-bottom: 15px; border: 1px solid #ccc; border-radius: 2px;">
+                    <div id="addressMap" style="width: 100%; height: 250px;"></div>
+                    <div style="padding: 8px; font-size: 12px; color: #666; text-align: center; background: #f9f9f9;">
+                        Drag the pin to set your exact location.
+                    </div>
+                </div>
+
+                <!-- Label -->
+                <div style="margin-bottom: 15px;">
+                    <div style="font-size: 14px; color: #666; margin-bottom: 8px;">Label As:</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="hidden" id="Label" name="Label" value="Home" />
+                        <button type="button" id="btnHome" onclick="setLabel('Home')" style="border: 1px solid #ee4d2d; color: #ee4d2d; background: white; padding: 6px 15px; border-radius: 2px; font-size: 14px; cursor: pointer;">Home</button>
+                        <button type="button" id="btnWork" onclick="setLabel('Work')" style="border: 1px solid #ccc; color: #666; background: white; padding: 6px 15px; border-radius: 2px; font-size: 14px; cursor: pointer;">Work</button>
+                    </div>
+                </div>
+
+                <!-- Default Checkbox -->
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 20px;">
+                    <input type="checkbox" id="IsDefault" name="IsDefault" value="true" style="width: 16px; height: 16px; cursor: pointer;" />
+                    <label for="IsDefault" style="font-size: 14px; color: #333; cursor: pointer;">Set as default address</label>
+                </div>
+                
+                <input type="hidden" id="Latitude" name="Latitude" value="" />
+                <input type="hidden" id="Longitude" name="Longitude" value="" />
+            </div>
+
+            <!-- Footer Buttons -->
+            <div style="padding: 15px 20px; border-top: 1px solid #efefef; display: flex; justify-content: flex-end; gap: 10px; background: #fafafa;">
+                <button type="button" onclick="closeAddAddressModal()" style="background: white; border: 1px solid #ccc; padding: 8px 20px; font-size: 14px; color: #333; border-radius: 2px; cursor: pointer;">Cancel</button>
+                <button type="button" onclick="validateAndSubmit()" style="background: #ee4d2d; border: none; padding: 8px 20px; font-size: 14px; color: white; border-radius: 2px; cursor: pointer;">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let map, marker;
+    let debounceTimer;
+
+    function initMap(lat = 3.139, lng = 101.686) {
+        if (map) {
+            map.setView([lat, lng], 13);
+            marker.setLatLng([lat, lng]);
+            return;
+        }
+
+        map = L.map('addressMap').setView([lat, lng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        
+        marker.on('dragend', function (event) {
+            const position = marker.getLatLng();
+            document.getElementById('Latitude').value = position.lat;
+            document.getElementById('Longitude').value = position.lng;
+        });
+
+        // Ensure map renders correctly when modal is displayed
+        setTimeout(() => map.invalidateSize(), 300);
+    }
+
+    function openAddAddressModal() {
+        document.getElementById('AddressID').value = '0';
+        document.getElementById('Latitude').value = '';
+        document.getElementById('Longitude').value = '';
+        document.getElementById('addAddressModal').style.display = 'flex';
+        initMap(); // Default to KL
+    }
+
+    function openEditAddressModal(id, fullName, phone, state, postal, unit, street, label, isDefault, lat, lng) {
+        document.getElementById('AddressID').value = id;
+        document.getElementById('FullName').value = fullName;
+        document.getElementById('PhoneNumber').value = phone;
+        document.getElementById('StateArea').value = state;
+        document.getElementById('PostalCode').value = postal;
+        document.getElementsByName('UnitNumber')[0].value = unit;
+        document.getElementById('HouseBuildingStreet').value = street;
+        
+        setLabel(label);
+        document.getElementById('IsDefault').checked = isDefault;
+
+        document.getElementById('Latitude').value = lat || '';
+        document.getElementById('Longitude').value = lng || '';
+
+        document.getElementById('addAddressModal').style.display = 'flex';
+        initMap(lat || 3.139, lng || 101.686);
+        checkStreetEnable();
+        initMap(lat || 3.139, lng || 101.686);
+    }
+
+    function closeAddAddressModal() {
+        document.getElementById('addAddressModal').style.display = 'none';
+        document.getElementById('addAddressForm').reset();
+        document.getElementById('AddressID').value = '0';
+        checkStreetEnable();
+        setLabel('Home');
+        clearNameError();
+        clearPhoneError();
+        clearPostalError();
+    }
+
+    function setLabel(val) {
+        document.getElementById('Label').value = val;
+        if (val === 'Home') {
+            document.getElementById('btnHome').style.borderColor = '#ee4d2d';
+            document.getElementById('btnHome').style.color = '#ee4d2d';
+            document.getElementById('btnWork').style.borderColor = '#ccc';
+            document.getElementById('btnWork').style.color = '#666';
+        } else {
+            document.getElementById('btnWork').style.borderColor = '#ee4d2d';
+            document.getElementById('btnWork').style.color = '#ee4d2d';
+            document.getElementById('btnHome').style.borderColor = '#ccc';
+            document.getElementById('btnHome').style.color = '#666';
+        }
+    }
+
+    function checkStreetEnable() {
+        const stateInput = document.getElementById('StateArea').value.trim();
+        const postalInput = document.getElementById('PostalCode').value.trim();
+        const streetInput = document.getElementById('HouseBuildingStreet');
+
+        if (stateInput.length > 0 && postalInput.length >= 5) {
+            streetInput.disabled = false;
+            streetInput.style.backgroundColor = 'white';
+            streetInput.title = "";
+        } else {
+            streetInput.disabled = true;
+            streetInput.style.backgroundColor = '#f5f5f5';
+            streetInput.title = "Please enter State and Postal Code first";
+        }
+    }
+
+    // State & Area Autocomplete (Does NOT touch the map)
+    function setupStateAutocomplete() {
+        const input = document.getElementById('StateArea');
+        const dropdown = document.getElementById('stateAreaDropdown');
+
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const query = input.value.trim();
+            if (query.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                // Limit to states in Malaysia
+                fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&countrycodes=my&limit=5&accept-language=en`)
+                    .then(res => res.json())
+                    .then(data => {
+                        dropdown.innerHTML = '';
+                        if (data.length === 0) {
+                            dropdown.style.display = 'none';
+                            return;
+                        }
+
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'autocomplete-item';
+                            div.textContent = item.display_name;
+                            div.onclick = function() {
+                                // Just grab the first chunk for State/Area to keep it short
+                                input.value = item.display_name.split(',')[0].trim();
+                                dropdown.style.display = 'none';
+                                checkStreetEnable(); // Re-trigger enable check
+                            };
+                            dropdown.appendChild(div);
+                        });
+                        dropdown.style.display = 'block';
+                    });
+            }, 500);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (e.target !== input && e.target !== dropdown) {
+                dropdown.style.display = 'none';
+            }
+        });
+    }
+
+    // Street Autocomplete (Updates Map & Coordinates)
+    function setupStreetAutocomplete() {
+        const input = document.getElementById('HouseBuildingStreet');
+        const dropdown = document.getElementById('streetDropdown');
+
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const streetQuery = input.value.trim();
+            if (streetQuery.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            const stateQuery = document.getElementById('StateArea').value.trim();
+            const fullQuery = `${streetQuery} ${stateQuery}`;
+
+            debounceTimer = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullQuery)}&format=json&countrycodes=my&limit=5&accept-language=en`)
+                    .then(res => res.json())
+                    .then(data => {
+                        dropdown.innerHTML = '';
+                        if (data.length === 0) {
+                            dropdown.style.display = 'none';
+                            return;
+                        }
+
+                        data.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'autocomplete-item';
+                            div.textContent = item.display_name;
+                            div.onclick = function() {
+                                input.value = item.display_name.split(',')[0].trim();
+                                dropdown.style.display = 'none';
+                                
+                                const lat = parseFloat(item.lat);
+                                const lon = parseFloat(item.lon);
+                                
+                                document.getElementById('Latitude').value = lat;
+                                document.getElementById('Longitude').value = lon;
+                                
+                                initMap(lat, lon);
+                            };
+                            dropdown.appendChild(div);
+                        });
+                        dropdown.style.display = 'block';
+                    });
+            }, 500);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (e.target !== input && e.target !== dropdown) {
+                dropdown.style.display = 'none';
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        setupStateAutocomplete();
+        setupStreetAutocomplete();
+        checkStreetEnable();
+    });
+
+    function formatPhone(input) {
+        let val = input.value.replace(/\D/g, ''); 
+        
+        if (val.startsWith('01')) {
+            val = '6' + val; 
+        }
+
+        if (val.startsWith('60')) {
+            if (val.length > 4) {
+                input.value = '+' + val.substring(0, 4) + ' ' + val.substring(4, 12);
+            } else {
+                input.value = '+' + val;
+            }
+        } else if (val.length > 0) {
+            input.value = val;
+        }
+    }
+
+    function clearNameError() {
+        const err = document.getElementById('nameError');
+        err.style.display = 'none';
+        err.innerText = '';
+        document.getElementById('FullName').style.borderColor = '#ccc';
+    }
+
+    function clearPhoneError() {
+        const err = document.getElementById('phoneError');
+        if (err) {
+            err.style.display = 'none';
+            err.innerText = '';
+            document.getElementById('PhoneNumber').style.borderColor = '#ccc';
+        }
+    }
+
+    function clearPostalError() {
+        const err = document.getElementById('postalError');
+        if (err) {
+            err.style.display = 'none';
+            err.innerText = '';
+            document.getElementById('PostalCode').style.borderColor = '#ccc';
+        }
+    }
+
+    function validateAndSubmit() {
+        const form = document.getElementById('addAddressForm');
+        let isValid = true;
+
+        clearNameError();
+        clearPhoneError();
+        clearPostalError();
+
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const nameInput = document.getElementById('FullName');
+        const nameErr = document.getElementById('nameError');
+        const nameVal = nameInput.value.trim();
+        const alphabetOnlyRegex = /^[a-zA-Z\s]+$/;
+
+        if (nameVal.length < 4) {
+            nameErr.innerText = 'Please enter at least 4 characters for the Full Name.';
+            nameErr.style.display = 'block';
+            nameInput.style.borderColor = '#ee4d2d';
+            isValid = false;
+        } else if (!alphabetOnlyRegex.test(nameVal)) {
+            nameErr.innerText = 'Emojis are not allowed. Only alphabets and spaces are permitted.';
+            nameErr.style.display = 'block';
+            nameInput.style.borderColor = '#ee4d2d';
+            isValid = false;
+        }
+
+        const phoneInput = document.getElementById('PhoneNumber');
+        const phoneErr = document.getElementById('phoneError');
+        const phoneVal = phoneInput.value.trim();
+        const phoneRegex = /^\+60\d{1,2}\s\d{7,8}$/;
+        
+        if (!phoneRegex.test(phoneVal)) {
+            phoneErr.innerText = 'Invalid Phone number. Please enter a valid Malaysia phone number.';
+            phoneErr.style.display = 'block';
+            phoneInput.style.borderColor = '#ee4d2d';
+            isValid = false;
+        }
+
+        const postalInput = document.getElementById('PostalCode');
+        const postalErr = document.getElementById('postalError');
+        const postalVal = postalInput.value.trim();
+        const postalRegex = /^\d{5}$/;
+
+        if (!postalRegex.test(postalVal)) {
+            postalErr.innerText = 'Postal Code must be exactly a 5-digit number.';
+            postalErr.style.display = 'block';
+            postalInput.style.borderColor = '#ee4d2d';
+            isValid = false;
+        }
+
+        if (!isValid) return;
+
+        form.submit();
+    }
+</script>

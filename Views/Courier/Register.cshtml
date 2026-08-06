@@ -1,0 +1,177 @@
+@model FYP.Models.ViewModels.RegisterViewModel
+@{
+    ViewData["Title"] = "SPDelivery Courier Registration";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-register.css" />
+    <link rel="stylesheet" href="~/css/courier-auth.css" />
+</head>
+<body class="courier-bg">
+
+    <div class="auth-container">
+
+        <!-- Left Side: Branding -->
+        <div class="branding-section">
+            <div class="branding-logo-container">
+                <svg class="branding-logo-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="3" width="15" height="13"></rect>
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
+                <h2 class="branding-title">SP<span style="color: #3B82F6;">Delivery</span></h2>
+            </div>
+            <h1 class="branding-subtitle">Join Our Fleet.</h1>
+            <p class="branding-description">
+                Become a certified SPDelivery courier and start earning today. We provide the tools, you provide the drive.
+            </p>
+
+            <div class="branding-feature">
+                <span class="branding-checkmark">✓</span> Flexible Schedule
+            </div>
+            <div class="branding-feature">
+                <span class="branding-checkmark">✓</span> Competitive Payouts
+            </div>
+        </div>
+
+        <!-- Right Side: Registration Form -->
+        <div class="courier-card">
+            <h3 class="form-title">Driver Registration</h3>
+            <p class="form-subtitle">Create your courier profile.</p>
+
+            <form asp-controller="Auth" asp-action="Register" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Role" value="Courier" />
+
+                <!-- Profile Info -->
+                <div class="form-group">
+                    <label class="field-label">Full Name (As per ID)</label>
+                    <input asp-for="Name" class="form-control" placeholder="John Doe" required />
+                    <span asp-validation-for="Name" class="field-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="field-label">Phone Number</label>
+                    <input asp-for="PhoneNumber" class="form-control" placeholder="0123456789" required />
+                    <span asp-validation-for="PhoneNumber" class="field-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="field-label">Email Address</label>
+                    <input asp-for="Email" type="email" class="form-control" placeholder="driver@spdelivery.com" required />
+                    <span asp-validation-for="Email" class="field-error"></span>
+                </div>
+
+                <div class="form-group mb-25">
+                    <label class="field-label">Password</label>
+                    <div class="input-wrapper">
+                        <input asp-for="Password" type="password" class="form-control" placeholder="Create a secure password" required id="passwordInput" />
+                        <button type="button" id="togglePasswordBtn" class="password-toggle-btn" aria-label="Toggle password visibility">
+                            <svg id="eyeOpenIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            <svg id="eyeClosedIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                        </button>
+                    </div>
+                    <span asp-validation-for="Password" class="field-error"></span>
+                </div>
+
+                <button type="submit" class="courier-primary-btn">
+                    REGISTER AS COURIER
+                </button>
+            </form>
+
+            <div class="form-footer">
+                Already a driver? <a asp-controller="Courier" asp-action="Login" class="form-footer-link">Log in here</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+            const passwordInput = document.getElementById('passwordInput');
+            const phoneInput = document.getElementById('PhoneNumber');
+            const nameInput = document.getElementById('Name');
+            const emailInput = document.getElementById('Email');
+            const eyeOpenIcon = document.getElementById('eyeOpenIcon');
+            const eyeClosedIcon = document.getElementById('eyeClosedIcon');
+
+            // Password Toggle
+            if (togglePasswordBtn && passwordInput) {
+                togglePasswordBtn.addEventListener('click', function() {
+                    if (passwordInput.type === 'password') {
+                        passwordInput.type = 'text';
+                        eyeOpenIcon.style.display = 'none';
+                        eyeClosedIcon.style.display = 'block';
+                    } else {
+                        passwordInput.type = 'password';
+                        eyeOpenIcon.style.display = 'block';
+                        eyeClosedIcon.style.display = 'none';
+                    }
+                });
+            }
+
+            // Remove Emoji Function
+            function removeEmojis(str) {
+                // Regex matches most standard emojis and pictographs
+                return str.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+            }
+
+            // Block emojis on all inputs
+            [nameInput, phoneInput, emailInput, passwordInput].forEach(input => {
+                if(input) {
+                    input.addEventListener('input', function() {
+                        const originalValue = this.value;
+                        const newValue = removeEmojis(originalValue);
+                        if(originalValue !== newValue) {
+                            this.value = newValue;
+                        }
+                    });
+                }
+            });
+
+            // Phone number formatting (Numbers only)
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function() {
+                    this.value = this.value.replace(/[^\d]/g, '');
+                });
+            }
+
+            // Form Submit Validation
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    let isValid = true;
+                    
+                    // Reset errors (Using ASP.NET validation spans where possible, or simple alerts)
+                    // For a seamless integration, we will alert or modify the DOM if password policy fails
+                    
+                    // Password Policy: Over 8 chars, 1 uppercase, 1 number, 1 special char
+                    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@@$!%*?&^#_.:,+-]).{9,}$/;
+                    if (!passwordRegex.test(passwordInput.value)) {
+                        alert("Password must be at least 9 characters long and contain at least 1 uppercase letter, 1 number, and 1 special character.");
+                        passwordInput.focus();
+                        isValid = false;
+                    }
+
+                    if (phoneInput.value.length < 9) {
+                        alert("Please enter a valid phone number.");
+                        phoneInput.focus();
+                        isValid = false;
+                    }
+
+                    if (!isValid) {
+                        e.preventDefault();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

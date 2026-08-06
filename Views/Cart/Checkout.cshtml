@@ -1,7 +1,14 @@
-﻿@model FYP.Models.ViewModels.CheckoutViewModel
+@model FYP.Models.ViewModels.CheckoutViewModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
-    ViewData["Title"] = "AI Fraud Protected Checkout";
+    ViewData["Title"] = "Checkout";
     Layout = null;
+    var selectedAddress = Model.AvailableAddresses?.FirstOrDefault(a => a.AddressID == Model.SelectedAddressID);
+    if (selectedAddress == null && Model.AvailableAddresses?.Any() == true)
+    {
+        selectedAddress = Model.AvailableAddresses.First();
+    }
+    ViewData["ReturnUrl"] = "/Cart/Checkout";
 }
 
 <!DOCTYPE html>
@@ -13,17 +20,43 @@
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
     <link rel="stylesheet" href="~/css/buyer-dashboard.css" />
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        .checkout-block {
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-radius: 4px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .address-stripe {
+            height: 4px;
+            background: repeating-linear-gradient(
+                45deg,
+                var(--brand-primary),
+                var(--brand-primary) 30px,
+                #fff 30px,
+                #fff 40px,
+                #2980b9 40px,
+                #2980b9 70px,
+                #fff 70px,
+                #fff 80px
+            );
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+    </style>
 </head>
-<body style="background-color: #F8F9FA;">
+<body style="background-color: #F5F5F5;">
 
-    <header class="auth-navbar">
+    <header class="auth-navbar" style="margin-bottom: 30px;">
         <div class="nav-container">
             <div style="display: flex; align-items: center;">
                 <a asp-controller="Home" asp-action="Index" class="brand-group">
                     <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
                     <span class="brand-text">SecurePlatform</span>
                 </a>
-                <span class="page-label">XGBoost Checkout</span>
+                <span class="page-label">Checkout</span>
             </div>
             <div>
                 <a asp-controller="Cart" asp-action="Index" class="help-link" style="font-weight: 600;">← Back to Cart</a>
@@ -31,16 +64,8 @@
         </div>
     </header>
 
-    <main class="buyer-container">
-
-        <div class="buyer-header">
-            <div>
-                <h1>Secure Payment & Shipping</h1>
-                <p>Complete your delivery details. Your session telemetry is currently being analyzed for fraud risk.</p>
-            </div>
-            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🧠 XGBoost Model Active</span>
-        </div>
-
+    <main class="buyer-container" style="max-width: 1200px; margin: 0 auto;">
+        
         @if (!ViewData.ModelState.IsValid)
         {
             <div style="background: #FFF0F0; color: #D63031; padding: 15px; border-radius: 6px; border: 1px solid #FFCDCD; margin-bottom: 20px; font-size: 0.9rem; font-weight: bold;">
@@ -48,89 +73,767 @@
             </div>
         }
 
-        <form asp-controller="Cart" asp-action="ProcessCheckout" method="post">
+        <form id="checkout-form" asp-controller="Cart" asp-action="ProcessCheckout" method="post">
             @Html.AntiForgeryToken()
             <input type="hidden" asp-for="BuyerID" />
             <input type="hidden" asp-for="TotalAmount" />
-
-            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; align-items: start;">
-
-                <!-- Left Column: Shipping & Payment Details -->
-                <div class="table-card" style="margin-bottom: 0; padding: 30px;">
-                    <h2 style="font-size: 1.2rem; color: var(--text-dark); margin-bottom: 20px; border-bottom: 2px solid var(--auth-bg-tint); padding-bottom: 10px;">
-                        1. Shipping Destination
+            
+            <!-- Block 1: Delivery Address -->
+            <div class="checkout-block" style="padding: 0;">
+                <div class="address-stripe"></div>
+                <div style="padding: 25px;">
+                    <h2 style="font-size: 1.1rem; color: var(--brand-primary); margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        Delivery Address
                     </h2>
-
-                    <div class="form-group" style="margin-bottom: 25px;">
-                        <label asp-for="ShippingAddress" class="field-label">Full Delivery Address:</label>
-                        <div class="input-wrapper">
-                            <input asp-for="ShippingAddress" class="mvc-input" placeholder="e.g., 123 Jalan Ampang, Kuala Lumpur, 50450" required autofocus />
+                    
+                    @if (selectedAddress != null)
+                    {
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+                            <div style="display: flex; gap: 20px;">
+                                <div style="font-weight: bold; min-width: 150px;">
+                                    @selectedAddress.FullName <br/>
+                                    @selectedAddress.PhoneNumber
+                                </div>
+                                <div style="color: #444;">
+                                    @selectedAddress.HouseBuildingStreet, @selectedAddress.UnitNumber, <br/>
+                                    @selectedAddress.StateArea, @selectedAddress.PostalCode
+                                    
+                                    @if(selectedAddress.IsDefault) {
+                                        <span style="border: 1px solid var(--brand-primary); color: var(--brand-primary); font-size: 0.75rem; padding: 2px 6px; margin-left: 10px; border-radius: 3px;">Default</span>
+                                    }
+                                </div>
+                            </div>
+                            <div>
+                                <button type="button" id="open-address-modal-btn" style="color: #0056b3; font-weight: bold; text-decoration: none; background: none; border: none; cursor: pointer; padding: 0;">Change</button>
+                            </div>
                         </div>
-                        <span asp-validation-for="ShippingAddress" class="field-validation-error"></span>
-                    </div>
-
-                    <h2 style="font-size: 1.2rem; color: var(--text-dark); margin-bottom: 20px; border-bottom: 2px solid var(--auth-bg-tint); padding-bottom: 10px;">
-                        2. Payment Gateway
-                    </h2>
-
-                    <div class="form-group" style="margin-bottom: 20px;">
-                        <label asp-for="PaymentMethod" class="field-label">Select Payment Method:</label>
-                        <div class="input-wrapper">
-                            <select asp-for="PaymentMethod" class="mvc-input" style="background: white; cursor: pointer;">
-                                <option value="Credit Card">Credit Card (Argon2id Encrypted Vault)</option>
-                                <option value="FPX Online Banking">FPX Online Banking</option>
-                                <option value="DuitNow QR">DuitNow Instant QR</option>
-                            </select>
+                        <input type="hidden" asp-for="SelectedAddressID" />
+                        <input type="hidden" asp-for="ShippingAddress" value="@($"{selectedAddress.HouseBuildingStreet}, {selectedAddress.StateArea} {selectedAddress.PostalCode}")" />
+                    }
+                    else
+                    {
+                        <div style="color: #D63031; font-weight: bold;">
+                            No address found. Please add a shipping address in your profile.
                         </div>
-                    </div>
-
-                    <div class="form-group" style="margin-bottom: 10px;">
-                        <label asp-for="CardNumber" class="field-label">Card Number (16 Digits):</label>
-                        <div class="input-wrapper">
-                            <input asp-for="CardNumber" class="mvc-input" placeholder="4532 •••• •••• 8890" maxlength="16" required />
-                        </div>
-                        <span asp-validation-for="CardNumber" class="field-validation-error"></span>
-                    </div>
+                        <!-- Provide a fallback input so form can submit -->
+                        <input type="hidden" asp-for="ShippingAddress" value="Pending Address" />
+                    }
                 </div>
+            </div>
 
-                <!-- Right Column: Telemetry Summary & Submit -->
-                <div style="display: flex; flex-direction: column; gap: 20px;">
-
-                    <div class="table-card" style="margin-bottom: 0; padding: 25px;">
-                        <h3 style="font-size: 1.1rem; color: var(--text-dark); margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                            Order Breakdown (@Model.CartItems.Sum(i => i.Quantity) items)
-                        </h3>
-
-                        <div style="max-height: 180px; overflow-y: auto; margin-bottom: 15px;">
+            <!-- Block 2: Products Ordered -->
+            <div class="checkout-block" style="padding: 0;">
+                <div style="padding: 25px;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 20px;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <th style="padding: 10px 0; font-size: 1.1rem; color: #333; font-weight: 500; width: 50%;">Products Ordered</th>
+                                <th style="padding: 10px 0; color: #777; font-weight: 500; text-align: center;">Unit Price</th>
+                                <th style="padding: 10px 0; color: #777; font-weight: 500; text-align: center;">Amount</th>
+                                <th style="padding: 10px 0; color: #777; font-weight: 500; text-align: right;">Item Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                             @foreach (var item in Model.CartItems)
                             {
-                                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; color: #555;">
-                                    <span>@item.Quantity x @item.Title</span>
-                                    <strong>RM @item.Subtotal.ToString("0.00")</strong>
-                                </div>
+                                <tr style="border-bottom: 1px dashed #eee;">
+                                    <td style="padding: 15px 0; display: flex; align-items: center; gap: 15px;">
+                                        <img src="~/uploads/@(item.ProductID).jpg" onerror="this.src='/images/default-product.jpg';" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e0e0e0;" />
+                                        <span style="font-weight: 500; color: #333;">@item.Title</span>
+                                    </td>
+                                    <td style="padding: 15px 0; text-align: center; color: #555;">RM @item.Price.ToString("0.00")</td>
+                                    <td style="padding: 15px 0; text-align: center; color: #555;">@item.Quantity</td>
+                                    <td style="padding: 15px 0; text-align: right; font-weight: bold; color: #333;">RM @item.Subtotal.ToString("0.00")</td>
+                                </tr>
                             }
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; border-top: 2px solid var(--auth-bg-tint); padding-top: 15px; font-size: 1.3rem; font-weight: bold; color: var(--text-dark);">
-                            <span>Total Due:</span>
-                            <span style="color: var(--brand-primary);">RM @Model.TotalAmount.ToString("0.00")</span>
-                        </div>
-
-                        <button type="submit" class="btn-submit-primary" style="width: 100%; padding: 15px; font-size: 1rem; margin-top: 25px;">
-                            AUTHORIZE & PAY RM @Model.TotalAmount.ToString("0.00") →
-                        </button>
-
-                        <div style="margin-top: 15px; padding: 12px; background: #FFF5F3; border-radius: 4px; font-size: 0.75rem; color: #D63031; line-height: 1.4;">
-                            <strong>🧠 XGBoost Algorithmic Telemetry:</strong>
-                            • Velocity & expenditure anomalies evaluated in real-time.<br />
-                            • Orders exceeding RM 5,000.00 trigger step-up MFA verification.
-                        </div>
-                    </div>
-
+                        </tbody>
+                    </table>
                 </div>
 
+                <div style="display: flex; align-items: stretch; border-top: 1px solid #eee; border-bottom: 1px solid #eee; background: #fafafa;">
+                    <div style="flex: 1; padding: 20px; border-right: 1px dashed #ddd; display: flex; align-items: center;">
+                        <span style="margin-right: 15px; color: #333; font-weight: 500;">Message:</span>
+                        <input type="text" asp-for="MessageToSeller" placeholder="(Optional) Leave a message to seller" style="flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; outline: none;" />
+                    </div>
+                    <div style="flex: 1; padding: 20px; display: flex; align-items: flex-start; justify-content: space-between;">
+                        <div style="display: flex; align-items: flex-start;">
+                            <span style="color: #2bb371; font-weight: bold; margin-right: 15px; width: 130px;">Shipping Option:</span>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <span style="font-weight: bold; color: #333;" id="display-shipping-option">@Model.CourierName</span>
+                                    <div style="font-weight: bold; color: #333;" id="display-shipping-cost">
+                                        @if (Model.OriginalShippingFee > Model.ShippingFee)
+                                        {
+                                            <span style="text-decoration: line-through; color: #999; margin-right: 8px; font-weight: normal; font-size: 0.9rem;">RM @Model.OriginalShippingFee.ToString("0.00")</span>
+                                        }
+                                        @if (Model.ShippingFee == 0)
+                                        {
+                                            <span style="color: #2E7D32;">FREE</span>
+                                        }
+                                        else
+                                        {
+                                            <span>RM @Model.ShippingFee.ToString("0.00")</span>
+                                        }
+                                    </div>
+                                </div>
+                                <span style="color: #777; font-size: 0.85rem;" id="display-shipping-date">Get by @DateTime.Now.AddDays(3).ToString("d MMM") - @DateTime.Now.AddDays(5).ToString("d MMM")</span>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <button type="button" id="open-change-courier-btn" style="color: #0056b3; font-weight: bold; text-decoration: none; border: none; background: none; cursor: pointer; padding: 0;">Change</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 20px; text-align: right; background: #fff;">
+                    <span style="color: #555; margin-right: 15px;">Order Total (@Model.CartItems.Sum(i => i.Quantity) items):</span>
+                    <span style="font-size: 1.3rem; font-weight: bold; color: var(--brand-primary);" id="display-order-total">RM @Model.TotalAmount.ToString("0.00")</span>
+                </div>
+            </div>
+
+            <!-- Block 3: Payment Method & Place Order -->
+            <div class="checkout-block">
+                <div style="display: flex; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
+                    <div style="font-size: 1.1rem; font-weight: 500; color: #333; min-width: 220px;">Payment Method</div>
+                    <div style="flex: 1; display: flex; gap: 10px;">
+                        <label style="border: 1px solid var(--brand-primary); padding: 5px 12px; color: var(--brand-primary); font-weight: bold; font-size: 0.95rem; cursor: pointer; border-radius: 2px;">
+                            <input type="radio" asp-for="PaymentMethod" value="Credit Card" checked style="display: none;" /> Credit/Debit Card
+                        </label>
+                        <label style="border: 1px solid #ccc; padding: 5px 12px; color: #333; font-size: 0.95rem; cursor: pointer; border-radius: 2px;">
+                            <input type="radio" asp-for="PaymentMethod" value="Online Banking" style="display: none;" /> FPX Online Banking
+                        </label>
+                        <label style="border: 1px solid #ccc; padding: 5px 12px; color: #333; font-size: 0.95rem; cursor: pointer; border-radius: 2px;">
+                            <input type="radio" asp-for="PaymentMethod" value="DuitNow QR" style="display: none;" /> DuitNow QR
+                        </label>
+                    </div>
+                </div>
+
+                <div id="credit-card-section" style="display: flex; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
+                    <div style="font-size: 1.1rem; font-weight: 500; color: #333; min-width: 220px;">Select Payment Account</div>
+                    
+                    <div style="flex: 1;">
+                        @if (Model.SavedCards != null && Model.SavedCards.Any())
+                        {
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                                @foreach (var card in Model.SavedCards)
+                                {
+                                    <label class="saved-card-label" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; cursor: pointer; width: fit-content;">
+                                        <div style="display: flex; align-items: center; gap: 15px;">
+                                            <input type="radio" name="SelectedSavedCardID" value="@card.CardID" @(card.IsDefault ? "checked" : "") style="accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="toggleNewCardForm(false, this)" />
+                                            <span style="font-weight: bold; color: #1a1f71; font-style: italic; min-width: 50px;">@card.Brand</span>
+                                            <span style="font-weight: 500; color: #444;">**** @card.Last4</span>
+                                        </div>
+                                    </label>
+                                }
+                                <div style="margin-top: 5px;">
+                                    <button type="button" id="open-add-card-btn" style="padding: 6px 12px; border: 1px dashed #888; border-radius: 2px; color: #555; font-size: 0.9rem; cursor: pointer; background: #fafafa;">
+                                        + Pay With New Card
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <input type="hidden" name="SelectedSavedCardID" value="" />
+                        }
+
+                        <div id="new-card-form" style="@(Model.SavedCards != null && Model.SavedCards.Any(c => c.IsDefault) ? "display: none;" : "display: block;") padding-top: 10px;">
+                            <div style="font-weight: 500; margin-bottom: 10px; color: #555;">New Card Details</div>
+                            <div style="display: flex; gap: 15px;">
+                                <input asp-for="CardNumber" placeholder="Card Number (16 Digits)" maxlength="16" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 250px;" />
+                                <input asp-for="ExpiryDate" placeholder="MM/YY" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100px;" />
+                                <input asp-for="CVV" placeholder="CVV" maxlength="4" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100px;" />
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
+                                <span asp-validation-for="CardNumber" style="color: #D63031; font-size: 0.85rem;"></span>
+                                <span asp-validation-for="ExpiryDate" style="color: #D63031; font-size: 0.85rem;"></span>
+                                <span asp-validation-for="CVV" style="color: #D63031; font-size: 0.85rem;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="fpx-section" style="display: none; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
+                    <div style="font-size: 1.1rem; font-weight: 500; color: #333; min-width: 220px;">Select Bank</div>
+                    <div style="flex: 1;">
+                        <div id="fpx-bank-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white; max-width: 400px;">
+                            <!-- Stripe FPX Element will be inserted here -->
+                        </div>
+                        <div id="fpx-error" role="alert" style="color: #ee4d2d; font-size: 13px; margin-top: 5px;"></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; padding-top: 20px;">
+                    <div style="width: 350px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; color: #555;">
+                            <span>Merchandise Subtotal:</span>
+                            <span id="summary-merchandise-subtotal" data-val="@(Model.TotalAmount - Model.ShippingFee)">RM @((Model.TotalAmount - Model.ShippingFee).ToString("0.00"))</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; color: #555;">
+                            <span>Shipping Total:</span>
+                            <span id="summary-shipping-cost">RM @Model.OriginalShippingFee.ToString("0.00")</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 25px; color: #555;">
+                            <span>Shipping Discount:</span>
+                            <span id="summary-shipping-discount" style="color: #D63031;">-RM @((Model.OriginalShippingFee > Model.ShippingFee ? Model.OriginalShippingFee - Model.ShippingFee : 0.00m).ToString("0.00"))</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                            <span style="color: #333; font-weight: 500;">Total Payment:</span>
+                            <span style="font-size: 1.8rem; font-weight: bold; color: var(--brand-primary);" id="summary-total-payment">RM @Model.TotalAmount.ToString("0.00")</span>
+                        </div>
+
+                        <input type="hidden" asp-for="ServiceType" id="ServiceTypeInput" value="@Model.CourierName" />
+                        <input type="hidden" name="selectedCourierId" id="SelectedCourierID" value="@Model.CourierID" />
+                        <button type="submit" class="btn-submit-primary" style="width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 2px;">
+                            Place Order
+                        </button>
+                    </div>
+                </div>
             </div>
         </form>
     </main>
+
+    <!-- Add Card Modal (Stripe Elements) -->
+    <div id="add-card-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 4px; width: 100%; max-width: 500px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: 500;">Add Card</h3>
+                <button type="button" id="close-card-modal-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #999;">&times;</button>
+            </div>
+            
+            <form id="payment-form" style="display: flex; flex-direction: column; gap: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-size: 14px; color: #333;">Name on Card</label>
+                    <div style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white; margin-bottom: 10px;">
+                        <input type="text" id="cardholder-name" placeholder="Full Name" required pattern="[A-Za-z\s\-\']+" title="Only letters and spaces are allowed" style="width: 100%; border: none; outline: none; font-size: 16px; color: #32325d; font-family: 'Helvetica Neue', Helvetica, sans-serif;" oninput="this.value = this.value.replace(/[^a-zA-Z\s\-\']/g, '')" />
+                    </div>
+
+                    <label style="font-size: 14px; color: #333;">Card Number</label>
+                    <div id="cardNumber-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white; margin-bottom: 10px;"></div>
+
+                    <div style="display: flex; gap: 15px;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 14px; color: #333; display: block; margin-bottom: 5px;">Expiry Date</label>
+                            <div id="cardExpiry-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white;"></div>
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-size: 14px; color: #333; display: block; margin-bottom: 5px;">CVV</label>
+                            <div id="cardCvc-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 2px; background: white;"></div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                        <input type="checkbox" id="is-default-card" style="width: 16px; height: 16px; cursor: pointer;" />
+                        <label for="is-default-card" style="font-size: 14px; color: #333; cursor: pointer; user-select: none;">Set as default payment method</label>
+                    </div>
+                    
+                    <div id="card-errors" role="alert" style="color: #ee4d2d; font-size: 13px; margin-top: 5px;"></div>
+                </div>
+
+                <button type="submit" id="submit-card-btn" style="background: #ee4d2d; color: white; border: none; padding: 12px; border-radius: 2px; font-weight: 500; cursor: pointer;">
+                    Submit
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Courier Modal -->
+    <div id="change-courier-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 4px; width: 100%; max-width: 500px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: 500;">Select Shipping Option</h3>
+                <button type="button" id="close-courier-modal-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #999;">&times;</button>
+            </div>
+            <div id="courier-list-container" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+            </div>
+            <div style="text-align: right;">
+                <button type="button" id="confirm-courier-btn" style="background: var(--brand-primary); color: white; border: none; padding: 10px 20px; border-radius: 2px; font-weight: 500; cursor: pointer;">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Add Address Change Modal -->
+    <div id="change-address-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: #fff; width: 550px; max-width: 90%; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); padding: 0; display: flex; flex-direction: column;">
+            <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: #333; font-size: 1.2rem;">Select Address</h3>
+                <button type="button" id="close-address-modal-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;">&times;</button>
+            </div>
+            <div id="address-list-container" style="padding: 20px; overflow-y: auto; max-height: 400px; display: flex; flex-direction: column; gap: 15px;">
+                @foreach (var addr in Model.AvailableAddresses ?? new List<FYP.Models.Entities.Address>())
+                {
+                    var isChecked = addr.AddressID == Model.SelectedAddressID ? "checked" : "";
+                    var addrString = $"{addr.HouseBuildingStreet}, {addr.StateArea} {addr.PostalCode}";
+                    <label style="display: flex; align-items: flex-start; justify-content: space-between; padding: 15px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" class="address-option-lbl">
+                        <div style="display: flex; align-items: flex-start;">
+                            <input type="radio" name="modal_address_selection" value="@addr.AddressID" data-fullname="@addr.FullName" data-phone="@addr.PhoneNumber" data-addrstring="@addrString" data-details="@addr.HouseBuildingStreet, @addr.UnitNumber, <br/> @addr.StateArea, @addr.PostalCode" @isChecked style="margin-top: 4px; margin-right: 15px; accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="selectAddressRadio(this)" />
+                            <div>
+                                <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
+                                    @addr.FullName | @addr.PhoneNumber
+                                    @if(addr.IsDefault) {
+                                        <span style="border: 1px solid var(--brand-primary); color: var(--brand-primary); font-size: 0.75rem; padding: 2px 6px; border-radius: 3px;">Default</span>
+                                    }
+                                </div>
+                                <div style="color: #666; font-size: 0.95rem;">
+                                    @addr.HouseBuildingStreet, @addr.UnitNumber, <br/>
+                                    @addr.StateArea, @addr.PostalCode
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <a href="javascript:void(0)" onclick="openEditAddressModal('@addr.AddressID', '@addr.FullName.Replace("'", "\\'")', '@addr.PhoneNumber', '@addr.StateArea.Replace("'", "\\'")', '@addr.PostalCode', '@(addr.UnitNumber?.Replace("'", "\\'") ?? "")', '@addr.HouseBuildingStreet.Replace("'", "\\'")', '@addr.Label', @addr.IsDefault.ToString().ToLower(), '@addr.Latitude', '@addr.Longitude')" style="color: #0056b3; font-weight: bold; text-decoration: none; font-size: 0.9rem;">Edit</a>
+                        </div>
+                    </label>
+                }
+            </div>
+            <div style="padding: 20px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <button type="button" onclick="openAddAddressModal()" style="display: inline-flex; align-items: center; gap: 5px; color: #555; background: none; font-weight: bold; border: 1px solid #ccc; padding: 8px 15px; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
+                    <span style="font-size: 1.2rem;">+</span> Add New Address
+                </button>
+                <button type="button" id="confirm-address-btn" class="btn btn-primary" style="background: var(--brand-primary); color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+
+        // Payment logic
+        document.querySelectorAll('input[name="PaymentMethod"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                document.querySelectorAll('input[name="PaymentMethod"]').forEach(r => {
+                    r.parentElement.style.borderColor = '#ccc';
+                    r.parentElement.style.color = '#333';
+                    r.parentElement.style.fontWeight = 'normal';
+                });
+                
+                const selected = e.target;
+                selected.parentElement.style.borderColor = 'var(--brand-primary)';
+                selected.parentElement.style.color = 'var(--brand-primary)';
+                selected.parentElement.style.fontWeight = 'bold';
+                
+                const ccSection = document.getElementById('credit-card-section');
+                const fpxSection = document.getElementById('fpx-section');
+                if(ccSection) {
+                    ccSection.style.display = (selected.value === 'Credit Card') ? 'flex' : 'none';
+                }
+                if(fpxSection) {
+                    fpxSection.style.display = (selected.value === 'Online Banking') ? 'flex' : 'none';
+                }
+            });
+        });
+        
+        function toggleNewCardForm(show, radioElement) {
+            document.getElementById('new-card-form').style.display = show ? 'block' : 'none';
+        }
+        
+        // --- Change Courier Modal Logic ---
+        const courierModal = document.getElementById('change-courier-modal');
+        const openCourierBtn = document.getElementById('open-change-courier-btn');
+        const closeCourierBtn = document.getElementById('close-courier-modal-btn');
+        const courierListContainer = document.getElementById('courier-list-container');
+        const confirmCourierBtn = document.getElementById('confirm-courier-btn');
+        let currentCourierOptions = [];
+
+        if (openCourierBtn) {
+            openCourierBtn.addEventListener('click', async () => {
+                courierModal.style.display = 'flex';
+                courierListContainer.innerHTML = '<div style="text-align:center; padding: 20px;">Loading shipping options...</div>';
+                
+                try {
+                    const addressId = document.querySelector('input[name="SelectedAddressID"]')?.value || 0;
+                    const response = await fetch('/Cart/GetShippingOptions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ addressId: parseInt(addressId) })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        currentCourierOptions = data.options;
+                        renderCourierOptions();
+                    } else {
+                        courierListContainer.innerHTML = '<div style="color: #ee4d2d; padding: 20px;">Failed to load options.</div>';
+                    }
+                } catch (e) {
+                    courierListContainer.innerHTML = '<div style="color: #ee4d2d; padding: 20px;">Error loading options.</div>';
+                }
+            });
+        }
+
+        if (closeCourierBtn) {
+            closeCourierBtn.addEventListener('click', () => {
+                courierModal.style.display = 'none';
+            });
+        }
+
+        function renderCourierOptions() {
+            let html = '<div style="display: flex; flex-direction: column; gap: 15px;">';
+            const currentSelectedId = document.getElementById('SelectedCourierID').value;
+            
+            currentCourierOptions.forEach(opt => {
+                const isChecked = opt.courierID === currentSelectedId ? 'checked' : '';
+                let priceHtml = '';
+                if (opt.originalFee > opt.finalFee) {
+                    priceHtml += `<span style="text-decoration: line-through; color: #999; margin-right: 8px; font-weight: normal; font-size: 0.9rem;">RM ${opt.originalFee.toFixed(2)}</span>`;
+                }
+                if (opt.finalFee === 0) {
+                    priceHtml += `<span style="color: #2E7D32; font-weight: bold;">FREE</span>`;
+                } else {
+                    priceHtml += `<span style="font-weight: bold;">RM ${opt.finalFee.toFixed(2)}</span>`;
+                }
+
+                html += `
+                <label style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid ${isChecked ? 'var(--brand-primary)' : '#ddd'}; border-radius: 4px; cursor: pointer;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <input type="radio" name="modal_courier_selection" value="${opt.courierID}" ${isChecked} style="accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="selectCourierRadio(this)" />
+                        <span style="font-weight: bold; color: #333; font-size: 1.05rem;">${opt.courierName}</span>
+                    </div>
+                    <div style="font-weight: bold; color: #333;">${priceHtml}</div>
+                </label>
+                `;
+            });
+            html += '</div>';
+            courierListContainer.innerHTML = html;
+        }
+
+        function selectCourierRadio(radio) {
+            document.querySelectorAll('input[name="modal_courier_selection"]').forEach(r => {
+                r.closest('label').style.borderColor = '#ddd';
+            });
+            radio.closest('label').style.borderColor = 'var(--brand-primary)';
+        }
+
+        if (confirmCourierBtn) {
+            confirmCourierBtn.addEventListener('click', () => {
+                const selectedRadio = document.querySelector('input[name="modal_courier_selection"]:checked');
+                if (selectedRadio) {
+                    const selectedId = selectedRadio.value;
+                    const opt = currentCourierOptions.find(o => o.courierID === selectedId);
+                    
+                    if (opt) {
+                        document.getElementById('SelectedCourierID').value = selectedId;
+                        document.getElementById('ServiceTypeInput').value = opt.courierName;
+                        document.getElementById('display-shipping-option').textContent = opt.courierName;
+                        
+                        let priceHtml = '';
+                        if (opt.originalFee > opt.finalFee) {
+                            priceHtml += `<span style="text-decoration: line-through; color: #999; margin-right: 8px; font-weight: normal; font-size: 0.9rem;">RM ${opt.originalFee.toFixed(2)}</span>`;
+                        }
+                        if (opt.finalFee === 0) {
+                            priceHtml += `<span style="color: #2E7D32;">FREE</span>`;
+                        } else {
+                            priceHtml += `<span>RM ${opt.finalFee.toFixed(2)}</span>`;
+                        }
+                        document.getElementById('display-shipping-cost').innerHTML = priceHtml;
+                        
+                        document.getElementById('summary-shipping-cost').textContent = `RM ${opt.originalFee.toFixed(2)}`;
+                        
+                        const discount = Math.max(0, opt.originalFee - opt.finalFee);
+                        document.getElementById('summary-shipping-discount').textContent = `-RM ${discount.toFixed(2)}`;
+                        
+                        const subtotal = parseFloat(document.getElementById('summary-merchandise-subtotal').getAttribute('data-val'));
+                        const totalPayment = subtotal + opt.finalFee;
+                        document.getElementById('summary-total-payment').textContent = `RM ${totalPayment.toFixed(2)}`;
+                        document.querySelector('input[name="TotalAmount"]').value = totalPayment;
+                    }
+                }
+                courierModal.style.display = 'none';
+            });
+        }
+        
+        // --- Add Card & FPX Modal Logic ---
+        const stripe = Stripe('@Configuration["PaymentGateway:PublishableKey"]');
+        const elements = stripe.elements();
+        
+        const style = {
+            base: {
+                color: '#32325d',
+                fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+                fontSmoothing: 'antialiased',
+                fontSize: '16px',
+                '::placeholder': { color: '#aab7c4' }
+            },
+            invalid: { color: '#fa755a', iconColor: '#fa755a' }
+        };
+
+        const cardNumber = elements.create('cardNumber', {style: style, showIcon: true, disableLink: true});
+        const cardExpiry = elements.create('cardExpiry', {style: style});
+        const cardCvc = elements.create('cardCvc', {style: style});
+        
+        // --- Create FPX Bank Element ---
+        const fpxBank = elements.create('fpxBank', {
+            style: { base: { padding: '10px 14px', fontSize: '16px', color: '#32325d' } },
+            accountHolderType: 'individual'
+        });
+        fpxBank.mount('#fpx-bank-element');
+
+        let selectedFpxBank = '';
+        fpxBank.on('change', function(event) {
+            if (event.value) {
+                selectedFpxBank = event.value;
+            }
+        });
+        
+        const cardModal = document.getElementById('add-card-modal');
+        const openCardBtn = document.getElementById('open-add-card-btn');
+        const closeCardBtn = document.getElementById('close-card-modal-btn');
+        let cardElementsMounted = false;
+
+        if (openCardBtn) {
+            openCardBtn.addEventListener('click', () => {
+                cardModal.style.display = 'flex';
+                if (!cardElementsMounted) {
+                    cardNumber.mount('#cardNumber-element');
+                    cardExpiry.mount('#cardExpiry-element');
+                    cardCvc.mount('#cardCvc-element');
+                    cardElementsMounted = true;
+                }
+            });
+        }
+
+        if (closeCardBtn) {
+            closeCardBtn.addEventListener('click', () => {
+                cardModal.style.display = 'none';
+            });
+        }
+
+        const displayError = document.getElementById('card-errors');
+        function handleErrors(event) {
+            if (event.error) {
+                displayError.textContent = event.error.message;
+            } else {
+                displayError.textContent = '';
+            }
+        }
+        cardNumber.on('change', handleErrors);
+        cardExpiry.on('change', handleErrors);
+        cardCvc.on('change', handleErrors);
+
+        const cardForm = document.getElementById('payment-form');
+        const submitCardBtn = document.getElementById('submit-card-btn');
+
+        if (cardForm) {
+            cardForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                submitCardBtn.disabled = true;
+                submitCardBtn.textContent = 'Processing...';
+                displayError.textContent = '';
+                
+                const cardholderName = document.getElementById('cardholder-name').value;
+                if (!cardholderName.trim() || !/^[a-zA-Z\s\-\']+$/.test(cardholderName)) {
+                    displayError.textContent = 'Please enter a valid name on the card.';
+                    submitCardBtn.disabled = false;
+                    submitCardBtn.textContent = 'Submit';
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/Buyer/CreateSetupIntent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    const data = await response.json();
+                    if (!data.clientSecret) throw new Error(data.error || 'Failed to initialize setup');
+
+                    const result = await stripe.confirmCardSetup(data.clientSecret, {
+                        payment_method: {
+                            card: cardNumber,
+                            billing_details: { name: cardholderName }
+                        }
+                    });
+
+                    if (result.error) {
+                        displayError.textContent = result.error.message;
+                        submitCardBtn.disabled = false;
+                        submitCardBtn.textContent = 'Submit';
+                    } else {
+                        const isDefaultChecked = document.getElementById('is-default-card').checked;
+                        const syncResponse = await fetch('/Buyer/SyncSavedCard', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                paymentMethodId: result.setupIntent.payment_method,
+                                isDefault: isDefaultChecked
+                            })
+                        });
+                        
+                        if (syncResponse.ok) {
+                            window.location.reload();
+                        } else {
+                            const syncData = await syncResponse.json();
+                            displayError.textContent = syncData.error || 'Failed to sync card.';
+                            submitCardBtn.disabled = false;
+                            submitCardBtn.textContent = 'Submit';
+                        }
+                    }
+                } catch (err) {
+                    displayError.textContent = err.message;
+                    submitCardBtn.disabled = false;
+                    submitCardBtn.textContent = 'Submit';
+                }
+            });
+        }
+        
+        // --- Intercept Main Checkout Form for FPX ---
+        const checkoutForm = document.getElementById('checkout-form');
+        const placeOrderBtn = document.getElementById('place-order-btn'); // Note: ensure button has this ID or we just intercept submit
+
+        if (checkoutForm) {
+            checkoutForm.addEventListener('submit', async function(event) {
+                const selectedMethod = document.querySelector('input[name="PaymentMethod"]:checked').value;
+                if (selectedMethod === 'Online Banking') {
+                    event.preventDefault(); // Stop normal form submission
+                    
+                    const btn = checkoutForm.querySelector('button[type="submit"]');
+                    const originalText = btn.textContent;
+                    btn.disabled = true;
+                    btn.textContent = 'Redirecting to Bank...';
+                    
+                    const fpxError = document.getElementById('fpx-error');
+                    fpxError.textContent = '';
+                    
+                    try {
+                        const addressId = document.querySelector('input[name="SelectedAddressID"]')?.value || 0;
+                        const response = await fetch('/Cart/CreatePaymentIntent', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ bank: selectedFpxBank, addressId: addressId })
+                        });
+                        
+                        const data = await response.json();
+                        if (data.error) {
+                            throw new Error(data.error);
+                        }
+                        
+                        const returnUrl = window.location.origin + '/Cart/PaymentComplete?orderId=' + data.orderId;
+                        
+                        const { error } = await stripe.confirmFpxPayment(data.clientSecret, {
+                            payment_method: {
+                                fpx: fpxBank
+                            },
+                            return_url: returnUrl
+                        });
+                        
+                        if (error) {
+                            fpxError.textContent = error.message;
+                            btn.disabled = false;
+                            btn.textContent = originalText;
+                        }
+                    } catch (err) {
+                        fpxError.textContent = err.message || 'Failed to initialize FPX payment.';
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                }
+            });
+        }
+        
+        // --- Address Modal Logic ---
+        const addressModal = document.getElementById('change-address-modal');
+        const openAddressBtn = document.getElementById('open-address-modal-btn');
+        const closeAddressBtn = document.getElementById('close-address-modal-btn');
+        const confirmAddressBtn = document.getElementById('confirm-address-btn');
+
+        if (openAddressBtn) {
+            openAddressBtn.addEventListener('click', () => {
+                addressModal.style.display = 'flex';
+                // Highlight initially selected
+                document.querySelectorAll('input[name="modal_address_selection"]').forEach(r => {
+                    if (r.checked) {
+                        r.closest('label').style.borderColor = 'var(--brand-primary)';
+                    } else {
+                        r.closest('label').style.borderColor = '#ddd';
+                    }
+                });
+            });
+        }
+
+        if (closeAddressBtn) {
+            closeAddressBtn.addEventListener('click', () => {
+                addressModal.style.display = 'none';
+            });
+        }
+
+        function selectAddressRadio(radio) {
+            document.querySelectorAll('input[name="modal_address_selection"]').forEach(r => {
+                r.closest('label').style.borderColor = '#ddd';
+            });
+            radio.closest('label').style.borderColor = 'var(--brand-primary)';
+        }
+
+        if (confirmAddressBtn) {
+            confirmAddressBtn.addEventListener('click', async () => {
+                const selectedRadio = document.querySelector('input[name="modal_address_selection"]:checked');
+                if (selectedRadio) {
+                    const addrId = selectedRadio.value;
+                    const fullname = selectedRadio.getAttribute('data-fullname');
+                    const phone = selectedRadio.getAttribute('data-phone');
+                    const details = selectedRadio.getAttribute('data-details');
+                    const addrstring = selectedRadio.getAttribute('data-addrstring');
+                    
+                    document.getElementById('SelectedAddressID').value = addrId;
+                    document.getElementById('ShippingAddress').value = addrstring;
+                    
+                    // Update display on screen
+                    const addressDisplayContainer = openAddressBtn.closest('.checkout-block').querySelector('.address-stripe').nextElementSibling;
+                    const displayNodes = addressDisplayContainer.querySelectorAll('div > div > div');
+                    if(displayNodes && displayNodes.length >= 2) {
+                        displayNodes[0].innerHTML = fullname + '<br/>' + phone;
+                        displayNodes[1].innerHTML = details;
+                    }
+                    
+                    addressModal.style.display = 'none';
+                    
+                    // Trigger couriers update automatically
+                    if(openCourierBtn) {
+                        openCourierBtn.click();
+                        try {
+                            const response = await fetch('/Cart/GetShippingOptions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ addressId: parseInt(addrId) })
+                            });
+                            const data = await response.json();
+                            if (data.success && data.options.length > 0) {
+                                currentCourierOptions = data.options;
+                                // Auto-select the cheapest
+                                const bestOpt = data.options.reduce((prev, curr) => prev.finalFee < curr.finalFee ? prev : curr);
+                                
+                                document.getElementById('SelectedCourierID').value = bestOpt.courierID;
+                                document.getElementById('ServiceTypeInput').value = bestOpt.courierName;
+                                document.getElementById('display-shipping-option').textContent = bestOpt.courierName;
+                                
+                                let priceHtml = '';
+                                if (bestOpt.originalFee > bestOpt.finalFee) {
+                                    priceHtml += `<span style="text-decoration: line-through; color: #999; margin-right: 8px; font-weight: normal; font-size: 0.9rem;">RM ${bestOpt.originalFee.toFixed(2)}</span>`;
+                                }
+                                if (bestOpt.finalFee === 0) {
+                                    priceHtml += `<span style="color: #2E7D32;">FREE</span>`;
+                                } else {
+                                    priceHtml += `<span>RM ${bestOpt.finalFee.toFixed(2)}</span>`;
+                                }
+                                document.getElementById('display-shipping-cost').innerHTML = priceHtml;
+                                document.getElementById('summary-shipping-cost').textContent = `RM ${bestOpt.originalFee.toFixed(2)}`;
+                                const discount = Math.max(0, bestOpt.originalFee - bestOpt.finalFee);
+                                document.getElementById('summary-shipping-discount').textContent = `-RM ${discount.toFixed(2)}`;
+                                
+                                const subtotal = parseFloat(document.getElementById('summary-merchandise-subtotal').getAttribute('data-val'));
+                                const totalPayment = subtotal + bestOpt.finalFee;
+                                document.getElementById('summary-total-payment').textContent = `RM ${totalPayment.toFixed(2)}`;
+                                document.querySelector('input[name="TotalAmount"]').value = totalPayment;
+                                
+                                // Reset modal
+                                courierModal.style.display = 'none';
+                            }
+                        } catch(e) {}
+                    }
+                }
+            });
+        }
+    </script>
+    @await Html.PartialAsync("_AddressModalPartial")
 </body>
 </html>

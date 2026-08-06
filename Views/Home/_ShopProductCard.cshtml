@@ -1,0 +1,22 @@
+@model FYP.Models.Entities.Product
+
+@* Reusable product card partial for the shop profile page *@
+<div class="shop-product-card">
+    <a asp-controller="Home" asp-action="ProductDetails" asp-route-id="@Model.ProductID">
+        <img src="~/uploads/@(Model.ProductID).jpg" alt="@Model.Title" class="product-img" onerror="this.src='/images/default-product.jpg';" />
+        <div class="product-info">
+            <div>
+                <!-- Star rating -->
+                <div class="product-rating">
+                    @for (int i = 0; i < Math.Round(Model.AverageRating); i++) { <text>★</text> }
+                    @for (int i = (int)Math.Round(Model.AverageRating); i < 5; i++) { <span style="color:#ddd;">★</span> }
+                </div>
+                <div class="product-title">@Model.Title</div>
+            </div>
+            <div class="product-footer">
+                <span class="product-price">RM @Model.Price.ToString("0.00")</span>
+                <span class="product-sold">@Model.TotalSales sold</span>
+            </div>
+        </div>
+    </a>
+</div>

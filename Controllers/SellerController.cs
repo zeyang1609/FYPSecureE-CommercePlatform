@@ -187,6 +187,8 @@ namespace FYP.Controllers
             var orderItems = await _context.OrderItems
                 .Include(oi => oi.Order)
                     .ThenInclude(o => o.Buyer)
+                .Include(oi => oi.Order)
+                    .ThenInclude(o => o.Refunds)
                 .Include(oi => oi.Product)
                 .Where(oi => productIds.Contains(oi.ProductID))
                 .OrderByDescending(oi => oi.Order.CreatedAt)
@@ -194,6 +196,147 @@ namespace FYP.Controllers
 
             ViewBag.SellerID = sellerId;
             return View(orderItems);
+        }
+
+        // POST: /Seller/ShipOrder
+        [HttpPost]
+        [Authorize(Roles = "Seller")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ShipOrder(string orderId)
+        {
+            string sellerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId);
+            if (order == null) return NotFound("Order not found.");
+
+            // Update Delivery Record
+            var delivery = await _context.Deliveries.FirstOrDefaultAsync(d => d.OrderID == orderId);
+            if (delivery != null && (order.Status == "Processing" || order.Status == "Paid"))
+            {
+                delivery.TrackingNumber = "TRK-" + Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper();
+                delivery.Status = "Shipped";
+                delivery.EstimatedDeliveryDate = DateTime.UtcNow.AddDays(3);
+                
+                // Update Order Status
+                order.Status = "Shipped";
+
+                var auditLog = new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = sellerId,
+                    Action = $"Shipped order {orderId}. Tracking: {delivery.TrackingNumber}",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _context.AuditLogs.Add(auditLog);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = $"Order {orderId} has been shipped! Tracking: {delivery.TrackingNumber}";
+            }
+            
+            return RedirectToAction(nameof(Orders));
+        }
+
+        // GET: /Seller/Refunds
+        [HttpGet]
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> Refunds()
+        {
+            string sellerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var productIds = await _context.Products
+                .Where(p => p.SellerID == sellerId)
+                .Select(p => p.ProductID)
+                .ToListAsync();
+
+            var orderIds = await _context.OrderItems
+                .Where(oi => productIds.Contains(oi.ProductID))
+                .Select(oi => oi.OrderID)
+                .Distinct()
+                .ToListAsync();
+
+            var refunds = await _context.Refunds
+                .Include(r => r.Order)
+                    .ThenInclude(o => o.OrderItems)
+                        .ThenInclude(oi => oi.Product)
+                .Where(r => orderIds.Contains(r.OrderID))
+                .OrderByDescending(r => r.RequestedAt)
+                .ToListAsync();
+
+            ViewBag.SellerID = sellerId;
+            return View(refunds);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Seller")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ApproveRefund(string refundId)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            if (refund != null && (refund.Status == "RETURN_REQUESTED" || refund.Status == "Requested"))
+            {
+                refund.Status = "RETURN_APPROVED";
+                refund.ReturnTrackingNumber = "RET-" + Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper();
+                refund.ReturnCourier = "J&T Express (Return)";
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Refund approved. Return label generated.";
+            }
+            return RedirectToAction(nameof(Refunds));
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Seller")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RejectRefund(string refundId, string reason)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            if (refund != null && (refund.Status == "RETURN_REQUESTED" || refund.Status == "Requested"))
+            {
+                refund.Status = "DISPUTED";
+                refund.SellerNotes = reason;
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Refund rejected. Sent to Admin for dispute resolution.";
+            }
+            return RedirectToAction(nameof(Refunds));
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Seller")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ConfirmRefundReceipt(string refundId)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            if (refund != null && refund.Status == "RETURN_RECEIVED")
+            {
+                refund.Status = "REFUND_COMPLETED";
+                
+                // Also update the Order status if needed
+                var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == refund.OrderID);
+                if(order != null) {
+                    order.Status = "Refunded";
+                }
+
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Parcel received. Refund issued to buyer.";
+            }
+            return RedirectToAction(nameof(Refunds));
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Seller")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DisputeRefund(string refundId, string issue)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            if (refund != null && refund.Status == "RETURN_RECEIVED")
+            {
+                refund.Status = "DISPUTED";
+                refund.SellerNotes = issue;
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Issue reported. Sent to Admin for arbitration.";
+            }
+            return RedirectToAction(nameof(Refunds));
         }
     }
 }

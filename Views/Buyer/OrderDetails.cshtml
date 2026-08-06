@@ -1,7 +1,37 @@
-﻿@model FYP.Models.Entities.Order
+@model FYP.Models.Entities.Order
 @{
     ViewData["Title"] = "Order Details - " + Model.OrderID;
     Layout = null;
+
+    var hasRefund = Model.Refunds != null && Model.Refunds.Any();
+    var isRated = Model.Reviews != null && Model.Reviews.Any();
+    var firstItem = Model.OrderItems?.FirstOrDefault();
+
+    bool step1_placed = true;
+    bool step2_paid = (Model.Status != "Pending" && Model.Status != "Pending Payment" && Model.Status != "Cancelled");
+    bool step3_shipped = (Model.Status == "Shipped" || Model.Status == "Delivered" || Model.Status == "Completed");
+    bool step4_delivered = (Model.Status == "Delivered" || Model.Status == "Completed");
+    bool step5_received = (Model.Status == "Completed");
+    bool step6_rated = isRated;
+
+    string statusDisplay = Model.Status.ToUpper();
+    if (Model.Status == "Completed" && !isRated) statusDisplay = "ORDER COMPLETED";
+    else if (Model.Status == "Completed" && isRated) statusDisplay = "ORDER RATED";
+    else if (Model.Status == "Delivered") statusDisplay = "PARCEL DELIVERED";
+    else if (Model.Status == "Shipped") statusDisplay = "ORDER SHIPPED";
+    else if (Model.Status == "Processing") statusDisplay = "ORDER PROCESSING";
+    else if (hasRefund) statusDisplay = "RETURN/REFUND REQUESTED";
+
+    // Format timestamps
+    string dtPlaced = Model.CreatedAt.ToString("dd-MM-yyyy HH:mm");
+    string dtPaid = step2_paid ? (Model.Payment?.CreatedAt ?? Model.CreatedAt.AddMinutes(2)).ToString("dd-MM-yyyy HH:mm") : "";
+    string dtShipped = step3_shipped ? (Model.CreatedAt.AddDays(1)).ToString("dd-MM-yyyy HH:mm") : "";
+    string dtDelivered = step4_delivered ? (Model.CreatedAt.AddDays(3)).ToString("dd-MM-yyyy HH:mm") : "";
+    string dtReceived = step5_received ? (Model.CompletedAt?.ToString("dd-MM-yyyy HH:mm") ?? "") : "";
+    string dtRated = step6_rated ? (Model.Reviews?.FirstOrDefault()?.CreatedAt.ToString("dd-MM-yyyy HH:mm") ?? "") : "";
+    
+    // Amount Paid text
+    string amtPaid = step2_paid ? $"(RM{Model.TotalAmount.ToString("0.00")})" : "";
 }
 
 <!DOCTYPE html>
@@ -13,8 +43,10 @@
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
     <link rel="stylesheet" href="~/css/buyer-dashboard.css" />
+    <link rel="stylesheet" href="~/css/buyer-orders.css" />
+    <link rel="stylesheet" href="~/css/buyer-order-details.css" />
 </head>
-<body style="background-color: #F8F9FA;">
+<body>
 
     <header class="auth-navbar">
         <div class="nav-container">
@@ -26,118 +58,192 @@
                 <span class="page-label">Order Details</span>
             </div>
             <div>
-                <a asp-controller="Buyer" asp-action="Orders" asp-route-buyerId="@Model.BuyerID" class="help-link" style="font-weight: 600;">← Back to Orders</a>
             </div>
         </div>
     </header>
 
-    <main class="buyer-container">
-
-        <div class="buyer-header">
-            <div>
-                <h1>Order Verification: <span style="font-family: monospace;">@Model.OrderID</span></h1>
-                <p>Placed on @Model.CreatedAt.ToString("MMMM dd, yyyy at HH:mm") • Current Status: <strong style="color: var(--brand-primary);">@Model.Status</strong></p>
+    <main class="buyer-container" style="max-width: 1200px;">
+        <div style="background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); width: 100%;">
+        
+        <div style="padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee;">
+            <a asp-controller="Buyer" asp-action="Orders" class="back-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                BACK
+            </a>
+            <div class="order-id-status">
+                <span>ORDER ID. @Model.OrderID.ToUpper()</span>
+                <span style="color: #ccc;">|</span>
+                <span class="status-text">@statusDisplay</span>
             </div>
-            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🛡️ XGBoost Score: Cleared</span>
         </div>
 
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; align-items: start;">
-
-            <!-- Left Column: Purchased Items List -->
-            <div class="table-card" style="margin-bottom: 0;">
-                <div class="table-header">
-                    <h2>Items Purchased</h2>
+        <!-- Stepper -->
+        <div class="stepper-container">
+            <!-- Step 1: Placed -->
+            <div class="step @(step1_placed ? "active" : "inactive") @(!step2_paid ? "inactive-line" : "")">
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
                 </div>
-
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 60px;">Image</th>
-                            <th>Product Title</th>
-                            <th>Unit Price</th>
-                            <th>Qty</th>
-                            <th>Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (Model.OrderItems != null)
-                        {
-                            @foreach (var item in Model.OrderItems)
-                            {
-                                <tr>
-                                    <td>
-                                        <img src="~/uploads/@(item.ProductID).jpg" alt="Product" class="product-thumb" onerror="this.src='/images/default-product.jpg';" />
-                                    </td>
-                                    <td>
-                                        <strong style="font-size: 0.95rem; display: block;">@item.Product?.Title</strong>
-                                        <small style="font-family: monospace; color: var(--text-muted);">ID: @item.ProductID</small>
-                                    </td>
-                                    <td>RM @item.UnitPrice.ToString("0.00")</td>
-                                    <td><strong>x @item.Quantity</strong></td>
-                                    <td><strong style="color: var(--brand-primary);">RM @((item.UnitPrice * item.Quantity).ToString("0.00"))</strong></td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
-
-                <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid var(--auth-bg-tint); display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 1.1rem; font-weight: bold; color: var(--text-dark);">Total Amount Paid:</span>
-                    <span style="font-size: 1.5rem; font-weight: bold; color: var(--brand-primary);">RM @Model.TotalAmount.ToString("0.00")</span>
+                <div class="step-title">Order Placed</div>
+                <div class="step-time">@dtPlaced</div>
+            </div>
+            
+            <!-- Step 2: Paid -->
+            <div class="step @(step2_paid ? "active" : "inactive") @(!step3_shipped ? "inactive-line" : "")">
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
                 </div>
+                <div class="step-title">Order Paid @amtPaid</div>
+                <div class="step-time">@dtPaid</div>
+            </div>
+            
+            <!-- Step 3: Shipped -->
+            <div class="step @(step3_shipped ? "active" : "inactive") @(!step4_delivered ? "inactive-line" : "")">
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+                </div>
+                <div class="step-title">Order Shipped Out</div>
+                <div class="step-time">@dtShipped</div>
             </div>
 
-            <!-- Right Column: AI Security Telemetry & Refund Gateway -->
-            <div style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Step 4: Delivered -->
+            <div class="step @(step4_delivered ? "active" : "inactive") @(!step5_received ? "inactive-line" : "")">
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
+                </div>
+                <div class="step-title">Parcel Delivered</div>
+                <div class="step-time">@dtDelivered</div>
+            </div>
+            
+            <!-- Step 5: Received -->
+            <div class="step @(step5_received ? "active" : "inactive") @(!step6_rated ? "inactive-line" : "")">
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                </div>
+                <div class="step-title">Order Received</div>
+                <div class="step-time">@dtReceived</div>
+            </div>
+            
+            <!-- Step 6: Rated -->
+            <div class="step @(step6_rated ? "active" : "inactive")">
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                </div>
+                <div class="step-title">To Rate</div>
+                <div class="step-time">@dtRated</div>
+            </div>
+        </div>
 
-                <!-- Security Card -->
-                <div class="table-card" style="margin-bottom: 0; padding: 20px;">
-                    <h3 style="font-size: 1rem; color: var(--text-dark); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-                        🛡️ AI Security Audit
-                    </h3>
-                    <div style="font-size: 0.85rem; color: #555; line-height: 1.6;">
-                        <div style="margin-bottom: 8px;">
-                            <strong>Payment Method:</strong> @(Model.Payment?.PaymentMethod ?? "Online Gateway")
-                        </div>
-                        <div style="margin-bottom: 8px;">
-                            <strong>XGBoost Evaluation:</strong>
-                            <span class="badge badge-success" style="margin-left: 4px;">Low Risk (Cleared)</span>
-                        </div>
-                        <div>
-                            <strong>Audit Log ID:</strong> <span style="font-family: monospace; font-size: 0.75rem;">LOG-VERIFIED-TX</span>
-                        </div>
+        <div class="divider"></div>
+
+        <!-- Bottom Section -->
+        <div class="bottom-section">
+            <div class="refund-notice">
+                <div>
+                    @if (Model.CompletedAt.HasValue)
+                    {
+                        <text>Request for return/refund by <span style="text-decoration: underline;">@Model.CompletedAt.Value.AddDays(14).ToString("dd-MM-yyyy")</span> if necessary.</text>
+                    }
+                    else
+                    {
+                        <text>Request for return/refund within 14 days of receiving your order.</text>
+                    }
+                </div>
+            </div>
+            
+            <div class="action-panel">
+                @if (step5_received)
+                {
+                    if (!step6_rated)
+                    {
+                        <button type="button" class="btn-action-panel primary">Rate</button>
+                    }
+                }
+                
+                @if (hasRefund || !step5_received)
+                {
+                    <button type="button" class="btn-action-panel" disabled>Request For Return/Refund</button>
+                }
+                else
+                {
+                    <button type="button" class="btn-action-panel">Request For Return/Refund</button>
+                }
+                
+                <button type="button" class="btn-action-panel">Contact Seller</button>
+                
+                <button type="button" class="btn-action-panel">Buy Again</button>
+                
+                <button type="button" class="btn-action-panel">View Receipt</button>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Product Details -->
+        <div class="product-details-container" style="padding: 20px 40px;">
+            <div style="background: #fafafa; border: 1px solid #eee; border-radius: 4px;">
+                <!-- Header -->
+                <div class="order-card-header" style="border-bottom: 1px solid #eee; padding: 15px 20px;">
+                    <div class="seller-info" style="display: flex; align-items: center; gap: 15px;">
+                        <span class="seller-name" style="font-weight: 600; font-size: 1.05rem; color: #333;">@(firstItem?.Product?.Seller?.Name ?? "Seller")</span>
+                        <button class="btn-chat" style="padding: 4px 12px; border: 1px solid #ee4d2d; color: #ee4d2d; background: white; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem;">
+                            Chat
+                        </button>
+                        <button class="btn-view-shop" style="padding: 4px 12px; border: 1px solid #ccc; color: #555; background: white; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem;">
+                            View Shop
+                        </button>
                     </div>
                 </div>
-
-                <!-- Refund Request Card -->
-                <div class="table-card" style="margin-bottom: 0; padding: 20px; border-left: 3px solid #D63031;">
-                    <h3 style="font-size: 1rem; color: #D63031; margin-bottom: 10px;">Request Order Refund</h3>
-                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">
-                        If there is an issue with your AI-verified delivery, submit a refund request below. A notification will be dispatched to the seller immediately.
-                    </p>
-
-                    <form asp-controller="Buyer" asp-action="RequestRefund" method="post">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="orderId" value="@Model.OrderID" />
-                        <input type="hidden" name="refundAmount" value="@Model.TotalAmount" />
-
-                        <div class="form-group" style="margin-bottom: 12px;">
-                            <label class="field-label" style="font-size: 0.8rem;">Reason for Refund:</label>
-                            <div class="input-wrapper">
-                                <input type="text" name="reason" class="mvc-input" placeholder="e.g., Item damaged during shipping" required style="font-size: 0.85rem; padding: 10px;" />
+                <!-- Body -->
+                <div class="order-card-body">
+                    @if (Model.OrderItems != null)
+                    {
+                        foreach (var item in Model.OrderItems)
+                        {
+                            <div class="order-item" style="border-bottom: 1px solid #eee;">
+                                <div class="item-image" style="position: relative;">
+                                    <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product?.Title" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.src='/images/default-product.jpg';" />
+                                </div>
+                                <div class="item-details">
+                                    <div class="item-title" style="color: #333; font-weight: 500;">
+                                        @item.Product?.Title
+                                    </div>
+                                    <div class="item-variation">Variation: Standard</div>
+                                    <div class="item-qty">x@(item.Quantity)</div>
+                                </div>
+                                <div class="item-price" style="flex: 1; text-align: right; font-weight: 500; color: #ee4d2d; font-size: 1.05rem; padding-right: 20px;">
+                                    RM @item.UnitPrice.ToString("0.00")
+                                </div>
                             </div>
-                        </div>
-
-                        <button type="submit" class="btn-submit-primary" style="width: 100%; padding: 10px; font-size: 0.85rem; background: #D63031; margin: 0;">
-                            Submit Refund Request (RM @Model.TotalAmount.ToString("0.00"))
-                        </button>
-                    </form>
+                        }
+                    }
                 </div>
-
+                <!-- Summary -->
+                <div style="padding: 25px 20px; text-align: right; background: #fffdfd; border-top: 1px solid #eee;">
+                    @{
+                        var delivery = ViewBag.Delivery as FYP.Models.Entities.Delivery;
+                        var shippingFee = delivery?.ShippingFee ?? 0m;
+                        var subtotal = Model.TotalAmount - shippingFee;
+                    }
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 10px; font-size: 0.95rem; color: #555;">
+                        <span style="width: 200px; padding-right: 30px; text-align: right;">Merchandise Subtotal</span>
+                        <span style="width: 120px;">RM @(subtotal.ToString("0.00"))</span>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 10px; font-size: 0.95rem; color: #555;">
+                        <span style="width: 200px; padding-right: 30px; text-align: right;">Shipping Fee</span>
+                        <span style="width: 120px;">RM @(shippingFee.ToString("0.00"))</span>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 10px; font-size: 1.1rem; color: #333; font-weight: 500;">
+                        <span style="width: 200px; padding-right: 30px; text-align: right;">Order Total</span>
+                        <span style="width: 120px; color: #ee4d2d; font-size: 1.25rem;">RM @Model.TotalAmount.ToString("0.00")</span>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 20px; font-size: 0.9rem; color: #757575; border-top: 1px dotted #ccc; padding-top: 15px;">
+                        <span style="width: 200px; padding-right: 30px; text-align: right;">Payment Method</span>
+                        <span style="width: 120px;">@(Model.Payment?.PaymentMethod ?? "Online Banking")</span>
+                    </div>
+                </div>
             </div>
-
         </div>
-
     </main>
 </body>
 </html>

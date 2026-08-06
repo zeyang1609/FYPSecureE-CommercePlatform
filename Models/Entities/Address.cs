@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-
+using System.ComponentModel.DataAnnotations.Schema;
 namespace FYP.Models.Entities
 {
     public class Address
@@ -39,6 +39,12 @@ namespace FYP.Models.Entities
         public string Label { get; set; } // "Home" or "Work"
 
         public bool IsDefault { get; set; }
+
+        [Column(TypeName = "decimal(10, 7)")]
+        public decimal? Latitude { get; set; }
+
+        [Column(TypeName = "decimal(10, 7)")]
+        public decimal? Longitude { get; set; }
 
         public virtual User User { get; set; }
     }

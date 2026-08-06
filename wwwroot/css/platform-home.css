@@ -19,7 +19,13 @@ body {
     background: linear-gradient(-180deg, #f53d2d, #f63);
     color: var(--white);
     padding: 15px 5%;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    line-height: 1.2;
+    box-sizing: border-box;
+}
+
+.main-header *, .main-header *::before, .main-header *::after {
+    box-sizing: border-box;
 }
 
 .header-top {
@@ -33,7 +39,8 @@ body {
     letter-spacing: 0.2px;
 }
 
-.top-nav-left, .top-nav-right {
+.top-nav-left,
+.top-nav-right {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -52,9 +59,9 @@ body {
     transition: opacity 0.2s ease;
 }
 
-    .header-top a:hover {
-        opacity: 0.8;
-    }
+.header-top a:hover {
+    opacity: 0.8;
+}
 
 .nav-icon-link {
     display: flex;
@@ -87,14 +94,31 @@ body {
     background: var(--white);
     border-radius: 4px;
     padding: 4px;
+    margin: 0;
+}
+
+.search-scope-select {
+    height: 38px;
+    border: none;
+    background: #f5f5f5;
+    padding: 0 10px;
+    font-size: 0.85rem;
+    color: #555;
+    border-radius: 2px 0 0 2px;
+    outline: none;
+    cursor: pointer;
+    box-sizing: border-box;
 }
 
 .search-input {
     flex: 1;
     border: none;
     padding: 10px 15px;
+    height: 38px;
+    line-height: normal;
     outline: none;
     font-size: 0.95rem;
+    box-sizing: border-box;
 }
 
 .search-btn {
@@ -102,17 +126,19 @@ body {
     color: var(--white);
     border: none;
     padding: 0 22px;
+    height: 38px;
     border-radius: 2px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background-color 0.2s;
+    box-sizing: border-box;
 }
 
-    .search-btn:hover {
-        background: var(--brand-primary-hover);
-    }
+.search-btn:hover {
+    background: var(--brand-primary-hover);
+}
 
 .cart-link {
     color: var(--white);
@@ -124,10 +150,10 @@ body {
     text-decoration: none;
 }
 
-    .cart-link:hover {
-        opacity: 0.85;
-        transform: scale(1.08);
-    }
+.cart-link:hover {
+    opacity: 0.85;
+    transform: scale(1.08);
+}
 
 /* --- Announcement Banner Area --- */
 .banner-section {
@@ -148,7 +174,7 @@ body {
     flex-direction: column;
     justify-content: center;
     min-height: 220px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .banner-side {
@@ -180,7 +206,7 @@ body {
 .categories-container {
     background: var(--white);
     border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     overflow: hidden;
 }
 
@@ -215,10 +241,10 @@ body {
     cursor: pointer;
 }
 
-    /* Remove right border for the last column on desktop */
-    .category-card:nth-child(6n) {
-        border-right: none;
-    }
+/* Remove right border for the last column on desktop */
+.category-card:nth-child(6n) {
+    border-right: none;
+}
 
 .category-icon {
     width: 44px;
@@ -245,15 +271,15 @@ body {
     z-index: 1;
 }
 
-    .category-card:hover .category-icon {
-        transform: translateY(-4px) scale(1.05);
-        color: var(--brand-primary);
-    }
+.category-card:hover .category-icon {
+    transform: translateY(-4px) scale(1.05);
+    color: var(--brand-primary);
+}
 
-    .category-card:hover .category-label {
-        color: var(--brand-primary);
-        font-weight: 600;
-    }
+.category-card:hover .category-label {
+    color: var(--brand-primary);
+    font-weight: 600;
+}
 
 /* --- Product Catalog Grid --- */
 .products-section {
@@ -282,16 +308,16 @@ body {
     background: var(--white);
     border-radius: 4px;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
     flex-direction: column;
 }
 
-    .product-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    }
+.product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
 
 .product-img {
     width: 100%;
@@ -311,6 +337,7 @@ body {
 .product-title {
     font-size: 0.9rem;
     line-height: 1.3;
+    height: 2.6em;
     margin-bottom: 10px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -357,7 +384,8 @@ body {
     border-top: 1px solid #EEEEEE;
 }
 
-.btn-cart, .btn-buy {
+.btn-cart,
+.btn-buy {
     padding: 8px 4px;
     font-size: 0.8rem;
     font-weight: 600;
@@ -374,18 +402,18 @@ body {
     color: var(--brand-primary);
 }
 
-    .btn-cart:hover {
-        background: rgba(238, 77, 45, 0.2);
-    }
+.btn-cart:hover {
+    background: rgba(238, 77, 45, 0.2);
+}
 
 .btn-buy {
     background: var(--brand-primary);
     color: var(--white);
 }
 
-    .btn-buy:hover {
-        background: var(--brand-primary-hover);
-    }
+.btn-buy:hover {
+    background: var(--brand-primary-hover);
+}
 
 @media (max-width: 768px) {
     .banner-section {
@@ -403,9 +431,45 @@ body {
 
     ;
 }
+
 /* Dropdown Styles */
-.profile-dropdown .dropdown-menu { display: none; position: absolute; right: 0; background-color: #fff; min-width: 150px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1); z-index: 100; border-radius: 4px; overflow: hidden; top: 100%; margin-top: 10px; }
-.profile-dropdown::after { content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px; }
-.profile-dropdown:hover .dropdown-menu { display: block; }
-.dropdown-menu a { color: #333 !important; padding: 12px 16px; text-decoration: none; display: block; font-size: 0.9rem; text-align: left; }
-.dropdown-menu a:hover { background-color: #f8f9fa; color: var(--brand-primary) !important; }
+.profile-dropdown .dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: #fff;
+    min-width: 150px;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    border-radius: 4px;
+    overflow: hidden;
+    top: 100%;
+    margin-top: 10px;
+}
+
+.profile-dropdown::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -10px;
+    height: 10px;
+}
+
+.profile-dropdown:hover .dropdown-menu {
+    display: block;
+}
+
+.dropdown-menu a {
+    color: #333 !important;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.dropdown-menu a:hover {
+    background-color: #f8f9fa;
+    color: var(--brand-primary) !important;
+}

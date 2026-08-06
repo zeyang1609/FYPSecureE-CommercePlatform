@@ -1,0 +1,396 @@
+@model FYP.Models.Entities.Refund
+
+@{
+    ViewData["Title"] = "Return & Refund";
+    Layout = null;
+
+    int currentStep = 1;
+    if (Model.Status == "RETURN_RECEIVED" || Model.Status == "DISPUTED") currentStep = 2;
+    if (Model.Status == "REFUND_COMPLETED") currentStep = 3;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/buyer-dashboard.css" />
+    <link rel="stylesheet" href="~/css/buyer-refund-tracking.css?v=1.1" />
+</head>
+<body>
+
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Return & Refund</span>
+            </div>
+            <div>
+            </div>
+        </div>
+    </header>
+
+    <main class="buyer-container" style="max-width: 1200px;">
+        <div style="background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); width: 100%;">
+            
+            <div style="padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee;">
+                <a asp-action="Orders" asp-route-buyerId="@Model.Order?.BuyerID" class="back-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    BACK
+                </a>
+                <div class="order-id-status">
+                    <span>Request ID: @Model.RefundID</span>
+                    <span style="color:#ccc;">|</span>
+                    <span>Requested At: @Model.RequestedAt?.ToString("dd MMM yyyy HH:mm")</span>
+                </div>
+            </div>
+
+            <div class="stepper-container">
+                <div class="step @(currentStep >= 1 ? (currentStep > 1 ? "completed" : "active") : "")">
+                    <div class="step-icon">1</div>
+                    <div class="step-label">Return Item</div>
+                </div>
+        <div class="step @(currentStep >= 2 ? (currentStep > 2 ? "completed" : "active") : "")">
+            <div class="step-icon">2</div>
+            <div class="step-label">Item Validation</div>
+        </div>
+        <div class="step @(currentStep >= 3 ? "completed" : "")">
+            <div class="step-icon">3</div>
+            <div class="step-label">Refund</div>
+        </div>
+    </div>
+
+    <div class="tracking-content">
+        @if (Model.Status == "RETURN_REQUESTED" || Model.Status == "Requested")
+        {
+            <h2 class="tracking-title">Pending Seller Approval</h2>
+            <div class="logistics-card">
+                <div style="font-size: 1.1rem; color: #333; margin-bottom: 8px;">Waiting for seller to approve your request</div>
+                <div style="color: #666;">The seller has 3 days to respond to your return/refund request.</div>
+            </div>
+            
+            <div class="instruction-row" style="border-top:none;">
+                <div class="instruction-number">1</div>
+                <div class="instruction-text">
+                    <div class="instruction-title">Wait for Approval</div>
+                    <div class="instruction-desc">Once the seller approves, you will be able to select your return shipping method and download the return label.</div>
+                </div>
+            </div>
+        }
+        else if (Model.Status == "RETURN_APPROVED" || Model.Status == "RETURN_IN_TRANSIT")
+        {
+            var isPickup = Model.ReturnMethod == "Pick-Up";
+            var address = Model.Order?.Buyer?.Addresses?.FirstOrDefault(a => a.IsDefault) ?? Model.Order?.Buyer?.Addresses?.FirstOrDefault();
+            
+            <h2 class="tracking-title">@(isPickup ? "Pending Pick up" : "Pending Drop-off")</h2>
+            
+            <div class="logistics-card">
+                <div class="logistics-header">
+                    <div class="logistics-provider">
+                        <div class="provider-icon" style="display:flex; align-items:center; justify-content:center; color:white; background:#ee4d2d; font-weight:bold; font-size:10px; text-align:center; border-radius: 50%; overflow:hidden;">@(Model.ReturnCourier != null && Model.ReturnCourier.Contains("J&T") ? "J&T" : "SPX")</div>
+                        <span>@(isPickup ? $"Pick Up by {Model.ReturnCourier ?? "SPX Express Pickup"}" : $"Drop-off at {Model.ReturnCourier ?? "SPX Express Drop-off"}")</span>
+                    </div>
+                    <button class="btn-change" onclick="openMethodModal()">Change</button>
+                </div>
+                
+                <div class="logistics-details">
+                    @if(isPickup)
+                    {
+                        <div class="detail-row">
+                            <span class="detail-label">Pickup Time</span>
+                            <span class="detail-value">@(Model.PickupDate.HasValue ? Model.PickupDate.Value.ToString("d MMM yyyy") : DateTime.Now.AddDays(1).ToString("d MMM yyyy"))</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Pickup Address</span>
+                            <span class="detail-value">
+                                @{
+                                    var displayAddr = address;
+                                    if (Model.PickupAddressID.HasValue)
+                                    {
+                                        var foundAddr = Model.Order?.Buyer?.Addresses?.FirstOrDefault(a => a.AddressID == Model.PickupAddressID.Value);
+                                        if (foundAddr != null) displayAddr = foundAddr;
+                                    }
+                                }
+                                @if(displayAddr != null) {
+                                    <strong>@displayAddr.FullName | @displayAddr.PhoneNumber</strong><br/>
+                                    <span>@displayAddr.HouseBuildingStreet, @displayAddr.StateArea @displayAddr.PostalCode</span>
+                                } else {
+                                    @("Your registered shipping address")
+                                }
+                            </span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="detail-row">
+                            <span class="detail-label">Drop-off Deadline</span>
+                            <span class="detail-value">@(DateTime.Now.AddDays(3).ToString("d MMM yyyy"))</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Branch Details</span>
+                            <span class="detail-value">Please visit any participating branch nearby to drop off your parcel.</span>
+                        </div>
+                    }
+                </div>
+            </div>
+            
+            <div class="instruction-row">
+                <div class="instruction-number">1</div>
+                <div class="instruction-text">
+                    <div class="instruction-title">Prepare Your Return Parcel</div>
+                    <div class="instruction-desc">Ensure your return parcel is securely packed in its original packaging, including free gifts, parts, and accessories.</div>
+                </div>
+                <div class="instruction-action">
+                    <div class="action-label">Return Label</div>
+                    <button class="btn-primary-action" onclick="alert('Downloading Air Waybill PDF (Simulation)')">Download Label</button>
+                </div>
+            </div>
+            
+            <div class="instruction-row" style="border-bottom: @(isPickup ? "1px dashed #e5e7eb" : "none");">
+                <div class="instruction-number">2</div>
+                <div class="instruction-text">
+                    <div class="instruction-title">Wait For @(isPickup ? "Pick-Up" : "Drop-Off")</div>
+                    @if(isPickup)
+                    {
+                        <div class="instruction-desc">Our drivers will come by anytime between 8 AM and 8 PM. They'll usually give you a heads-up first. Tips: Please have your package ready and be present at pickup location on the selected date to avoid return cancellation.</div>
+                    }
+                    else
+                    {
+                        <div class="instruction-desc">Proceed to the branch and show the tracking number to the counter staff. Make sure to collect your receipt after dropping off.</div>
+                    }
+                </div>
+                <div class="instruction-action">
+                    <div class="action-label">Tracking Number</div>
+                    <div class="action-value">@(string.IsNullOrEmpty(Model.ReturnTrackingNumber) ? "Pending Generation" : Model.ReturnTrackingNumber)</div>
+                </div>
+            </div>
+
+            @if(isPickup)
+            {
+                <div class="instruction-row" style="border-bottom: none;">
+                    <div class="instruction-number">3</div>
+                    <div class="instruction-text">
+                        <div class="instruction-title">During Pick-up</div>
+                        <div class="instruction-desc">Simply present your tracking number from the app to our drivers or print out the Return Airway Bill and paste it on your parcel!</div>
+                        
+                        @if (Model.Status == "RETURN_APPROVED")
+                        {
+                            <button class="btn-cancel-request" style="margin-top: 15px; padding: 6px 16px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer; color: #666; font-size: 0.9rem;" onclick="openCancelModal()">Cancel Request</button>
+                        }
+                        else
+                        {
+                            <button class="btn-cancel-request" style="margin-top: 15px; padding: 6px 16px; border: 1px solid #eee; background: #f9f9f9; border-radius: 4px; cursor: not-allowed; color: #aaa; font-size: 0.9rem;" disabled title="Courier has already picked up the parcel">Cancel Request (Disabled)</button>
+                        }
+                    </div>
+                    <div class="instruction-action" style="text-align: right; justify-content: flex-start; align-items: flex-end;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Pickup Scheduled</div>
+                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 8px;">@(DateTime.Now.AddDays(1).ToString("d MMM yyyy"))</div>
+                        <div style="font-size: 0.85rem; color: #666; max-width: 180px;">
+                            @if(address != null) {
+                                @address.HouseBuildingStreet<span>, </span>@address.StateArea
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else if (Model.Status == "RETURN_RECEIVED")
+        {
+            <h2 class="tracking-title" style="color:#10b981;">Parcel Delivered to Seller</h2>
+            <div class="logistics-card">
+                <div style="font-size: 1.1rem; color: #333; margin-bottom: 8px;">Seller is inspecting the item</div>
+                <div style="color: #666;">Your returned parcel has been received by the seller. They will inspect the condition of the items and release the refund shortly.</div>
+            </div>
+        }
+        else if (Model.Status == "DISPUTED")
+        {
+            <h2 class="tracking-title">Dispute Raised</h2>
+            <div class="logistics-card" style="border-color:#fca5a5; background:#fef2f2;">
+                <div style="font-size: 1.1rem; color: #dc2626; margin-bottom: 8px;">The seller has rejected the return or reported an issue.</div>
+                <div style="color: #666; margin-bottom: 12px;">This case has been forwarded to Admin for arbitration.</div>
+                <div style="padding: 12px; background: white; border: 1px solid #fecaca; border-radius: 4px;">
+                    <strong>Seller Notes:</strong> @Model.SellerNotes
+                </div>
+            </div>
+        }
+        else if (Model.Status == "REFUND_COMPLETED")
+        {
+            <h2 class="tracking-title" style="color:#10b981;">Refund Completed</h2>
+            <div class="logistics-card">
+                <div style="font-size: 1.1rem; color: #333; margin-bottom: 8px;">RM @Model.RefundAmount.ToString("0.00") has been refunded.</div>
+                <div style="color: #666;">The refund has been successfully credited back to your original payment method.</div>
+            </div>
+        }
+    </div>
+
+    <!-- Product Summary at the bottom -->
+    <div style="margin-top: 20px; border: 1px solid #e5e7eb; border-radius: 4px; padding: 20px; background: white;">
+        <h3 style="margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 12px;">Items to Return</h3>
+        @if(Model.Order?.OrderItems != null)
+        {
+            foreach(var item in Model.Order.OrderItems)
+            {
+                <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                    <img src="/uploads/@(item.ProductID).jpg" style="width: 60px; height: 60px; object-fit: contain; border: 1px solid #eee;" onerror="this.src='/images/default-product.png';" />
+                    <div>
+                        <div style="font-weight: 500; color: #333;">@item.Product?.Title</div>
+                        <div style="color: #666; font-size: 0.9rem;">x@(item.Quantity)</div>
+                    </div>
+                    <div style="margin-left: auto; font-weight: 500; color: #ee4d2d;">RM @((item.UnitPrice * item.Quantity).ToString("0.00"))</div>
+                </div>
+            }
+        }
+    </div>
+
+    <!-- Change Method Modal -->
+    <div id="methodModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:white; padding:24px; border-radius:4px; width:100%; max-width:650px;">
+            <h3 style="margin-top:0; margin-bottom:20px; font-weight:500;">Change Return Method</h3>
+            <form asp-action="UpdateReturnMethod" method="post" id="updateMethodForm">
+                <input type="hidden" name="refundId" value="@Model.RefundID" />
+                
+                <div style="margin-bottom: 12px;">
+                    <div style="display:flex; align-items:flex-start; gap:12px; padding:16px; border:1px solid #e5e7eb; border-radius:4px; cursor:pointer;" onclick="document.getElementById('radioPickUp').click(); toggleMethodDetails()">
+                        <input type="radio" name="returnMethod" value="Pick-Up" @(Model.ReturnMethod == "Pick-Up" ? "checked" : "") style="margin-top:4px;" id="radioPickUp" />
+                        <div style="width: 100%;">
+                            <div style="font-weight:600; color:#333; margin-bottom:4px; display:flex; justify-content:space-between;">
+                                <span>Pick-Up</span>
+                                <span style="color: #00bfa5; font-size: 0.85rem; font-weight: 500;">[Free Returns]</span>
+                            </div>
+                            <div style="font-size:0.85rem; color:#666;">Parcel will be collected from your pickup address.</div>
+                            
+                            <div id="pickupDetails" style="display: @(Model.ReturnMethod == "Pick-Up" ? "block" : "none"); margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e5e7eb; cursor: default;" onclick="event.stopPropagation()">
+                                <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px; font-weight: 500;">Pickup Address:</div>
+                                
+                                <div id="addressDisplayBox" style="display: flex; justify-content: space-between; align-items: center; border: 1px solid #e5e7eb; padding: 10px; border-radius: 4px; background: #fafafa; margin-bottom: 12px;">
+                                    <div style="font-size: 0.85rem; color: #333;">
+                                        @if (Model.Order?.Buyer?.Addresses != null && Model.Order.Buyer.Addresses.Any())
+                                        {
+                                            var defaultAddr = Model.Order.Buyer.Addresses.FirstOrDefault(a => a.IsDefault) ?? Model.Order.Buyer.Addresses.First();
+                                            <strong>@defaultAddr.FullName | @defaultAddr.PhoneNumber</strong><br/>
+                                            <span>@defaultAddr.HouseBuildingStreet, @defaultAddr.StateArea @defaultAddr.PostalCode</span>
+                                        }
+                                    </div>
+                                    <button type="button" onclick="document.getElementById('addressDisplayBox').style.display='none'; document.getElementById('addressSelectBox').style.display='block';" style="color: #ee4d2d; font-size: 0.85rem; font-weight: 500; background: none; border: none; cursor: pointer;">Change</button>
+                                </div>
+
+                                <div id="addressSelectBox" style="display: none; margin-bottom: 12px;">
+                                    <select name="pickupAddressId" style="width: 100%; padding: 10px; border: 1px solid #ee4d2d; border-radius: 4px; font-size: 0.85rem; background: #fff5f3;">
+                                        @if (Model.Order?.Buyer?.Addresses != null)
+                                        {
+                                            foreach (var addr in Model.Order.Buyer.Addresses.OrderByDescending(a => a.IsDefault))
+                                            {
+                                                <option value="@addr.AddressID">@addr.FullName | @addr.PhoneNumber | @addr.HouseBuildingStreet, @addr.StateArea @addr.PostalCode</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+
+                                <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px; font-weight: 500;">Pickup Date:</div>
+                                <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px;" class="date-radio">
+                                    @for(int i = 1; i <= 7; i++)
+                                    {
+                                        var date = DateTime.Now.AddDays(i);
+                                        <label>
+                                            <input type="radio" name="pickupDate" value="@date.ToString("yyyy-MM-dd")" style="display: none;" @(i == 1 ? "checked" : "") />
+                                            <div class="date-radio-box" style="border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; cursor: pointer; min-width: 65px; text-align: center;">
+                                                <div style="font-size: 0.75rem; color: #666; margin-bottom: 2px;">@date.ToString("MMM")</div>
+                                                <div style="font-weight: 600; font-size: 0.95rem;">@date.ToString("dd")</div>
+                                            </div>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 24px;">
+                    <div style="display:flex; align-items:flex-start; gap:12px; padding:16px; border:1px solid #e5e7eb; border-radius:4px; cursor:pointer;" onclick="document.getElementById('radioDropOff').click(); toggleMethodDetails()">
+                        <input type="radio" name="returnMethod" value="Drop-Off" @(Model.ReturnMethod == "Drop-Off" ? "checked" : "") style="margin-top:4px;" id="radioDropOff" />
+                        <div style="width: 100%;">
+                            <div style="font-weight:600; color:#333; margin-bottom:4px; display:flex; justify-content:space-between;">
+                                <span>Drop-Off</span>
+                                <span style="color: #00bfa5; font-size: 0.85rem; font-weight: 500;">[Free Returns]</span>
+                            </div>
+                            <div style="font-size:0.85rem; color:#666;">Drop off the parcel at the nearest branch.</div>
+                            
+                            <div id="dropoffDetails" style="display: @(Model.ReturnMethod == "Drop-Off" ? "block" : "none"); margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e5e7eb; cursor: default;" onclick="event.stopPropagation()">
+                                <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px; font-weight: 500;">Select Courier:</div>
+                                <select name="dropOffCourier" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem;">
+                                    <option value="J&T Express">J&T Express</option>
+                                    <option value="Pos Laju">Pos Laju</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display:flex; justify-content:flex-end; gap:12px;">
+                    <button type="button" onclick="closeMethodModal()" style="padding: 8px 16px; border: 1px solid #ccc; background: white; color: #555; border-radius: 2px; cursor: pointer;">Cancel</button>
+                    <button type="button" class="btn-primary-action" style="width: auto; padding: 8px 24px;" onclick="submitMethodChange()">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cancel Request Modal -->
+    <div id="cancelModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:white; padding:24px; border-radius:4px; width:100%; max-width:400px; text-align: center;">
+            <h3 style="margin-top:0; margin-bottom:12px; font-weight:500;">Cancel Return Request?</h3>
+            <p style="color: #666; font-size: 0.95rem; margin-bottom: 24px;">Are you sure you want to cancel this return/refund request? This action cannot be undone.</p>
+            <form asp-action="CancelRefundRequest" method="post" id="cancelForm">
+                <input type="hidden" name="refundId" value="@Model.RefundID" />
+                <div style="display:flex; justify-content:center; gap:12px;">
+                    <button type="button" onclick="closeCancelModal()" style="padding: 8px 24px; border: 1px solid #ccc; background: white; color: #555; border-radius: 2px; cursor: pointer;">No, Keep It</button>
+                    <button type="submit" class="btn-primary-action" style="width: auto; padding: 8px 24px;">Yes, Cancel Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openMethodModal() {
+            document.getElementById('methodModal').style.display = 'flex';
+        }
+
+        function toggleMethodDetails() {
+            var pickupChecked = document.getElementById('radioPickUp').checked;
+            document.getElementById('pickupDetails').style.display = pickupChecked ? 'block' : 'none';
+            document.getElementById('dropoffDetails').style.display = pickupChecked ? 'none' : 'block';
+        }
+
+        function submitMethodChange() {
+            var form = document.getElementById('updateMethodForm');
+            var formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: formData
+            }).then(res => {
+                if(res.ok) {
+                    window.location.reload(); 
+                }
+            });
+        }
+        
+        function closeMethodModal() {
+            document.getElementById('methodModal').style.display = 'none';
+        }
+        
+        function openCancelModal() {
+            document.getElementById('cancelModal').style.display = 'flex';
+        }
+        function closeCancelModal() {
+            document.getElementById('cancelModal').style.display = 'none';
+        }
+    </script>
+
+        </div>
+    </main>
+
+</body>
+</html>
