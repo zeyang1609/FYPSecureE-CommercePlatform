@@ -1,6 +1,7 @@
-﻿@model IEnumerable<FYP.Models.Entities.Order>
+@model IEnumerable<FYP.Models.Entities.Order>
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
-    ViewData["Title"] = "My Orders";
+    ViewData["Title"] = "My Purchases";
     Layout = null;
 }
 
@@ -9,12 +10,31 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        .tag-checkbox input:checked + .tag-box {
+            border-color: #ee4d2d;
+            color: #ee4d2d;
+        }
+        .tag-box {
+            display: inline-block;
+            padding: 6px 10px;
+            border: 1px solid #eaeaea;
+            border-radius: 2px;
+            font-size: 13px;
+            color: #333;
+            cursor: pointer;
+            background-color: #fff;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+    </style>
     <title>@ViewData["Title"] - SecurePlatform</title>
     <link rel="stylesheet" href="~/css/auth-login.css" />
-    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
     <link rel="stylesheet" href="~/css/buyer-dashboard.css" />
+        <link rel="stylesheet" href="~/css/buyer-orders.css" />
+
 </head>
-<body style="background-color: #F8F9FA;">
+<body>
 
     <header class="auth-navbar">
         <div class="nav-container">
@@ -23,90 +43,975 @@
                     <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
                     <span class="brand-text">SecurePlatform</span>
                 </a>
-                <span class="page-label">Order History</span>
+                <span class="page-label">My Purchases</span>
             </div>
             <div>
-                <a asp-controller="Buyer" asp-action="Dashboard" asp-route-buyerId="@ViewBag.BuyerID" class="help-link" style="font-weight: 600;">← Back to Portal</a>
+                <a asp-controller="Buyer" asp-action="Profile" class="help-link" style="font-weight: 600;">← Back to Profile</a>
             </div>
         </div>
     </header>
 
-    <main class="buyer-container">
+    <main class="buyer-container" style="max-width: 1200px;">
+        
+        <div style="display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 1200px; margin: 0 auto;">
 
-        <div class="buyer-header">
-            <div>
-                <h1>Full Order History</h1>
-                <p>Reviewing all purchases and algorithmic fraud verifications for Buyer ID: <strong>@ViewBag.BuyerID</strong></p>
-            </div>
-            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🛡️ XGBoost Protected</span>
-        </div>
-
-        @if (TempData["SuccessMessage"] != null)
-        {
-            <div style="background-color: #d4edda; color: #155724; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #c3e6cb; font-weight: 600;">
-                ✓ @TempData["SuccessMessage"]
-            </div>
-        }
-
-        <div class="table-card">
-            @if (Model != null && Model.Any())
+            @if (TempData["SuccessMessage"] != null)
             {
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Order ID</th>
-                            <th>Order Date</th>
-                            <th>Items Summary</th>
-                            <th>Payment Method</th>
-                            <th>Total Amount</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var order in Model)
+                <div style="background-color: #d4edda; color: #155724; padding: 12px 20px; border-radius: 4px; margin-bottom: 12px; border: 1px solid #c3e6cb; font-size: 14px; width: 100%;">
+                    ✓ @TempData["SuccessMessage"]
+                </div>
+            }
+
+            <!-- 1. Tabs Navigation -->
+            <div class="order-tabs">
+                <div class="order-tab active" data-tab="all">All</div>
+                <div class="order-tab" data-tab="topay">To Pay</div>
+                <div class="order-tab" data-tab="toship">To Ship</div>
+                <div class="order-tab" data-tab="toreceive">To Receive</div>
+                <div class="order-tab" data-tab="completed">Completed</div>
+                <div class="order-tab" data-tab="cancelled">Cancelled</div>
+                <div class="order-tab" data-tab="return">Return/Refund</div>
+            </div>
+
+            <!-- 2. Search Box -->
+            <div class="order-search-container">
+                <input type="text" id="orderSearchInput" class="order-search-input" placeholder="You can search by Seller Name, Order ID or Product Name" />
+            </div>
+
+            <!-- 3. Order Cards -->
+            <div id="orderListContainer">
+                @if (Model != null && Model.Any())
+                {
+                    foreach (var order in Model)
+                    {
+                        var firstItem = order.OrderItems.FirstOrDefault();
+                        var sellerName = firstItem?.Product?.Seller?.Name ?? "Various Sellers";
+                        var latestRefund = order.Refunds?.OrderByDescending(r => r.RequestedAt).FirstOrDefault();
+                        var hasRefund = latestRefund != null;
+                        var isCompletelyRefunded = latestRefund != null && latestRefund.Status == "REFUND_COMPLETED";
+                        var isRated = order.IsRated;
+                        
+                        // Build search index string
+                        var searchIndex = $"{order.OrderID} {sellerName} ";
+                        foreach(var item in order.OrderItems)
                         {
-                            var firstItem = order.OrderItems.FirstOrDefault();
-                            int totalQty = order.OrderItems.Sum(i => i.Quantity);
-                            <tr>
-                                <td style="font-family: monospace; font-size: 0.85rem; font-weight: bold;">@order.OrderID</td>
-                                <td style="font-size: 0.85rem; color: var(--text-muted);">@order.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td>
-                                <td>
-                                    <strong style="font-size: 0.95rem; display: block;">@(firstItem?.Product?.Title ?? "Order Package")</strong>
-                                    <small style="color: var(--text-muted);">@totalQty item(s) included</small>
-                                </td>
-                                <td><span style="background: #F0F0F0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">@(order.Payment?.PaymentMethod ?? "Online Gateway")</span></td>
-                                <td><strong style="color: var(--brand-primary); font-size: 1.05rem;">RM @order.TotalAmount.ToString("0.00")</strong></td>
-                                <td>
-                                    @if (order.Status == "Completed" || order.Status == "Delivered")
+                            searchIndex += $"{item.Product.Title} ";
+                        }
+
+                        <div class="order-card" data-status="@(hasRefund ? "Return" : order.Status)" data-search="@searchIndex">
+                            <!-- Card Header -->
+                            <div class="order-card-header">
+                                <div class="seller-info">
+                                    <span class="seller-name">@sellerName</span>
+                                    <button class="btn-chat">Chat</button>
+                                    <a href="/Home/ShopProfile/@(firstItem?.Product?.SellerID)" class="btn-view-shop" style="text-decoration:none;">View Shop</a>
+                                </div>
+                                <div class="order-status">
+                                    @if (order.Status == "Cancelled")
                                     {
-                                        <span class="badge badge-success">✓ @order.Status</span>
+                                        <span style="color: #ee4d2d; font-weight: 500;">CANCELLED</span>
                                     }
-                                    else if (order.Status == "Cancelled")
+                                    else if (order.Status == "Pending" || order.Status == "Pending Payment")
                                     {
-                                        <span class="badge badge-danger">✕ Cancelled</span>
+                                        <span style="color: #ee4d2d; font-weight: 500;">PENDING PAYMENT</span>
+                                    }
+                                    else if (hasRefund)
+                                    {
+                                        <span>Refund Status <span class="status-divider">|</span> @(latestRefund.Status.Replace("_", " "))</span>
+                                    }
+                                    else if (order.Status == "Completed" || order.Status == "Delivered")
+                                    {
+                                        if (isRated)
+                                        {
+                                            <span>Parcel has been delivered <span class="status-divider">|</span> RATED</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Parcel has been delivered <span class="status-divider">|</span> COMPLETED</span>
+                                        }
                                     }
                                     else
                                     {
-                                        <span class="badge badge-warning">⏳ @order.Status</span>
+                                        <span>@order.Status.ToUpper()</span>
                                     }
-                                </td>
-                                <td>
-                                    <a asp-controller="Buyer" asp-action="OrderDetails" asp-route-orderId="@order.OrderID" class="btn-submit-primary" style="width: auto; padding: 6px 14px; font-size: 0.8rem; text-decoration: none; display: inline-block;">View Details</a>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-            else
-            {
-                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-                    <h3>No orders placed yet.</h3>
-                    <p>Your complete purchase history will appear here once you check out.</p>
-                </div>
-            }
+                                </div>
+                            </div>
+
+                            <hr class="order-divider" />
+
+                            <!-- Card Body (Items) -->
+                            <div class="order-card-body">
+                                @foreach (var item in order.OrderItems)
+                                {
+                                    <div class="order-item">
+                                        <div class="item-image" style="position: relative;">
+                                            <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product.Title" style="max-width: 100%; max-height: 100%; object-fit: contain;" class="@(isCompletelyRefunded ? "return-overlay" : "")" onerror="this.src='/images/default-product.jpg';" />
+                                        </div>
+                                        <div class="item-details @(isCompletelyRefunded ? "return-overlay" : "")">
+                                            <div class="item-title">
+                                                @if(hasRefund)
+                                                {
+                                                    <a asp-controller="Buyer" asp-action="RefundTracking" asp-route-refundId="@latestRefund.RefundID" style="color: inherit; text-decoration: none; font-weight: bold;">
+                                                        @item.Product.Title
+                                                    </a>
+                                                }
+                                                else
+                                                {
+                                                    <a asp-controller="Buyer" asp-action="OrderDetails" asp-route-orderId="@order.OrderID" style="color: inherit; text-decoration: none; font-weight: bold;">
+                                                        @item.Product.Title
+                                                    </a>
+                                                }
+                                                @if (hasRefund)
+                                                {
+                                                    <span class="return-badge" style="margin-left: 6px; margin-right: 0;">RETURN/REFUND</span>
+                                                }
+                                            </div>
+                                            <div class="item-variation">Variation, color, model</div>
+                                            <div class="item-qty">x@(item.Quantity)</div>
+                                        </div>
+                                        <div class="item-price @(isCompletelyRefunded ? "return-overlay" : "")">
+                                            RM @item.UnitPrice.ToString("0.00")
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <hr class="order-divider" />
+
+                            <!-- Card Footer -->
+                            <div class="order-card-footer">
+                                <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-end;">
+                                    <div style="font-size: 12px; color: #999;">
+                                        @if (order.Status == "Pending" || order.Status == "Pending Payment")
+                                        {
+                                            var expiryTime = order.CreatedAt.AddHours(5);
+                                            <div style="color: #999; display: flex; align-items: center; gap: 4px;">
+                                                Pay by @expiryTime.ToString("dd-MM-yyyy HH:mm") with @((order.Payment?.PaymentMethod ?? order.ServiceType).Split('|')[0]) payment.
+                                                <div class="custom-tooltip-container">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" style="display: block;">
+                                                        <circle cx="12" cy="12" r="10"></circle>
+                                                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                                    </svg>
+                                                    <div class="custom-tooltip-text">
+                                                        Please make payment by @expiryTime.ToString("dd-MM-yyyy HH:mm") otherwise the order will be cancel.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                        else if (hasRefund && !isCompletelyRefunded)
+                                        {
+                                            <span>You have requested for Return/Refund</span>
+                                        }
+                                        else if (order.Status == "Completed" && !isRated && order.CompletedAt.HasValue)
+                                        {
+                                            <span>Rate products by @order.CompletedAt.Value.AddDays(30).ToString("dd-MM-yyyy")</span>
+                                        }
+                                        else if (order.Status == "Cancelled")
+                                        {
+                                            if (order.ServiceType.Contains("CancelledByUser"))
+                                            {
+                                                <span>Cancelled by you</span>
+                                            }
+                                            else if (order.ServiceType.Contains("CancelledBySystem"))
+                                            {
+                                                <span>Cancelled due to a failed payment</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Cancelled by you</span>
+                                            }
+                                        }
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div class="order-total-section" style="justify-content: flex-end;">
+                                            <span class="total-label">Order Total:</span>
+                                            <span class="total-amount">RM @order.TotalAmount.ToString("0.00")</span>
+                                        </div>
+                                        <div class="order-actions">
+                                            @if (hasRefund)
+                                            {
+                                                <button type="button" class="btn-action primary" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
+                                                <button type="button" class="btn-action secondary">Contact Seller</button>
+                                            }
+                                            else if (order.Status == "Pending" || order.Status == "Pending Payment")
+                                            {
+                                                var savedBank = order.ServiceType.Contains("|") ? order.ServiceType.Split('|')[1] : "hlb";
+                                                <button type="button" class="btn-action primary btn-pay-now" data-order-id="@order.OrderID" data-fpx-bank="@savedBank" style="background-color: #ee4d2d; color: white; border-color: #ee4d2d;">Pay Now</button>
+                                                <button type="button" class="btn-action secondary">Contact Seller</button>
+                                                <div class="action-container" style="display: inline-block;">
+                                                    <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
+                                                    <div class="dropdown-menu">
+                                                        <a href="#" onclick="openCancelModal('@order.OrderID'); return false;">Cancel Order</a>
+                                                        <a href="#">Change Payment Method</a>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else if (order.Status == "Processing" || order.Status == "Shipped" || order.Status == "Delivered")
+                                            {
+                                                @if (order.Status == "Delivered")
+                                                {
+                                                    <form asp-controller="Buyer" asp-action="MarkOrderReceived" method="post" style="display:inline;">
+                                                        <input type="hidden" name="orderId" value="@order.OrderID" />
+                                                        <button type="submit" class="btn-action primary">Order Received</button>
+                                                    </form>
+                                                }
+                                                <button type="button" class="btn-action secondary btn-request-refund" data-order-id="@order.OrderID">Request Return/Refund</button>
+
+                                                <div class="action-container" style="display: inline-block;">
+                                                    <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
+                                                    <div class="dropdown-menu">
+                                                        <a href="#">Contact Seller</a>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else if (order.Status == "Completed" || order.Status == "Delivered")
+                                            {
+                                                @if (!isRated)
+                                                {
+                                                    <button type="button" class="btn-action primary btn-rate" data-order-id="@order.OrderID" data-product-id="@firstItem?.ProductID" data-product-title="@firstItem?.Product.Title" data-product-image="/uploads/@(firstItem?.ProductID).jpg">Rate</button>
+                                                    <button type="button" class="btn-action secondary btn-request-refund" data-order-id="@order.OrderID">Request Return/Refund</button>
+                                                    <div class="action-container" style="display: inline-block;">
+                                                        <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
+                                                        <div class="dropdown-menu">
+                                                            <a href="#">Contact Seller</a>
+                                                            <a href="/Home/ProductDetails/@(firstItem?.ProductID)">Buy Again</a>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <button type="button" class="btn-action primary" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
+                                                    <button type="button" class="btn-action secondary btn-request-refund" data-order-id="@order.OrderID">Request Return/Refund</button>
+                                                    <div class="action-container" style="display: inline-block;">
+                                                        <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
+                                                        <div class="dropdown-menu">
+                                                            <a href="#">Contact Seller</a>
+                                                             <a href="#" class="btn-view-rating" data-order-id="@order.OrderID" data-rating="@order.Reviews?.FirstOrDefault()?.Rating" data-comment="@order.Reviews?.FirstOrDefault()?.Comment" data-media="@order.Reviews?.FirstOrDefault()?.MediaUrl" data-product-title="@firstItem?.Product.Title" data-product-image="/uploads/@(firstItem?.ProductID).jpg" data-username="@(User.Identity?.Name ?? "User")" data-timestamp="@(order.Reviews?.FirstOrDefault()?.CreatedAt.ToString("yyyy-MM-dd HH:mm") ?? "")">View Shop Rating</a>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            }
+                                            else if (order.Status == "Cancelled")
+                                            {
+                                                <button type="button" class="btn-action primary" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
+                                                <button type="button" class="btn-action secondary">Contact Seller</button>
+                                            }
+                                            else
+                                            {
+                                                <div class="action-container" style="display: inline-block;">
+                                                    <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
+                                                    <div class="dropdown-menu">
+                                                        <a href="#">Contact Seller</a>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-orders-msg">
+                        <svg viewBox="0 0 24 24" width="64" height="64" fill="#ddd" style="margin-bottom: 15px;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-2h-2v2zm0-4h2V7h-2v6z"/></svg>
+                        <h3>No orders yet</h3>
+                        <p>Go find something you like!</p>
+                    </div>
+                }
+            </div>
+
         </div>
     </main>
+
+    <!-- Modals -->
+    <!-- Rate Product Modal -->
+    <div id="rateModal" class="modal">
+        <div class="modal-content" style="max-width: 720px !important; width: 100%; text-align: left; padding: 32px;">
+            <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 500; color: #333;">Rate Product</h2>
+            
+            <form asp-controller="Buyer" asp-action="SubmitReview" method="post" enctype="multipart/form-data">
+                <input type="hidden" id="rateOrderId" name="orderId" />
+                <input type="hidden" id="rateProductId" name="productId" />
+                <input type="hidden" id="rateValue" name="rating" value="0" />
+                
+                <!-- Product Info -->
+                <div style="display: flex; align-items: flex-start; margin-bottom: 24px;">
+                    <img id="rateProductImage" src="" alt="Product" style="width: 50px; height: 50px; object-fit: contain; border: 1px solid #eee; margin-right: 12px;" />
+                    <div>
+                        <div id="rateProductTitle" style="font-size: 14px; color: #333;"></div>
+                        <div style="font-size: 12px; color: #999;">Variation: Default</div>
+                    </div>
+                </div>
+
+                <!-- Product Quality -->
+                <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                    <span style="font-size: 14px; font-weight: bold; color: #333; margin-right: 16px; white-space: nowrap;">Product Quality</span>
+                    <div class="star-rating" id="starContainer" style="display: flex; align-items: center; gap: 4px;">
+                        <span class="star" data-value="1" style="font-size: 32px; line-height: 1; cursor: pointer; color: #ddd;">★</span>
+                        <span class="star" data-value="2" style="font-size: 32px; line-height: 1; cursor: pointer; color: #ddd;">★</span>
+                        <span class="star" data-value="3" style="font-size: 32px; line-height: 1; cursor: pointer; color: #ddd;">★</span>
+                        <span class="star" data-value="4" style="font-size: 32px; line-height: 1; cursor: pointer; color: #ddd;">★</span>
+                        <span class="star" data-value="5" style="font-size: 32px; line-height: 1; cursor: pointer; color: #ddd;">★</span>
+                    </div>
+                    <span id="rateTextDisplay" style="font-size: 15px; font-weight: 600; color: #ffaa00; margin-left: 12px;"></span>
+                </div>
+
+                <!-- Low Rating Tags -->
+                <div id="lowRatingTags" style="display: none; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags" value="Defective/Damaged Item" style="display:none;" />
+                            <span class="tag-box">Defective/Damaged Item</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags" value="Counterfeit product" style="display:none;" />
+                            <span class="tag-box">Counterfeit product</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags" value="Item Not as Described" style="display:none;" />
+                            <span class="tag-box">Item Not as Described</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags" value="Poor quality" style="display:none;" />
+                            <span class="tag-box">Poor quality</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Review Input Area -->
+                <div style="background-color: #f8f8f8; padding: 16px; border: 1px solid #eee; border-radius: 4px; margin-bottom: 20px; box-sizing: border-box; overflow: hidden;">
+                    <div style="margin-bottom: 14px;">
+                        <span style="font-size: 14px; color: #333; font-weight: bold; display: block; margin-bottom: 4px;">Quality:</span>
+                        <textarea name="quality" rows="2" style="border: none; background: transparent; outline: none; width: 100%; font-size: 14px; color: #666; font-family: inherit; resize: none; word-wrap: break-word; overflow-wrap: break-word; box-sizing: border-box;" placeholder="Leave blank if not applicable"></textarea>
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <span style="font-size: 14px; color: #333; font-weight: bold; display: block; margin-bottom: 4px;">Functionality:</span>
+                        <textarea name="functionality" rows="2" style="border: none; background: transparent; outline: none; width: 100%; font-size: 14px; color: #666; font-family: inherit; resize: none; word-wrap: break-word; overflow-wrap: break-word; box-sizing: border-box;" placeholder="Leave blank if not applicable"></textarea>
+                    </div>
+                    
+                    <hr style="border-top: 1px solid #ddd; margin-bottom: 12px; margin-top: 0; padding: 0;" />
+                    
+                    <textarea name="comment" style="width: 100%; height: 80px; border: none; background: transparent; outline: none; resize: none; font-size: 14px; color: #666; font-family: inherit;" placeholder="Share more thoughts on the product to help other buyers."></textarea>
+                    
+                    <div style="display: flex; gap: 8px; margin-top: 16px; align-items: flex-start; flex-wrap: wrap;" id="mediaUploadArea">
+                        <!-- Image previews will be inserted here by JS -->
+                        <div id="reviewImagePreview" style="display: contents;"></div>
+                        <!-- Add Photo placeholder box (Shopee style) -->
+                        <div id="addPhotoBox" onclick="document.getElementById('reviewImageUpload').click()" style="width: 64px; height: 64px; border: 1px dashed #ccc; background: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 2px; gap: 2px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                            <span id="reviewImageCount" style="font-size: 10px; color: #bbb;">0/5</span>
+                        </div>
+                        <input type="file" id="reviewImageUpload" name="imageFiles" accept="image/*" multiple style="display:none;" onchange="handleReviewImageUpload(this);" />
+
+                        <!-- Video previews will be inserted here by JS -->
+                        <div id="reviewVideoPreview" style="display: contents;"></div>
+                        <!-- Add Video placeholder box (Shopee style) -->
+                        <div id="addVideoBox" onclick="document.getElementById('reviewVideoUpload').click()" style="width: 64px; height: 64px; border: 1px dashed #ccc; background: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 2px; gap: 2px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                            <span id="reviewVideoCount" style="font-size: 10px; color: #bbb;">0/1</span>
+                        </div>
+                        <input type="file" id="reviewVideoUpload" name="videoFile" accept="video/*" style="display:none;" onchange="handleReviewVideoUpload(this);" />
+                    </div>
+                    <script>
+                        // Track uploaded files with DataTransfer so we can delete individual items
+                        let reviewImageDT = new DataTransfer();
+                        let reviewVideoDT = new DataTransfer();
+
+                        function handleReviewImageUpload(input) {
+                            // Add new files to existing collection
+                            for (let i = 0; i < input.files.length; i++) {
+                                if (reviewImageDT.items.length >= 5) break;
+                                reviewImageDT.items.add(input.files[i]);
+                            }
+                            if (reviewImageDT.items.length > 5) {
+                                alert('You can only upload a maximum of 5 images.');
+                                const trimmed = new DataTransfer();
+                                for (let i = 0; i < 5; i++) trimmed.items.add(reviewImageDT.files[i]);
+                                reviewImageDT = trimmed;
+                            }
+                            // Sync back to input
+                            input.files = reviewImageDT.files;
+                            renderImagePreviews();
+                        }
+
+                        function renderImagePreviews() {
+                            const container = document.getElementById('reviewImagePreview');
+                            const countEl = document.getElementById('reviewImageCount');
+                            const addBox = document.getElementById('addPhotoBox');
+                            container.innerHTML = '';
+                            const count = reviewImageDT.files.length;
+                            countEl.innerText = count + '/5';
+
+                            for (let i = 0; i < count; i++) {
+                                const file = reviewImageDT.files[i];
+                                const wrapper = document.createElement('div');
+                                wrapper.style.cssText = 'position:relative; width:64px; height:64px;';
+
+                                const img = document.createElement('img');
+                                img.src = URL.createObjectURL(file);
+                                img.style.cssText = 'width:64px; height:64px; object-fit:cover; border-radius:2px; border:1px solid #ddd;';
+                                img.title = file.name;
+                                wrapper.appendChild(img);
+
+                                const xBtn = document.createElement('div');
+                                xBtn.innerHTML = '×';
+                                xBtn.style.cssText = 'position:absolute; top:-6px; right:-6px; width:18px; height:18px; background:#333; color:#fff; border-radius:50%; font-size:13px; line-height:18px; text-align:center; cursor:pointer;';
+                                xBtn.setAttribute('data-index', i);
+                                xBtn.onclick = function(e) {
+                                    e.stopPropagation();
+                                    removeImageAtIndex(parseInt(this.getAttribute('data-index')));
+                                };
+                                wrapper.appendChild(xBtn);
+                                container.appendChild(wrapper);
+                            }
+
+                            // Hide add box if limit reached
+                            addBox.style.display = count >= 5 ? 'none' : 'flex';
+                        }
+
+                        function removeImageAtIndex(idx) {
+                            const newDT = new DataTransfer();
+                            for (let i = 0; i < reviewImageDT.files.length; i++) {
+                                if (i !== idx) newDT.items.add(reviewImageDT.files[i]);
+                            }
+                            reviewImageDT = newDT;
+                            document.getElementById('reviewImageUpload').files = reviewImageDT.files;
+                            renderImagePreviews();
+                        }
+
+                        function handleReviewVideoUpload(input) {
+                            if (input.files.length > 0) {
+                                reviewVideoDT = new DataTransfer();
+                                reviewVideoDT.items.add(input.files[0]);
+                                input.files = reviewVideoDT.files;
+                            }
+                            renderVideoPreviews();
+                        }
+
+                        function renderVideoPreviews() {
+                            const container = document.getElementById('reviewVideoPreview');
+                            const countEl = document.getElementById('reviewVideoCount');
+                            const addBox = document.getElementById('addVideoBox');
+                            container.innerHTML = '';
+                            const count = reviewVideoDT.files.length;
+                            countEl.innerText = count + '/1';
+
+                            if (count > 0) {
+                                const file = reviewVideoDT.files[0];
+                                const wrapper = document.createElement('div');
+                                wrapper.style.cssText = 'position:relative; width:64px; height:64px;';
+
+                                const video = document.createElement('video');
+                                video.src = URL.createObjectURL(file);
+                                video.style.cssText = 'width:64px; height:64px; object-fit:cover; border-radius:2px; border:1px solid #ddd;';
+                                video.muted = true;
+                                video.title = file.name;
+                                // Capture thumbnail at 1s
+                                video.addEventListener('loadeddata', function() {
+                                    this.currentTime = 1;
+                                });
+                                wrapper.appendChild(video);
+
+                                // Play icon overlay
+                                const playIcon = document.createElement('div');
+                                playIcon.innerHTML = '▶';
+                                playIcon.style.cssText = 'position:absolute; bottom:4px; left:4px; color:#fff; font-size:12px; text-shadow:0 0 3px rgba(0,0,0,0.7); pointer-events:none;';
+                                wrapper.appendChild(playIcon);
+
+                                const xBtn = document.createElement('div');
+                                xBtn.innerHTML = '×';
+                                xBtn.style.cssText = 'position:absolute; top:-6px; right:-6px; width:18px; height:18px; background:#333; color:#fff; border-radius:50%; font-size:13px; line-height:18px; text-align:center; cursor:pointer;';
+                                xBtn.onclick = function(e) {
+                                    e.stopPropagation();
+                                    reviewVideoDT = new DataTransfer();
+                                    document.getElementById('reviewVideoUpload').value = '';
+                                    renderVideoPreviews();
+                                };
+                                wrapper.appendChild(xBtn);
+                                container.appendChild(wrapper);
+                                addBox.style.display = 'none';
+                            } else {
+                                addBox.style.display = 'flex';
+                            }
+                        }
+                    </script>
+                </div>
+
+                <!-- Anonymous Checkbox -->
+                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px;">
+                    <input type="checkbox" name="isAnonymous" id="isAnonymous" style="margin-top: 4px;" />
+                    <div>
+                        <div style="font-size: 14px; font-weight: 500; color: #333;">Leave your review anonymously</div>
+                        @{
+                            var fOrder = Model.FirstOrDefault();
+                            var bName = fOrder?.Buyer?.Name ?? "User";
+                            var mName = "a***z";
+                            if (!string.IsNullOrEmpty(bName)) {
+                                if (bName.Length == 1) {
+                                    mName = bName + "***" + bName;
+                                } else {
+                                    mName = bName.Substring(0, 1) + "***" + bName.Substring(bName.Length - 1);
+                                }
+                            }
+                        }
+                        <div style="font-size: 12px; color: #999;">Your user name will be shown as @mName</div>
+                    </div>
+                </div>
+
+                <div style="text-align: right;">
+                    <button type="button" class="btn-action secondary" onclick="closeRateModal()" style="padding: 10px 24px; margin-right: 12px;">Cancel</button>
+                    <button type="submit" class="btn-action primary" id="btnSubmitReview" disabled style="padding: 10px 32px;">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Rating Modal Partial -->
+    @await Html.PartialAsync("_ViewRatingModalPartial")
+
+    <!-- 4. Client-Side Filtering Logic -->
+    <!-- Issue Type Modal (Return/Refund) -->
+    <div id="issueTypeModal" class="modal">
+        <div class="modal-content" style="max-width: 600px; text-align: left; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin: 0; font-size: 22px; font-weight: 500; color: #222;">What happened to your order?</h2>
+                <span class="close-modal" id="closeIssueTypeModal" style="font-size: 28px; cursor: pointer; color: #666;">&times;</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Option 1 -->
+                <div onclick="proceedToRefund('Received Items with Issues')" style="display: flex; align-items: center; padding: 20px; background-color: #f8f8f8; border: 1px solid #eaeaea; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="margin-right: 20px; color: #ee4d2d;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="11 3 11 11 14 13 14 21"></polyline></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 18px; color: #222; margin-bottom: 4px;">Received Items with Issues</div>
+                        <div style="font-size: 14px; color: #888;">Received all items but there are problems and/or I would like to return parcel</div>
+                    </div>
+                </div>
+
+                <!-- Option 2 -->
+                <div onclick="proceedToRefund('Did Not Receive Some/All of the Item(s)')" style="display: flex; align-items: center; padding: 20px; background-color: #f8f8f8; border: 1px solid #eaeaea; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="margin-right: 20px; color: #ee4d2d;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 18px; color: #222; margin-bottom: 4px;">Did Not Receive Some/All of the Item(s)</div>
+                        <div style="font-size: 14px; color: #888;">Some/all of my item(s) or accessories are not delivered</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentRefundOrderId = "";
+
+        function proceedToRefund(issueType) {
+            window.location.href = `/Buyer/RequestRefundForm?orderId=${currentRefundOrderId}&issueType=${encodeURIComponent(issueType)}`;
+        }
+
+    </script>
+    
+    <!-- Cancel Order Modal -->
+    <div id="cancelModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+        <div style="background: #fff; width: 500px; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <div style="padding: 20px; border-bottom: 1px solid #eee;">
+                <h3 style="margin: 0; font-size: 1.2rem; color: #333;">Select Cancellation Reason</h3>
+            </div>
+            <div style="padding: 20px; background: #fafafa;">
+                <div style="background: #fff8f5; border: 1px solid #ffdec9; padding: 10px; font-size: 0.9rem; color: #ee4d2d; margin-bottom: 15px; border-radius: 2px;">
+                    Please select a cancellation reason. Please take note that this will cancel all items in the order and the action cannot be undone.
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; font-size: 0.95rem; color: #333;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="radio" name="cancelReason" value="Need to change delivery address"> Need to change delivery address
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="radio" name="cancelReason" value="Need to input/change voucher code"> Need to input/change voucher code
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="radio" name="cancelReason" value="Need to modify order"> Need to modify order (size, color, quantity, etc.)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="radio" name="cancelReason" value="Payment procedure too troublesome"> Payment procedure too troublesome
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="radio" name="cancelReason" value="Found cheaper elsewhere"> Found cheaper elsewhere
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="radio" name="cancelReason" value="Don't want to buy anymore" checked> Don't want to buy anymore
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="radio" name="cancelReason" value="Others"> Others
+                    </label>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="closeCancelModal()" style="padding: 8px 16px; border: 1px solid #ccc; background: white; color: #555; border-radius: 2px; cursor: pointer;">NOT NOW</button>
+                    <button type="button" id="btn-confirm-cancel" style="padding: 8px 16px; border: none; background: #ee4d2d; color: white; border-radius: 2px; cursor: pointer;">Cancel Order</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Rate Modal Logic
+            const rateModal = document.getElementById('rateModal');
+            const rateOrderId = document.getElementById('rateOrderId');
+            const rateProductId = document.getElementById('rateProductId');
+            const rateValueInput = document.getElementById('rateValue');
+            const btnSubmitReview = document.getElementById('btnSubmitReview');
+            const stars = document.querySelectorAll('#starContainer .star');
+
+            // View Rating Modal Logic
+            const viewRatingModal = document.getElementById("viewRatingModal");
+            const closeViewRatingModal = document.getElementById("closeViewRatingModal");
+            const btnViewRatings = document.querySelectorAll(".btn-view-rating");
+            
+            btnViewRatings.forEach(btn => {
+                btn.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    const rating = parseInt(this.getAttribute('data-rating')) || 0;
+                    const comment = this.getAttribute('data-comment') || "No comment provided.";
+                    const media = this.getAttribute('data-media') || "";
+                    const pTitle = this.getAttribute('data-product-title') || "Product";
+                    const pImage = this.getAttribute('data-product-image') || "";
+                    const uname = this.getAttribute('data-username') || "User";
+                    const ts = this.getAttribute('data-timestamp') || "";
+                    
+                    // Populate UI
+                    document.getElementById('vrProductTitle').innerText = pTitle;
+                    document.getElementById('vrProductImage').src = pImage;
+                    document.getElementById('vrUsername').innerText = uname;
+                    document.getElementById('vrTimestamp').innerText = ts;
+                    
+                    let starsHtml = '';
+                    for(let i=0; i<rating; i++) starsHtml += '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>';
+                    for(let i=rating; i<5; i++) starsHtml += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>';
+                    
+                    document.getElementById('viewStarContainer').innerHTML = starsHtml;
+                    document.getElementById('viewComment').innerText = comment;
+                    
+                    // Reset to View Mode whenever modal is opened
+                    if (typeof toggleEditMode === 'function') toggleEditMode(false);
+                    
+                    window.currentViewRatingOrderId = this.getAttribute('data-order-id');
+
+                    const mediaContainer = document.getElementById('viewMediaContainer');
+                    if (mediaContainer) {
+                        mediaContainer.innerHTML = '';
+                        if (media) {
+                            const mediaUrls = media.split(';');
+                            mediaUrls.forEach(url => {
+                                if (url.trim() !== '') {
+                                    if (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg') || url.toLowerCase().includes('video')) {
+                                        const video = document.createElement('video');
+                                        video.src = url;
+                                        video.style.maxWidth = '72px';
+                                        video.style.maxHeight = '72px';
+                                        video.style.borderRadius = '4px';
+                                        video.style.border = '1px solid #ddd';
+                                        video.style.objectFit = 'cover';
+                                        video.style.cursor = 'pointer';
+                                        video.onclick = function() { playMedia(url, true); };
+                                        mediaContainer.appendChild(video);
+                                    } else {
+                                        const img = document.createElement('img');
+                                        img.src = url;
+                                        img.style.maxWidth = '72px';
+                                        img.style.maxHeight = '72px';
+                                        img.style.borderRadius = '4px';
+                                        img.style.border = '1px solid #ddd';
+                                        img.style.objectFit = 'cover';
+                                        img.style.cursor = 'pointer';
+                                        img.onclick = function() { playMedia(url, false); };
+                                        mediaContainer.appendChild(img);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    
+                    viewRatingModal.style.display = 'flex';
+                });
+            });
+
+            // Return/Refund Modal Logic
+            const issueTypeModal = document.getElementById("issueTypeModal");
+            const closeIssueTypeModal = document.getElementById("closeIssueTypeModal");
+            const btnRequestRefunds = document.querySelectorAll(".btn-request-refund");
+
+            btnRequestRefunds.forEach(btn => {
+                btn.addEventListener("click", function() {
+                    currentRefundOrderId = this.getAttribute("data-order-id");
+                    issueTypeModal.style.display = 'flex';
+                });
+            });
+
+            if (closeIssueTypeModal) {
+                closeIssueTypeModal.addEventListener("click", () => {
+                    issueTypeModal.style.display = 'none';
+                });
+            }
+
+            // Close modals when clicking outside
+            window.addEventListener("click", (event) => {
+                // viewRatingModal click-outside is disabled as requested
+                if (event.target == issueTypeModal) issueTypeModal.style.display = "none";
+            });
+
+            document.querySelectorAll('.btn-rate').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    rateOrderId.value = this.getAttribute('data-order-id');
+                    rateProductId.value = this.getAttribute('data-product-id');
+                    
+                    const title = this.getAttribute('data-product-title');
+                    const img = this.getAttribute('data-product-image');
+                    document.getElementById('rateProductTitle').innerText = title || "Product";
+                    document.getElementById('rateProductImage').src = img || "/images/default-product.jpg";
+                    
+                    // Reset modal state
+                    rateValueInput.value = 0;
+                    btnSubmitReview.disabled = true;
+                    document.getElementById('rateTextDisplay').innerText = "";
+                    document.getElementById('lowRatingTags').style.display = "none";
+                    stars.forEach(s => s.style.color = '#ddd');
+                    
+                    document.querySelectorAll('input[name="tags"]').forEach(c => c.checked = false);
+                    document.querySelector('textarea[name="quality"]').value = "";
+                    document.querySelector('textarea[name="functionality"]').value = "";
+                    document.querySelector('textarea[name="comment"]').value = "";
+                    // Reset Shopee-style upload state
+                    reviewImageDT = new DataTransfer();
+                    reviewVideoDT = new DataTransfer();
+                    document.getElementById('reviewImageUpload').value = "";
+                    document.getElementById('reviewVideoUpload').value = "";
+                    renderImagePreviews();
+                    renderVideoPreviews();
+                    
+                    rateModal.style.display = 'flex';
+                });
+            });
+
+            window.closeRateModal = function() { rateModal.style.display = 'none'; };
+            window.closeViewRatingModal = function() { viewRatingModal.style.display = 'none'; };
+
+            const ratingTexts = ["Terrible", "Poor", "Fair", "Good", "Excellent"];
+            
+            stars.forEach(star => {
+                // Click only - no hover effects to prevent glitching
+                star.addEventListener('click', function() {
+                    const val = parseInt(this.getAttribute('data-value'));
+                    rateValueInput.value = val;
+                    btnSubmitReview.disabled = false;
+
+                    // Update star colors based on clicked value
+                    stars.forEach(s => {
+                        if (parseInt(s.getAttribute('data-value')) <= val) {
+                            s.style.color = '#ffce3d';
+                        } else {
+                            s.style.color = '#ddd';
+                        }
+                    });
+                    document.getElementById('rateTextDisplay').innerText = ratingTexts[val - 1];
+                    
+                    if (val <= 2) {
+                        document.getElementById('lowRatingTags').style.display = "block";
+                    } else {
+                        document.getElementById('lowRatingTags').style.display = "none";
+                        document.querySelectorAll('input[name="tags"]').forEach(c => c.checked = false);
+                    }
+                });
+            });
+
+
+            // Search and Tab Filtering
+            const tabs = document.querySelectorAll(".order-tab");
+            const cards = document.querySelectorAll(".order-card");
+            const searchInput = document.getElementById("orderSearchInput");
+
+            function filterOrders() {
+                const activeTabNode = document.querySelector(".order-tab.active");
+                if(!activeTabNode) return;
+                
+                const activeTab = activeTabNode.getAttribute("data-tab");
+                const searchTerm = searchInput.value.toLowerCase();
+                
+                let visibleCount = 0;
+
+                cards.forEach(card => {
+                    const status = card.getAttribute("data-status").toLowerCase();
+                    const searchData = card.getAttribute("data-search").toLowerCase();
+                    
+                    let tabMatch = false;
+                    if (activeTab === "all") {
+                        tabMatch = true;
+                    } else if (activeTab === "topay") {
+                        tabMatch = status.includes("pending");
+                    } else if (activeTab === "toship") {
+                        tabMatch = status.includes("processing");
+                    } else if (activeTab === "toreceive") {
+                        tabMatch = status.includes("shipped") || status.includes("delivered");
+                    } else if (activeTab === "completed") {
+                        tabMatch = status.includes("completed") || status.includes("delivered");
+                    } else if (activeTab === "cancelled") {
+                        tabMatch = status.includes("cancelled") || status.includes("declined");
+                    } else if (activeTab === "return") {
+                        tabMatch = status.includes("refund") || status.includes("return");
+                    }
+
+                    let searchMatch = searchData.includes(searchTerm);
+
+                    if (tabMatch && searchMatch) {
+                        card.style.display = "block";
+                        visibleCount++;
+                    } else {
+                        card.style.display = "none";
+                    }
+                });
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener("click", function() {
+                    tabs.forEach(t => t.classList.remove("active"));
+                    this.classList.add("active");
+                    filterOrders();
+                });
+            });
+
+            searchInput.addEventListener("input", filterOrders);
+
+            // Countdown timer for Pending payments
+            function updateCountdowns() {
+                const countdowns = document.querySelectorAll('.payment-countdown');
+                const now = new Date();
+                countdowns.forEach(el => {
+                    const expiryStr = el.getAttribute('data-expiry');
+                    if (!expiryStr) return;
+                    const expiry = new Date(expiryStr);
+                    const diff = expiry - now;
+
+                    if (diff <= 0) {
+                        el.innerHTML = "Payment time expired. Order will be cancelled.";
+                    } else {
+                        const h = Math.floor(diff / (1000 * 60 * 60));
+                        const m = Math.floor((diff / 1000 / 60) % 60);
+                        const s = Math.floor((diff / 1000) % 60);
+                        const display = el.querySelector('.time-display');
+                        if (display) {
+                            display.innerText = 
+                                h.toString().padStart(2, '0') + ':' + 
+                                m.toString().padStart(2, '0') + ':' + 
+                                s.toString().padStart(2, '0');
+                        }
+                    }
+                });
+            }
+            setInterval(updateCountdowns, 1000);
+            updateCountdowns(); // Initial call
+        });
+
+        // --- Stripe FPX Retry Logic ---
+        let stripeFpx = null;
+
+        // --- Cancel Order Logic ---
+        let cancelOrderId = "";
+
+        function openCancelModal(orderId) {
+            cancelOrderId = orderId;
+            document.getElementById('cancelModal').style.display = 'flex';
+        }
+
+        function closeCancelModal() {
+            document.getElementById('cancelModal').style.display = 'none';
+        }
+
+        document.getElementById('btn-confirm-cancel').addEventListener('click', async function() {
+            if (!cancelOrderId) return;
+            
+            const reason = document.querySelector('input[name="cancelReason"]:checked').value;
+            
+            this.disabled = true;
+            this.textContent = 'Processing...';
+            
+            try {
+                const response = await fetch('/Buyer/CancelOrder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: cancelOrderId, reason: reason })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Failed to cancel order.');
+                    this.disabled = false;
+                    this.textContent = 'Cancel Order';
+                }
+            } catch (err) {
+                alert('An error occurred.');
+                this.disabled = false;
+                this.textContent = 'Cancel Order';
+            }
+        });
+
+        document.querySelectorAll('.btn-pay-now').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const orderId = this.getAttribute('data-order-id');
+                const bank = this.getAttribute('data-fpx-bank');
+                
+                if (!bank) {
+                    alert("Bank information missing for this order. Please create a new order.");
+                    return;
+                }
+                
+                if (!stripeFpx) {
+                    stripeFpx = Stripe('@Configuration["PaymentGateway:PublishableKey"]');
+                }
+                
+                const originalText = this.textContent;
+                this.disabled = true;
+                this.textContent = 'Redirecting...';
+                
+                try {
+                    const response = await fetch('/Cart/RetryPaymentIntent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId: orderId })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.error) throw new Error(data.error);
+                    
+                    const returnUrl = window.location.origin + '/Cart/PaymentComplete?orderId=' + data.orderId;
+                    
+                    const { error } = await stripeFpx.confirmFpxPayment(data.clientSecret, {
+                        payment_method: {
+                            fpx: { bank: bank }
+                        },
+                        return_url: returnUrl
+                    });
+                    
+                    if (error) {
+                        alert(error.message);
+                        this.disabled = false;
+                        this.textContent = originalText;
+                    }
+                } catch (err) {
+                    alert(err.message || 'Failed to initialize FPX payment.');
+                    this.disabled = false;
+                    this.textContent = originalText;
+                }
+            });
+        });
+    </script>
 </body>
 </html>

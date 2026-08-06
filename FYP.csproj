@@ -4,11 +4,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\uploads\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
     <Folder Include="AiMicroservices\" />
     <Folder Include="Views\Buyer\" />
+    <Content Update="wwwroot\uploads\**" Watch="false" />
   </ItemGroup>
 
   <ItemGroup>

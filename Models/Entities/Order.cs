@@ -1,4 +1,4 @@
-﻿using FYP.Models.Entities;
+using FYP.Models.Entities;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -32,7 +32,12 @@ namespace FYP.Models.Entities
         public string ServiceType { get; set; }
 
         [MaxLength(100)]
-        public string DeliveryID { get; set; }
+        public string? DeliveryID { get; set; }
+
+        public DateTime? CompletedAt { get; set; }
+
+        [Required]
+        public bool IsRated { get; set; } = false;
 
         [ForeignKey("BuyerID")]
         public virtual User Buyer { get; set; }
@@ -41,5 +46,7 @@ namespace FYP.Models.Entities
         public virtual ICollection<OrderItem> OrderItems { get; set; }
         public virtual Payment Payment { get; set; }
         public virtual FraudAlert FraudAlert { get; set; }
+        public virtual ICollection<Review> Reviews { get; set; }
+        public virtual ICollection<Refund> Refunds { get; set; }
     }
 }

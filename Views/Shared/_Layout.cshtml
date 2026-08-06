@@ -17,24 +17,11 @@
     <link rel="stylesheet" href="~/FYP.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/platform-home.css" />
 </head>
-<body>
+<body style="display: flex; flex-direction: column; min-height: 100vh;">
     <header class="main-header">
         <div class="header-top">
             <div class="top-nav-left">
-                <!-- Dynamically display Seller options based on actual role -->
-                @if (currentUserRole == "Seller")
-                {
-                    <a asp-controller="Seller" asp-action="Dashboard">Seller Centre</a>
-                }
-                else if (currentUserRole == "Buyer")
-                {
-                    <a asp-controller="Seller" asp-action="Onboard">Start Selling</a>
-                }
-                else
-                {
-                    <span style="color: #A0ABC0; font-size: 0.85rem; font-family: monospace;">AdminOS Secure Session</span>
-                }
-            </div>
+                <a asp-controller="Seller" asp-action="Login">Seller Centre</a>
 
             <div class="top-nav-right">
                 <a href="#" class="nav-icon-link" aria-label="Notifications">
@@ -115,14 +102,13 @@
             </a>
         </div>
     </header>
-
-    <div>
+  <div style="flex-grow: 1;">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
+    <footer class="border-top footer text-muted" style="position: relative; text-align: center; padding: 20px 0; background: #fff; margin-top: auto; width: 100%;">
         <div class="container">
             &copy; 2026 - SecurePlatform - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
         </div>

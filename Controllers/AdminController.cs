@@ -150,5 +150,87 @@ namespace FYP.Controllers
             TempData["SuccessMessage"] = $"Category '{name}' added successfully!";
             return RedirectToAction(nameof(Categories));
         }
+        [HttpGet]
+        public async Task<IActionResult> Disputes()
+        {
+            var disputedRefunds = await _context.Refunds
+                .Include(r => r.Order)
+                .Where(r => r.Status == "DISPUTED")
+                .OrderByDescending(r => r.RequestedAt)
+                .ToListAsync();
+
+            return View(disputedRefunds);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ForceRefund(string refundId, string adminNote)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            if (refund != null && refund.Status == "DISPUTED")
+            {
+                refund.Status = "REFUND_COMPLETED";
+                refund.AdminResolution = adminNote;
+                
+                var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == refund.OrderID);
+                if(order != null) order.Status = "Refunded";
+
+                var auditLog = new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = "ADMIN-SYS",
+                    Action = $"Arbitration: Forced refund for {refundId}. Notes: {adminNote}",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _context.AuditLogs.Add(auditLog);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Dispute resolved in favor of Buyer (Refund Issued).";
+            }
+            return RedirectToAction(nameof(Disputes));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RejectReturn(string refundId, string adminNote)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            if (refund != null && refund.Status == "DISPUTED")
+            {
+                // Rejecting the return implies the order stays complete, refund is cancelled.
+                refund.Status = "RETURN_REJECTED";
+                refund.AdminResolution = adminNote;
+
+                var auditLog = new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = "ADMIN-SYS",
+                    Action = $"Arbitration: Rejected return for {refundId}. Notes: {adminNote}",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _context.AuditLogs.Add(auditLog);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Dispute resolved in favor of Seller (Return Rejected).";
+            }
+            return RedirectToAction(nameof(Disputes));
+        }
+
+        // Demo Helper: Simulates the courier returning the parcel to the seller
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SimulateReturnReceived(string refundId)
+        {
+            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            if (refund != null && (refund.Status == "RETURN_APPROVED" || refund.Status == "RETURN_IN_TRANSIT"))
+            {
+                refund.Status = "RETURN_RECEIVED";
+                await _context.SaveChangesAsync();
+            }
+            // Just redirect back to the page the request came from (Seller Refunds)
+            return Redirect(Request.Headers["Referer"].ToString());
+        }
     }
 }

@@ -1,4 +1,4 @@
-﻿@model IEnumerable<FYP.Models.Entities.Product>
+@model IEnumerable<FYP.Models.Entities.Product>
 @{
     ViewData["Title"] = "Seller Centre Dashboard";
     Layout = null;
@@ -20,7 +20,7 @@
     <header class="auth-navbar">
         <div class="nav-container">
             <div style="display: flex; align-items: center;">
-                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                <a asp-controller="Seller" asp-action="Dashboard" class="brand-group">
                     <svg viewBox="0 0 24 24">
                         <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
                     </svg>
@@ -44,12 +44,15 @@
                 <h1>Merchant Command Center</h1>
                 <p>Monitoring active inventory and verified sales for Seller ID: <strong>@ViewBag.SellerID</strong></p>
             </div>
-            <div style="display: flex; gap: 12px;">
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                 <a asp-controller="Seller" asp-action="MyProducts" asp-route-sellerId="@ViewBag.SellerID" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
                     📦 Manage Stock
                 </a>
                 <a asp-controller="Seller" asp-action="Orders" asp-route-sellerId="@ViewBag.SellerID" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
                     🛒 View Orders
+                </a>
+                <a asp-controller="Seller" asp-action="Refunds" class="btn-social" style="text-decoration: none; font-weight: 600; background: white; color: #dc2626; border-color: #fca5a5;">
+                    ↩️ Return & Refunds
                 </a>
                 <a asp-controller="Product" asp-action="Create" class="btn-add-product">
                     <span>+ Add New Inventory</span>

@@ -1,0 +1,206 @@
+@model FYP.Models.ViewModels.VerifyOtpViewModel
+@{
+    ViewData["Title"] = "Security Verification";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/courier-auth.css" />
+</head>
+<body class="courier-bg">
+
+    <div class="auth-container">
+        <!-- Left Side: Branding -->
+        <div class="branding-section">
+            <div class="branding-logo-container">
+                <svg class="branding-logo-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="3" width="15" height="13"></rect>
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
+                <h2 class="branding-title">SP<span style="color: #3B82F6;">Delivery</span></h2>
+            </div>
+            <h1 class="branding-subtitle">Identity Verification.</h1>
+            <p class="branding-description">
+                To protect your account from automated takeover attempts, we require multi-factor identity verification before granting portal access.
+            </p>
+
+            <div class="branding-feature">
+                <span class="branding-checkmark">✓</span> Secure Route Tracking
+            </div>
+            <div class="branding-feature">
+                <span class="branding-checkmark">✓</span> Instant Delivery Confirmations
+            </div>
+        </div>
+
+        <!-- Right Side: OTP Form -->
+        <div class="courier-card">
+            <h3 class="form-title">Enter Verification Code</h3>
+            <p class="form-subtitle">
+                We have transmitted a 6-digit security token via Email to:<br />
+                <strong>@Model.Email</strong>
+            </p>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="validation-summary">
+                    @Html.ValidationSummary(true)
+                </div>
+            }
+
+            <form id="otpForm" asp-controller="Auth" asp-action="VerifyOtp" method="post">
+                <input asp-for="Email" type="hidden" />
+                <input asp-for="OtpCode" id="fullOtpCode" type="hidden" />
+
+                <div class="otp-grid" style="margin-bottom: 20px;">
+                    <input type="text" maxlength="1" class="otp-input-box" inputmode="numeric" autocomplete="one-time-code" autofocus />
+                    <input type="text" maxlength="1" class="otp-input-box" inputmode="numeric" />
+                    <input type="text" maxlength="1" class="otp-input-box" inputmode="numeric" />
+                    <input type="text" maxlength="1" class="otp-input-box" inputmode="numeric" />
+                    <input type="text" maxlength="1" class="otp-input-box" inputmode="numeric" />
+                    <input type="text" maxlength="1" class="otp-input-box" inputmode="numeric" />
+                </div>
+
+                <span asp-validation-for="OtpCode" class="field-error"></span>
+
+                <button type="submit" class="courier-primary-btn" id="btnVerify">
+                    VERIFY & PROCEED
+                </button>
+            </form>
+
+            <div class="form-footer" style="margin-top: 25px;">
+                Did not receive the code? <br />
+                <a href="#" id="resendLink" class="form-footer-link" style="display:inline-block; margin-top:5px;">Resend Code <span id="timerSpan">(60s)</span></a>
+            </div>
+
+            <div class="form-footer" style="margin-top: 15px;">
+                Wrong email? <a asp-controller="Courier" asp-action="Login" class="form-footer-link">Return to Log In</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+    <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                const inputs = document.querySelectorAll(".otp-input-box");
+                const hiddenOtpInput = document.getElementById("fullOtpCode");
+                const form = document.getElementById("otpForm");
+                const resendLink = document.getElementById("resendLink");
+                const timerSpan = document.getElementById("timerSpan");
+
+                inputs.forEach((input, index) => {
+                    input.addEventListener("input", function(e) {
+                        this.value = this.value.replace(/[^0-9]/g, '');
+
+                        if (this.value) {
+                            this.classList.add("filled");
+                            if (index < inputs.length - 1) {
+                                inputs[index + 1].focus();
+                            }
+                        } else {
+                            this.classList.remove("filled");
+                        }
+                        updateHiddenOtp();
+                    });
+
+                    input.addEventListener("keydown", function(e) {
+                        if (e.key === "Backspace" && !this.value && index > 0) {
+                            inputs[index - 1].focus();
+                            inputs[index - 1].value = '';
+                            inputs[index - 1].classList.remove("filled");
+                            updateHiddenOtp();
+                        }
+                    });
+
+                    input.addEventListener("paste", function(e) {
+                        e.preventDefault();
+                        const pasteData = (e.clipboardData || window.clipboardData).getData("text").replace(/[^0-9]/g, '');
+
+                        if (pasteData) {
+                            const digits = pasteData.split("");
+                            inputs.forEach((box, i) => {
+                                if (digits[i]) {
+                                    box.value = digits[i];
+                                    box.classList.add("filled");
+                                }
+                            });
+                            const focusIndex = Math.min(digits.length, inputs.length - 1);
+                            inputs[focusIndex].focus();
+                            updateHiddenOtp();
+                        }
+                    });
+                });
+
+                function updateHiddenOtp() {
+                    let code = "";
+                    inputs.forEach(input => {
+                        code += input.value;
+                    });
+                    hiddenOtpInput.value = code;
+                }
+
+                form.addEventListener("submit", function(e) {
+                    updateHiddenOtp();
+                    if (hiddenOtpInput.value.length < 6) {
+                        e.preventDefault();
+                        alert("Please enter the complete 6-digit verification code.");
+                        for (let box of inputs) {
+                            if (!box.value) {
+                                box.focus();
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                let timeLeft = 60;
+                const timerInterval = setInterval(() => {
+                    timeLeft--;
+                    timerSpan.textContent = `(${timeLeft}s)`;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        timerSpan.textContent = "";
+                        resendLink.classList.add("active");
+                        resendLink.textContent = "Resend Verification Code";
+                    }
+                }, 1000);
+
+                resendLink.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    if (!this.classList.contains("active")) return;
+
+                    alert("A new 6-digit security code has been dispatched to your email address.");
+
+                    this.classList.remove("active");
+                    timeLeft = 60;
+                    timerSpan.textContent = `(${timeLeft}s)`;
+                    this.innerHTML = `Resend Code <span id="timerSpan">(${timeLeft}s)</span>`;
+
+                    const newInterval = setInterval(() => {
+                        timeLeft--;
+                        const span = document.getElementById("timerSpan");
+                        if (span) span.textContent = `(${timeLeft}s)`;
+
+                        if (timeLeft <= 0) {
+                            clearInterval(newInterval);
+                            if (span) span.textContent = "";
+                            resendLink.classList.add("active");
+                            resendLink.textContent = "Resend Verification Code";
+                        }
+                    }, 1000);
+                });
+            });
+    </script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+@model IEnumerable<FYP.Models.Entities.Refund>
+@{
+    ViewData["Title"] = "Manage Return & Refunds";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <style>
+        .refund-card { background: white; border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+        .refund-header { display: flex; justify-content: space-between; align-items: center; background: #fafafa; padding: 12px 20px; border-bottom: 1px solid #eee; }
+        
+        .badge { padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+        .bg-pending { background: #fef3c7; color: #d97706; }
+        .bg-approved { background: #dbeafe; color: #2563eb; }
+        .bg-received { background: #f3e8ff; color: #7e22ce; }
+        .bg-completed { background: #d1fae5; color: #059669; }
+        .bg-disputed { background: #fee2e2; color: #dc2626; }
+        
+        .btn-action { padding: 8px 16px; border-radius: 4px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; }
+        .btn-approve { background: #10b981; color: white; }
+        .btn-approve:hover { background: #059669; }
+        .btn-reject { background: #ef4444; color: white; }
+        .btn-reject:hover { background: #dc2626; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        .btn-secondary:hover { background: #d1d5db; }
+
+        .product-section { padding: 20px; display: flex; gap: 20px; border-bottom: 1px dotted #ccc; }
+        .product-img { width: 80px; height: 80px; object-fit: cover; border: 1px solid #eee; border-radius: 4px; }
+        .product-details { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        .product-title { font-weight: 600; font-size: 1rem; color: #333; margin-bottom: 4px; }
+        .refund-info { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: #555; align-items: flex-end; justify-content: center; }
+
+        .reason-section { padding: 20px; background: #fafafa; }
+        .reason-box { border-left: 3px solid #f59e0b; padding-left: 12px; }
+        
+        .media-thumbnail { width: 60px; height: 60px; background: #e0e0e0; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-top: 12px; border: 1px solid #ccc; }
+        .media-thumbnail:hover { opacity: 0.8; }
+        
+        .action-section { padding: 16px 20px; background: white; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 12px; }
+    </style>
+</head>
+<body style="background-color: #F8F9FA;">
+
+    <!-- Top Navigation Bar -->
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Seller" asp-action="Dashboard" class="brand-group">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+                    </svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Return & Refund</span>
+            </div>
+            <div>
+                <a asp-controller="Seller" asp-action="Dashboard" class="help-link" style="margin-right: 20px;">Back to Dashboard</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard-container" style="max-width: 1000px; margin: 40px auto; padding: 0 20px;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h2 style="font-weight: 600; font-size: 1.5rem; margin: 0;">Manage Return & Refunds</h2>
+            
+            <div style="position: relative;">
+                <input type="text" id="searchRefunds" placeholder="Search Request or Order ID..." style="padding: 8px 12px 8px 32px; border: 1px solid #ccc; border-radius: 4px; width: 250px; font-size: 0.9rem;" onkeyup="filterRefunds()" />
+                <svg style="position: absolute; left: 10px; top: 10px; width: 14px; height: 14px; stroke: #888; fill: none; stroke-width: 2;" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+        </div>
+
+        <div style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 24px;">
+            <button id="tab-pending" class="refund-tab active" onclick="switchTab('pending')" style="padding: 12px 24px; border: none; background: transparent; font-weight: 600; cursor: pointer; color: #ee4d2d; border-bottom: 3px solid #ee4d2d; font-size: 1rem;">Pending Actions</button>
+            <button id="tab-completed" class="refund-tab" onclick="switchTab('completed')" style="padding: 12px 24px; border: none; background: transparent; font-weight: 500; cursor: pointer; color: #666; border-bottom: 3px solid transparent; font-size: 1rem;">Completed / Disputed</button>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="padding: 12px; background: #d1fae5; color: #065f46; border-radius: 4px; margin-bottom: 20px;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+
+        @if (!Model.Any())
+        {
+            <div style="background: white; border-radius: 4px; padding: 60px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <h3 style="color: #6b7280;">No return requests found.</h3>
+            </div>
+        }
+
+        @foreach (var refund in Model)
+        {
+            var badgeClass = refund.Status switch {
+                "RETURN_REQUESTED" => "bg-pending",
+                "Requested" => "bg-pending",
+                "RETURN_APPROVED" => "bg-approved",
+                "RETURN_IN_TRANSIT" => "bg-approved",
+                "RETURN_RECEIVED" => "bg-received",
+                "REFUND_COMPLETED" => "bg-completed",
+                "DISPUTED" => "bg-disputed",
+                _ => "bg-pending"
+            };
+            
+            <div class="refund-card" data-status="@refund.Status" data-refundid="@refund.RefundID" data-orderid="@refund.OrderID">
+                <div class="refund-header">
+                    <div>
+                        <span class="refund-id-text" style="font-weight: 600; color: #333;">Refund #@refund.RefundID</span>
+                        <span class="order-id-text" style="color: #888; font-size: 0.9rem; margin-left: 12px;">Order #@refund.OrderID</span>
+                    </div>
+                    <span class="badge @badgeClass">@refund.Status.Replace("_", " ")</span>
+                </div>
+
+                <div class="product-section" style="display: flex; justify-content: space-between; align-items: stretch;">
+                    <div class="products-list" style="display: flex; flex-direction: column; gap: 15px; flex: 1;">
+                        @if (refund.Order?.OrderItems != null)
+                        {
+                            foreach (var item in refund.Order.OrderItems)
+                            {
+                                <div style="display: flex; gap: 15px;">
+                                    <img src="@(item.Product != null ? Url.Content($"~/uploads/{item.Product.ProductID}.jpg") : "/images/default-product.png")" alt="Product" class="product-img" onerror="this.src='/images/default-product.png';" />
+                                    <div class="product-details">
+                                        <div class="product-title">@(item.Product?.Title ?? "Product Name Missing")</div>
+                                        <div style="font-size: 0.85rem; color: #888;">Variation: Standard</div>
+                                        <div style="font-size: 0.85rem; color: #888;">x@(item.Quantity)</div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                    <div class="refund-info" style="min-width: 200px; border-left: 1px solid #eee; padding-left: 20px; justify-content: center; align-items: flex-end;">
+                        <div>Requested Amount: <span style="color:#ee4d2d; font-weight:600;">RM @refund.RefundAmount.ToString("0.00")</span></div>
+                        <div style="color: #888;">Requested At: @refund.RequestedAt?.ToString("MMM dd, yyyy HH:mm")</div>
+                    </div>
+                </div>
+
+                <div class="reason-section">
+                    <div class="reason-box">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Buyer Reason (@refund.IssueType):</div>
+                        <div style="color: #555; font-size: 0.95rem;">@refund.Reason</div>
+                        @if(!string.IsNullOrEmpty(refund.Description)) {
+                            <div style="color: #888; font-size: 0.9rem; margin-top: 4px;">@refund.Description</div>
+                        }
+                        @{
+                            var firstMediaUrl = "/images/default-product.png";
+                            if (!string.IsNullOrEmpty(refund.MediaUrl))
+                            {
+                                var urls = refund.MediaUrl.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                                if (urls.Length > 0) firstMediaUrl = urls[0];
+                            }
+                        }
+                        <div class="media-thumbnail" onclick="openMediaModal('@Url.Content(firstMediaUrl)')" title="View Buyer Evidence">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        </div>
+                    </div>
+                </div>
+
+                @if(refund.Status == "RETURN_REQUESTED" || refund.Status == "Requested")
+                {
+                    <div class="action-section">
+                        <form asp-action="ApproveRefund" method="post" style="margin: 0;">
+                            <input type="hidden" name="refundId" value="@refund.RefundID" />
+                            <button type="submit" class="btn-action btn-approve">Approve Return</button>
+                        </form>
+                        <button type="button" class="btn-action btn-reject" onclick="openRejectModal('@refund.RefundID')">Reject Request</button>
+                    </div>
+                }
+                else if (refund.Status == "RETURN_APPROVED" || refund.Status == "RETURN_IN_TRANSIT")
+                {
+                    <div class="action-section" style="justify-content: flex-start; align-items: center;">
+                        <div style="font-size: 0.9rem; color: #6b7280;">
+                            Awaiting Courier Pickup/Delivery (Tracking: @(string.IsNullOrEmpty(refund.ReturnTrackingNumber) ? "Pending" : refund.ReturnTrackingNumber)).
+                        </div>
+                    </div>
+                }
+                else if (refund.Status == "RETURN_RECEIVED")
+                {
+                    <div class="action-section" style="justify-content: space-between; align-items: center; background: #eff6ff;">
+                        <div style="font-size: 0.9rem; color: #1e3a8a; font-weight: 500;">
+                            Parcel has arrived. Please inspect the items.
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="button" class="btn-action btn-reject" onclick="openDisputeModal('@refund.RefundID')">Report Issue</button>
+                            <form asp-action="ConfirmRefundReceipt" method="post" style="margin: 0;">
+                                <input type="hidden" name="refundId" value="@refund.RefundID" />
+                                <button type="submit" class="btn-action btn-approve">Confirm Receipt & Refund</button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </main>
+
+    <!-- Reject Modal -->
+    <div id="rejectModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:white; padding:24px; border-radius:8px; width:100%; max-width:400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="margin-top:0; font-weight:600;">Reject Refund Request</h3>
+            <form asp-action="RejectRefund" method="post">
+                <input type="hidden" name="refundId" id="rejectRefundId" />
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; margin-bottom:8px; font-size:0.9rem; color:#555;">Reason for Rejection</label>
+                    <textarea name="reason" style="width:100%; border:1px solid #ccc; border-radius:4px; padding:8px;" rows="3" required placeholder="Explain why you are rejecting this request..."></textarea>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:12px;">
+                    <button type="button" class="btn-action btn-secondary" onclick="closeRejectModal()">Cancel</button>
+                    <button type="submit" class="btn-action btn-reject">Reject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dispute Modal -->
+    <div id="disputeModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:white; padding:24px; border-radius:8px; width:100%; max-width:400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="margin-top:0; font-weight:600;">Report Issue with Return</h3>
+            <form asp-action="DisputeRefund" method="post">
+                <input type="hidden" name="refundId" id="disputeRefundId" />
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; margin-bottom:8px; font-size:0.9rem; color:#555;">Describe Issue</label>
+                    <textarea name="issue" style="width:100%; border:1px solid #ccc; border-radius:4px; padding:8px;" rows="3" required placeholder="E.g., Missing accessories, damaged further..."></textarea>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:12px;">
+                    <button type="button" class="btn-action btn-secondary" onclick="closeDisputeModal()">Cancel</button>
+                    <button type="submit" class="btn-action btn-reject">Submit to Admin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Media Evidence Modal -->
+    <div id="mediaModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.75); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:white; padding:12px; border-radius:8px; position:relative;">
+            <button onclick="closeMediaModal()" style="position:absolute; top:-15px; right:-15px; background:white; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.2);">X</button>
+            <img id="mediaImg" src="/images/default-product.png" alt="Evidence" style="max-width:500px; max-height:70vh; display:none;" />
+            <video id="mediaVid" controls style="max-width:500px; max-height:70vh; display:none;"></video>
+            <div style="text-align:center; padding-top:12px; font-weight:500;">Buyer's Uploaded Evidence</div>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'pending';
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tab-pending').classList.remove('active');
+            document.getElementById('tab-pending').style.color = '#666';
+            document.getElementById('tab-pending').style.borderBottomColor = 'transparent';
+            
+            document.getElementById('tab-completed').classList.remove('active');
+            document.getElementById('tab-completed').style.color = '#666';
+            document.getElementById('tab-completed').style.borderBottomColor = 'transparent';
+
+            var activeTab = document.getElementById('tab-' + tab);
+            activeTab.classList.add('active');
+            activeTab.style.color = '#ee4d2d';
+            activeTab.style.borderBottomColor = '#ee4d2d';
+
+            filterRefunds();
+        }
+
+        function filterRefunds() {
+            var searchStr = document.getElementById('searchRefunds').value.toLowerCase();
+            var cards = document.querySelectorAll('.refund-card');
+            
+            cards.forEach(function(card) {
+                var status = card.getAttribute('data-status');
+                var refundId = card.getAttribute('data-refundid').toLowerCase();
+                var orderId = card.getAttribute('data-orderid').toLowerCase();
+                
+                var isPendingStatus = (status === 'RETURN_REQUESTED' || status === 'Requested' || status === 'RETURN_APPROVED' || status === 'RETURN_IN_TRANSIT' || status === 'RETURN_RECEIVED');
+                
+                var tabMatch = (currentTab === 'pending' && isPendingStatus) || (currentTab === 'completed' && !isPendingStatus);
+                var searchMatch = searchStr === '' || refundId.includes(searchStr) || orderId.includes(searchStr);
+
+                if (tabMatch && searchMatch) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function openRejectModal(id) {
+            document.getElementById('rejectRefundId').value = id;
+            document.getElementById('rejectModal').style.display = 'flex';
+        }
+        function closeRejectModal() {
+            document.getElementById('rejectModal').style.display = 'none';
+        }
+        function openDisputeModal(id) {
+            document.getElementById('disputeRefundId').value = id;
+            document.getElementById('disputeModal').style.display = 'flex';
+        }
+        function closeDisputeModal() {
+            document.getElementById('disputeModal').style.display = 'none';
+        }
+        function openMediaModal(url) {
+            if(url) {
+                if(url.toLowerCase().endsWith('.mp4') || url.toLowerCase().endsWith('.webm')) {
+                    document.getElementById('mediaImg').style.display = 'none';
+                    document.getElementById('mediaVid').src = url;
+                    document.getElementById('mediaVid').style.display = 'block';
+                } else {
+                    document.getElementById('mediaVid').style.display = 'none';
+                    document.getElementById('mediaImg').src = url;
+                    document.getElementById('mediaImg').style.display = 'block';
+                }
+            }
+            document.getElementById('mediaModal').style.display = 'flex';
+        }
+        function closeMediaModal() {
+            document.getElementById('mediaModal').style.display = 'none';
+            document.getElementById('mediaVid').pause();
+        }
+
+        // Initialize view
+        filterRefunds();
+    </script>
+</body>
+</html>

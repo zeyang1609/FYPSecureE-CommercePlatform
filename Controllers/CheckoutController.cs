@@ -21,12 +21,14 @@ namespace FYP.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly PythonAiClient _aiClient;
+        private readonly IShippingService _shippingService;
         private const string CartSessionKey = "USER_SHOPPING_CART";
 
-        public CheckoutController(ApplicationDbContext context, PythonAiClient aiClient)
+        public CheckoutController(ApplicationDbContext context, PythonAiClient aiClient, IShippingService shippingService)
         {
             _context = context;
             _aiClient = aiClient;
+            _shippingService = shippingService;
         }
 
         // GET: /Checkout/Index
@@ -56,7 +58,8 @@ namespace FYP.Controllers
             int accountAgeDays,
             int failedLogins,
             int shippingDistanceKm,
-            string idempotencyKey)
+            string idempotencyKey,
+            string selectedCourierId = null)
         {
             var cart = GetCartFromSession();
             if (!cart.Items.Any())
@@ -141,14 +144,34 @@ namespace FYP.Controllers
                 });
             }
 
-            // 5. If cleared by AI, execute Order, Payment, OrderItems, and Inventory Deduction
+            // 4.5 Calculate Shipping and Assign Courier
+            var selectedItems = cart.Items.Where(i => i.IsSelected).Select(i => (i.ProductID, i.Quantity)).ToList();
+            var shippingResult = await _shippingService.CalculateAndAssignShippingAsync(selectedItems, amount, shippingAddress, selectedCourierId);
+            
+            // Add shipping fee to the total amount
+            amount += shippingResult.FinalFee;
+            string deliveryId = "DEL-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+
+            // 5. If cleared by AI, execute Order, Payment, OrderItems, Delivery and Inventory Deduction
             var order = new Order
             {
                 OrderID = orderId,
                 BuyerID = buyerId,
                 TotalAmount = amount,
                 Status = "Processing",
+                ServiceType = "Standard Delivery",
+                DeliveryID = deliveryId,
                 CreatedAt = DateTime.UtcNow
+            };
+
+            var delivery = new Delivery
+            {
+                DeliveryID = deliveryId,
+                OrderID = orderId,
+                CourierID = shippingResult.AssignedCourier?.CourierID ?? "COUR_JNT", // Fallback
+                ShippingFee = shippingResult.FinalFee,
+                Status = "Pending",
+                EstimatedDeliveryDate = DateTime.UtcNow.AddDays(3)
             };
 
             // Now utilizes our new Amount, PaymentMethod, and TransactionHash columns!
@@ -194,6 +217,7 @@ namespace FYP.Controllers
             };
 
             _context.Orders.Add(order);
+            _context.Deliveries.Add(delivery);
             _context.Payments.Add(payment);
             _context.OrderItems.AddRange(orderItems);
             _context.AuditLogs.Add(successLog);
@@ -211,6 +235,8 @@ namespace FYP.Controllers
                 riskScore = aiVerdict.RiskScore
             });
         }
+
+
 
         private string GeneratePaymentToken(string cardNumber)
         {

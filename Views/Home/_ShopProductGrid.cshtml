@@ -1,0 +1,35 @@
+@model FYP.Models.ViewModels.ShopProductGridViewModel
+
+@* AJAX partial: Product grid with pagination for "All Products" tab *@
+
+@if (Model.Products.Any())
+{
+    <div class="shop-product-grid">
+        @foreach (var product in Model.Products)
+        {
+            @await Html.PartialAsync("_ShopProductCard", product)
+        }
+    </div>
+
+    <!-- Pagination Controls -->
+    @if (Model.TotalPages > 1)
+    {
+        <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 20px; padding: 12px 0;">
+            <button class="shop-page-btn" data-page="@(Model.CurrentPage - 1)" @(Model.CurrentPage <= 1 ? "disabled" : "")>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <span style="font-size: 0.85rem; color: #555;">Page @Model.CurrentPage of @Model.TotalPages</span>
+            <button class="shop-page-btn" data-page="@(Model.CurrentPage + 1)" @(Model.CurrentPage >= Model.TotalPages ? "disabled" : "")>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+        </div>
+    }
+}
+else
+{
+    <div class="shop-no-products">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="#ddd"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2v-2h-2v2zm0-4h2V7h-2v6z"/></svg>
+        <h3>No products found</h3>
+        <p>Try a different category or sort option.</p>
+    </div>
+}
