@@ -1,9 +1,17 @@
+@{
+    // Safely resolve the user's role, defaulting to Buyer if claims are missing
+    string currentUserRole = "Buyer";
+    if (User.Identity?.IsAuthenticated == true)
+    {
+        currentUserRole = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Buyer";
+    }
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - FYP</title>
+    <title>@ViewData["Title"] - SecurePlatform</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/FYP.styles.css" asp-append-version="true" />
@@ -13,9 +21,19 @@
     <header class="main-header">
         <div class="header-top">
             <div class="top-nav-left">
-                <a asp-controller="Seller" asp-action="Dashboard">Seller Centre</a>
-                <span class="nav-divider">|</span>
-                <a asp-controller="Product" asp-action="Create">Start Selling</a>
+                <!-- Dynamically display Seller options based on actual role -->
+                @if (currentUserRole == "Seller")
+                {
+                    <a asp-controller="Seller" asp-action="Dashboard">Seller Centre</a>
+                }
+                else if (currentUserRole == "Buyer")
+                {
+                    <a asp-controller="Seller" asp-action="Onboard">Start Selling</a>
+                }
+                else
+                {
+                    <span style="color: #A0ABC0; font-size: 0.85rem; font-family: monospace;">AdminOS Secure Session</span>
+                }
             </div>
 
             <div class="top-nav-right">
@@ -41,7 +59,7 @@
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     <div class="profile-dropdown" style="position: relative; display: inline-block;">
-                        <a href="/@User.Claims.FirstOrDefault(c=>c.Type==System.Security.Claims.ClaimTypes.Role)?.Value/Dashboard" class="nav-icon-link" aria-label="Profile">
+                        <a href="/@currentUserRole/Dashboard" class="nav-icon-link" aria-label="Profile">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                                 <circle cx="12" cy="7" r="4"></circle>
@@ -49,8 +67,12 @@
                             <span>@User.Identity?.Name</span>
                         </a>
                         <div class="dropdown-menu">
-                            <a href="/@User.Claims.FirstOrDefault(c=>c.Type==System.Security.Claims.ClaimTypes.Role)?.Value/Profile">My Account</a>
-                            <a href="/@User.Claims.FirstOrDefault(c=>c.Type==System.Security.Claims.ClaimTypes.Role)?.Value/Orders">My Purchase</a>
+                            <a href="/@currentUserRole/Profile">My Account</a>
+                            <!-- Hide purchases from Admins -->
+                            @if (currentUserRole != "Admin")
+                            {
+                                <a href="/@currentUserRole/Orders">My Purchases</a>
+                            }
                             <a asp-controller="Auth" asp-action="Logout">Log Out</a>
                         </div>
                     </div>
@@ -93,6 +115,7 @@
             </a>
         </div>
     </header>
+
     <div>
         <main role="main" class="pb-3">
             @RenderBody()
@@ -101,12 +124,442 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - FYP - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2026 - SecurePlatform - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+   @if (User.Identity?.IsAuthenticated == true)
+{
+    <!-- 1. All-in-One CSS for the Dual-Pane Look -->
+    <style>
+        .secure-chat-tab {
+            position: fixed;
+            bottom: 0;
+            right: 50px;
+            background-color: #EE4D2D;
+            color: white;
+            padding: 10px 35px;
+            border-radius: 6px 6px 0 0;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 9999;
+            transition: background 0.2s;
+        }
+        .secure-chat-tab:hover { background-color: #D73211; }
+        
+        .secure-chat-window {
+            position: fixed;
+            bottom: 0;
+            right: 50px;
+            width: 750px;
+            height: 550px;
+            background: white;
+            border-radius: 6px 6px 0 0;
+            box-shadow: 0 -5px 25px rgba(0,0,0,0.15);
+            display: none;
+            flex-direction: column;
+            z-index: 9998;
+            border: 1px solid #E2E8F0;
+            overflow: hidden;
+        }
+        .secure-chat-header {
+            background: white;
+            color: #EE4D2D;
+            padding: 12px 20px;
+            border-bottom: 1px solid #E2E8F0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .secure-chat-body {
+            display: flex;
+            flex-direction: row;
+            flex: 1;
+            height: calc(100% - 50px);
+        }
+        
+        /* Left Panel */
+        .secure-sidebar {
+            width: 280px;
+            border-right: 1px solid #E2E8F0;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+        }
+        .secure-search-bar {
+            padding: 12px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+        .secure-search-bar input {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 20px;
+            border: 1px solid #E2E8F0;
+            background: #F8F9FA;
+            outline: none;
+            font-size: 13px;
+        }
+        .secure-contact-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        /* Right Panel */
+        .secure-main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #F8F9FA;
+        }
+        .secure-empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #A0ABC0;
+        }
+        .secure-active-header {
+            padding: 15px 20px;
+            background: white;
+            border-bottom: 1px solid #E2E8F0;
+            font-weight: 600;
+            color: #2D3748;
+            font-size: 15px;
+        }
+        .secure-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .secure-input-area {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #E2E8F0;
+            display: flex;
+            gap: 10px;
+        }
+        .secure-input-area input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #E2E8F0;
+            border-radius: 4px;
+            outline: none;
+        }
+        .secure-input-area button {
+            background: #EE4D2D;
+            color: white;
+            border: none;
+            padding: 0 25px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .secure-contact-item {
+            padding: 15px;
+            border-bottom: 1px solid #EDF2F7;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .secure-contact-item:hover { background: #F8F9FA; }
+        .secure-contact-avatar {
+            width: 40px;
+            height: 40px;
+            background: #E2E8F0;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: #4A5568;
+            flex-shrink: 0;
+        }
+    </style>
+
+    <!-- 2. Security Token -->
+    <form id="chatSecurityForm" style="display:none;">
+        @Html.AntiForgeryToken()
+    </form>
+
+    <!-- 3. The Bottom Rectangular Tab -->
+    <div class="secure-chat-tab" onclick="toggleSecureChat()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+        Chat
+    </div>
+
+    <!-- 4. The Wide, Dual-Pane Window -->
+    <div class="secure-chat-window" id="secureChatWindow">
+        <div class="secure-chat-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                Secure Chat
+            </div>
+            <span style="cursor:pointer;" onclick="toggleSecureChat()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D3748" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"></line></svg>
+            </span>
+        </div>
+
+        <div class="secure-chat-body">
+            <!-- Left Sidebar (Search & Contacts) -->
+            <div class="secure-sidebar">
+                <div class="secure-search-bar">
+                    <input type="text" id="secureSearchInput" placeholder="🔍 Search user..." onkeyup="handleSecureSearch(this.value)" autocomplete="off" />
+                </div>
+                <div class="secure-contact-list" id="secureContactList">
+                    <!-- Javascript populates users here -->
+                </div>
+            </div>
+
+            <!-- Right Main Area -->
+            <div class="secure-main-chat">
+                
+                <!-- A: Graphic Empty State -->
+                <div class="secure-empty-state" id="secureEmptyState">
+                    <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#CBD5E0" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <h3 style="color: #4A5568; margin: 15px 0 5px 0; font-size: 18px;">Welcome to Secure Chat</h3>
+                    <p style="margin: 0; font-size: 14px;">Select a contact or search to start chatting!</p>
+                </div>
+
+                <!-- B: Active Messaging State -->
+                <div id="secureActiveState" style="display: none; flex-direction: column; height: 100%;">
+                    <div class="secure-active-header" id="secureActiveName">Target Name</div>
+                    
+                    <div class="secure-messages" id="secureMsgBox">
+                        <!-- Javascript populates messages here -->
+                    </div>
+                    
+                    <div class="secure-input-area">
+                        <input type="text" id="secureMsgInput" placeholder="Type a message..." onkeypress="if(event.key === 'Enter') sendSecureMsg()" />
+                        <button onclick="sendSecureMsg()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Logic and SignalR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script>
+        let currentChatUserId = "";
+
+        // ----- SignalR WebSocket Connection -----
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("ReceiveMessage", function (senderId, message, time) {
+            if (currentChatUserId === senderId) {
+                const box = document.getElementById("secureMsgBox");
+                box.innerHTML += `
+                    <div style="align-self: flex-start; background: white; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 80%;">
+                        <div style="font-size: 14px; color: #2D3748;">${message}</div>
+                        <div style="font-size: 11px; color: #A0ABC0; margin-top: 4px; text-align: right;">${time}</div>
+                    </div>`;
+                box.scrollTop = box.scrollHeight;
+            } else {
+                loadSecureConversations();
+            }
+        });
+
+        connection.start().catch(err => console.error(err.toString()));
+
+                // ----- UI Toggles (Fixes the blocking tab) -----
+                function toggleSecureChat() {
+                    const win = document.getElementById("secureChatWindow");
+                    const tab = document.querySelector(".secure-chat-tab"); // Target the small tab
+
+                    if (win.style.display === "none" || win.style.display === "") {
+                        win.style.display = "flex";
+                        tab.style.display = "none"; // Hide the tab so it doesn't block the input!
+
+                        if (currentChatUserId === "") {
+                            document.getElementById("secureEmptyState").style.display = "flex";
+                            document.getElementById("secureActiveState").style.display = "none";
+                        }
+                        loadSecureConversations();
+                    } else {
+                        win.style.display = "none";
+                        tab.style.display = "flex"; // Show the tab again when minimized
+                    }
+                }
+
+                // ----- Select a User to Chat (Fixes missing history) -----
+                async function startSecureChat(userId, userEmail) {
+                    currentChatUserId = userId;
+
+                    document.getElementById("secureEmptyState").style.display = "none";
+                    document.getElementById("secureActiveState").style.display = "flex";
+                    document.getElementById("secureActiveName").innerText = userEmail;
+
+                    const msgBox = document.getElementById("secureMsgBox");
+
+                    // Show a loading indicator while fetching history
+                    msgBox.innerHTML = `<div style="text-align: center; color: #A0ABC0; padding: 20px; font-size: 13px;">Loading conversation...</div>`;
+                    document.getElementById("secureMsgInput").focus();
+
+                    try {
+                        // Fetch the history from the new backend API
+                        const res = await fetch(`/Chat/GetChatHistory?contactId=${userId}`);
+                        const history = await res.json();
+
+                        // Clear the loader and insert the security notice
+                        msgBox.innerHTML = `
+                                    <div style="text-align: center; background: #E6FFFA; color: #234E52; padding: 8px; border-radius: 4px; font-size: 12px; margin-bottom: 15px;">
+                                        🔒 E2E Encryption active with ${userEmail}
+                                    </div>`;
+
+                        // Render every past message in the correct color
+                        history.forEach(msg => {
+                            if (msg.isMine) {
+                                // My messages (Right side, Orange)
+                                msgBox.innerHTML += `
+                                            <div style="align-self: flex-end; background: #EE4D2D; color: white; padding: 10px 15px; border-radius: 12px; border-bottom-right-radius: 0; box-shadow: 0 1px 3px rgba(238,77,45,0.2); max-width: 80%;">
+                                                <div style="font-size: 14px;">${msg.payload}</div>
+                                                <div style="font-size: 10px; color: #FFD1C9; margin-top: 4px; text-align: right;">${msg.timestamp}</div>
+                                            </div>`;
+                            } else {
+                                // Their messages (Left side, White)
+                                msgBox.innerHTML += `
+                                            <div style="align-self: flex-start; background: white; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 80%;">
+                                                <div style="font-size: 14px; color: #2D3748;">${msg.payload}</div>
+                                                <div style="font-size: 10px; color: #A0ABC0; margin-top: 4px; text-align: right;">${msg.timestamp}</div>
+                                            </div>`;
+                            }
+                        });
+
+                        // Auto-scroll to the newest message
+                        msgBox.scrollTop = msgBox.scrollHeight;
+
+                        // Refresh the sidebar to clear any red unread notification badges
+                        loadSecureConversations();
+
+                    } catch (err) {
+                        console.error("Failed to load chat history:", err);
+                    }
+                }
+
+        // ----- Load Recent Conversations (Sidebar) -----
+        async function loadSecureConversations() {
+            const list = document.getElementById("secureContactList");
+            try {
+                const res = await fetch('/Chat/GetRecentConversations');
+                const data = await res.json();
+
+                if (data.length > 0) {
+                    list.innerHTML = data.map(c => `
+                        <div class="secure-contact-item" onclick="startSecureChat('${c.contactId}', '${c.contactEmail}')">
+                            <div class="secure-contact-avatar">${c.contactEmail.charAt(0).toUpperCase()}</div>
+                            <div style="flex: 1; overflow: hidden;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <div style="font-weight: 600; color: #2D3748; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${c.contactEmail}</div>
+                                    <div style="font-size: 11px; color: #A0ABC0;">${c.timestamp}</div>
+                                </div>
+                                <div style="font-size: 12px; color: #718096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    ${c.lastMessage}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = `<div style="padding: 20px; text-align: center; color: #A0ABC0; font-size: 13px;">No recent chats. Search to start!</div>`;
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // ----- Search Users (Sidebar) -----
+        async function handleSecureSearch(query) {
+            if (query.length < 2) {
+                loadSecureConversations(); 
+                return;
+            }
+            const list = document.getElementById("secureContactList");
+            try {
+                const res = await fetch(`/Chat/SearchUsers?query=${encodeURIComponent(query)}`);
+                const data = await res.json();
+
+                if (data.length > 0) {
+                    list.innerHTML = data.map(u => `
+                        <div class="secure-contact-item" onclick="startSecureChat('${u.id}', '${u.email}')">
+                            <div class="secure-contact-avatar">${u.email.charAt(0).toUpperCase()}</div>
+                            <div style="flex: 1; overflow: hidden;">
+                                <div style="font-weight: 600; color: #2D3748; font-size: 13px;">${u.email}</div>
+                                <div style="font-size: 11px; color: #A0ABC0;">${u.role}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = `<div style="padding: 20px; text-align: center; color: #A0ABC0; font-size: 13px;">No users found.</div>`;
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // ----- Send Message (AJAX + NLP Check) -----
+        async function sendSecureMsg() {
+            if (!currentChatUserId) return;
+
+            const input = document.getElementById("secureMsgInput");
+            const msg = input.value.trim();
+            if (msg === "") return;
+            input.value = ""; 
+
+            const token = document.querySelector('#chatSecurityForm input[name="__RequestVerificationToken"]').value;
+            const params = new URLSearchParams();
+            params.append("receiverId", currentChatUserId);
+            params.append("payload", msg);
+
+            try {
+                const res = await fetch('/Chat/SendMessage', {
+                    method: 'POST',
+                    body: params,
+                    headers: {
+                        'RequestVerificationToken': token,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+
+                const result = await res.json();
+                const box = document.getElementById("secureMsgBox");
+
+                if (result.success) {
+                    box.innerHTML += `
+                        <div style="align-self: flex-end; background: #EE4D2D; color: white; padding: 10px 15px; border-radius: 12px; border-bottom-right-radius: 0; box-shadow: 0 1px 3px rgba(238,77,45,0.2); max-width: 80%;">
+                            <div style="font-size: 14px;">${msg}</div>
+                        </div>`;
+                } else if (result.isBlocked) {
+                    box.innerHTML += `
+                        <div style="align-self: center; background: #FFF5F5; color: #C53030; border: 1px solid #FEB2B2; padding: 10px; border-radius: 8px; font-size: 12px; margin: 10px 0; text-align: center; width: 90%; font-weight: 600;">
+                            🚨 ${result.message}
+                        </div>`;
+                }
+                box.scrollTop = box.scrollHeight;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    </script>
+}
+  
+    
 </body>
 </html>

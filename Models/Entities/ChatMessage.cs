@@ -1,4 +1,5 @@
 ﻿using FYP.Models.Entities;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -23,6 +24,11 @@ namespace FYP.Models.Entities
 
         [Required]
         public bool NLP_Flag { get; set; } = false;
+
+        // --- REQUIRED FOR CHAT UI FUNCTIONALITY ---
+        public bool IsRead { get; set; } = false;
+
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
         [ForeignKey("SenderID")]
         public virtual User Sender { get; set; }
