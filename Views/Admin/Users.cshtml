@@ -1,4 +1,4 @@
-﻿@model IEnumerable<FYP.Models.Entities.User>
+@model IEnumerable<FYP.Models.Entities.User>
 @{
     ViewData["Title"] = "User Management";
     Layout = null;
@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
     <link rel="stylesheet" href="~/css/admin-dashboard.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body style="background-color: #F8F9FA;">
 
@@ -21,9 +22,9 @@
             <span style="color: white; font-weight: 700; font-size: 1.2rem;">ADMIN<span style="color: #EE4D2D;">OS</span></span>
         </div>
         <div class="admin-nav-links">
-            <a asp-action="Dashboard">🛡️ Security Dashboard</a>
-            <a asp-action="Users" class="active">👥 User Management</a>
-            <a asp-action="Categories">📁 Categories</a>
+            <a asp-action="Dashboard">??? Security Dashboard</a>
+            <a asp-action="Users" class="active">?? User Management</a>
+            <a asp-action="Categories">?? Categories</a>
             <a asp-controller="Auth" asp-action="Login">Log Out</a>
         </div>
     </header>
@@ -78,7 +79,7 @@
                             <td>
                                 @if (user.MFA_Enabled)
                                 {
-                                    <span class="badge badge-success">✓ Enabled</span>
+                                    <span class="badge badge-success">? Enabled</span>
                                 }
                                 else
                                 {
@@ -96,5 +97,6 @@
         </div>
 
     </main>
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

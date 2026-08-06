@@ -6,6 +6,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace FYP.Controllers
 {
@@ -137,7 +138,7 @@ namespace FYP.Controllers
             var auditLog = new AuditLog
             {
                 LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                UserID = "ADMIN-SYS",
+                UserID = User.FindFirstValue(ClaimTypes.NameIdentifier),
                 Action = $"Created new catalog category: {name}",
                 IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
                 Timestamp = DateTime.UtcNow
@@ -175,16 +176,15 @@ namespace FYP.Controllers
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == refund.OrderID);
                 if(order != null) order.Status = "Refunded";
 
-                var auditLog = new AuditLog
+                _context.AuditLogs.Add(new AuditLog
                 {
                     LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                    UserID = "ADMIN-SYS",
+                    UserID = User.FindFirstValue(ClaimTypes.NameIdentifier),
                     Action = $"Arbitration: Forced refund for {refundId}. Notes: {adminNote}",
                     IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
                     Timestamp = DateTime.UtcNow
-                };
+                });
 
-                _context.AuditLogs.Add(auditLog);
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = "Dispute resolved in favor of Buyer (Refund Issued).";
             }
@@ -202,16 +202,15 @@ namespace FYP.Controllers
                 refund.Status = "RETURN_REJECTED";
                 refund.AdminResolution = adminNote;
 
-                var auditLog = new AuditLog
+                _context.AuditLogs.Add(new AuditLog
                 {
                     LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                    UserID = "ADMIN-SYS",
+                    UserID = User.FindFirstValue(ClaimTypes.NameIdentifier),
                     Action = $"Arbitration: Rejected return for {refundId}. Notes: {adminNote}",
                     IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
                     Timestamp = DateTime.UtcNow
-                };
+                });
 
-                _context.AuditLogs.Add(auditLog);
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = "Dispute resolved in favor of Seller (Return Rejected).";
             }

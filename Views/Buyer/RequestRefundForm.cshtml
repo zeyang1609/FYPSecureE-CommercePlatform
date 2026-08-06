@@ -102,6 +102,7 @@
             border-top: 1px solid #eee;
         }
     </style>
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body style="background-color: #f5f5f5;">
 
@@ -447,5 +448,6 @@
             emailError.style.display = 'block';
         });
     </script>
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

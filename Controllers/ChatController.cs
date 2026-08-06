@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FYP.Data;
 using FYP.Models.Entities;
@@ -8,8 +8,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using System.IO;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
-using FYP.Hubs; // Ensure this points to where your ChatHub is located
+using FYP.Hubs;
 
 namespace FYP.Controllers
 {
@@ -19,12 +22,14 @@ namespace FYP.Controllers
         private readonly ApplicationDbContext _context;
         private readonly PythonAiClient _aiClient;
         private readonly IHubContext<ChatHub> _hubContext; // Inject SignalR Hub
+        private readonly IWebHostEnvironment _env;
 
-        public ChatController(ApplicationDbContext context, PythonAiClient aiClient, IHubContext<ChatHub> hubContext)
+        public ChatController(ApplicationDbContext context, PythonAiClient aiClient, IHubContext<ChatHub> hubContext, IWebHostEnvironment env)
         {
             _context = context;
             _aiClient = aiClient;
             _hubContext = hubContext;
+            _env = env;
         }
 
         [HttpGet]
@@ -46,18 +51,47 @@ namespace FYP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SendMessage(string receiverId, string payload)
+        public async Task<IActionResult> SendMessage(string receiverId, string payload, IFormFile? attachment)
         {
             // 1. Secure Identity Extraction (Spoofing Protection)
             string senderId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (string.IsNullOrWhiteSpace(payload))
+            if (string.IsNullOrWhiteSpace(payload) && attachment == null)
             {
-                return Json(new { success = false, message = "Message text cannot be empty." });
+                return Json(new { success = false, message = "Message text or attachment cannot be empty." });
+            }
+
+            string safePayload = string.IsNullOrWhiteSpace(payload) ? "" : payload;
+
+            // Handle file upload if present
+            string? attachmentUrl = null;
+            string? attachmentType = null;
+            if (attachment != null && attachment.Length > 0)
+            {
+                string uploadFolder = Path.Combine(_env.WebRootPath, "uploads", "chat");
+                if (!Directory.Exists(uploadFolder))
+                {
+                    Directory.CreateDirectory(uploadFolder);
+                }
+
+                string uniqueFileName = Guid.NewGuid().ToString("N") + "_" + attachment.FileName;
+                string filePath = Path.Combine(uploadFolder, uniqueFileName);
+
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await attachment.CopyToAsync(fileStream);
+                }
+
+                attachmentUrl = "/uploads/chat/" + uniqueFileName;
+                attachmentType = attachment.ContentType.StartsWith("video/") ? "video" : "image";
             }
 
             // 2. Pass payload through Custom TF-IDF Random Forest NLP AI Engine
-            bool isMalicious = await _aiClient.ScanChatMessageAsync(payload);
+            bool isMalicious = false;
+            if (!string.IsNullOrWhiteSpace(safePayload)) 
+            {
+                 isMalicious = await _aiClient.ScanChatMessageAsync(safePayload);
+            }
 
             string chatId = "CHT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
 
@@ -66,10 +100,12 @@ namespace FYP.Controllers
                 ChatID = chatId,
                 SenderID = senderId,
                 ReceiverID = receiverId,
-                Payload = payload,
+                Payload = safePayload,
                 NLP_Flag = isMalicious,
                 IsRead = false,
-                Timestamp = DateTime.UtcNow
+                Timestamp = DateTime.UtcNow,
+                AttachmentUrl = attachmentUrl,
+                AttachmentType = attachmentType
             };
 
             _context.ChatMessages.Add(chatMessage);
@@ -86,7 +122,7 @@ namespace FYP.Controllers
             }
 
             // 3. Trigger Real-Time WebSocket Push via SignalR Context!
-            await _hubContext.Clients.User(receiverId).SendAsync("ReceiveMessage", senderId, payload, chatMessage.Timestamp.ToString("HH:mm"));
+            await _hubContext.Clients.User(receiverId).SendAsync("ReceiveMessage", senderId, safePayload, chatMessage.Timestamp.ToString("HH:mm"), attachmentUrl, attachmentType);
             await _hubContext.Clients.User(receiverId).SendAsync("UpdateUnreadBadge");
 
             return Json(new { success = true, data = chatMessage });
@@ -164,7 +200,9 @@ namespace FYP.Controllers
                 {
                     isMine = m.SenderID == currentUserId, // Boolean flag so JS knows which color to use
                     payload = m.Payload,
-                    timestamp = m.Timestamp.ToString("HH:mm")
+                    timestamp = m.Timestamp.ToString("HH:mm"),
+                    attachmentUrl = m.AttachmentUrl,
+                    attachmentType = m.AttachmentType
                 })
                 .ToListAsync();
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -40,7 +40,16 @@ namespace FYP.Security
         /// </summary>
         public static bool VerifyHash(string password, string storedHash)
         {
-            byte[] hashBytes = Convert.FromBase64String(storedHash);
+            byte[] hashBytes;
+            try
+            {
+                hashBytes = Convert.FromBase64String(storedHash);
+            }
+            catch (FormatException)
+            {
+                // If the stored hash is not valid Base64 (e.g. plain text or corrupted), it cannot match
+                return false;
+            }
 
             // Extract the 16-byte salt from the beginning of the stored string
             byte[] salt = new byte[16];

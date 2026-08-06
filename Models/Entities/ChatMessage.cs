@@ -1,4 +1,4 @@
-﻿using FYP.Models.Entities;
+using FYP.Models.Entities;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -24,6 +24,12 @@ namespace FYP.Models.Entities
 
         [Required]
         public bool NLP_Flag { get; set; } = false;
+
+        [MaxLength(255)]
+        public string? AttachmentUrl { get; set; }
+
+        [MaxLength(20)]
+        public string? AttachmentType { get; set; } // "image", "video", or null
 
         // --- REQUIRED FOR CHAT UI FUNCTIONALITY ---
         public bool IsRead { get; set; } = false;

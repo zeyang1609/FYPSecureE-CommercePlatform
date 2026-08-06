@@ -277,7 +277,7 @@ namespace FYP.Controllers
                 viewModel.OriginalShippingFee = originalFee;
                 viewModel.ShippingFee = fee;
                 viewModel.CourierName = courier?.Name ?? "Standard Courier";
-                viewModel.CourierID = courier?.CourierID ?? "COUR_DEFAULT";
+                viewModel.CourierID = courier?.CourierID ?? "COUR_JNT";
                 viewModel.TotalAmount += fee;
             }
 
@@ -328,17 +328,32 @@ namespace FYP.Controllers
             // Simulate the algorithmic risk score check:
             double simulatedRiskScore = (double)model.TotalAmount > 5000 ? 0.85 : 0.12;
 
+            string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+
             if (simulatedRiskScore > 0.80)
             {
+                var blockedOrder = new Order
+                {
+                    OrderID = orderId,
+                    BuyerID = GetUserId(),
+                    TotalAmount = model.TotalAmount,
+                    Status = "Declined - AI Security Block",
+                    CreatedAt = DateTime.UtcNow,
+                    ServiceType = "Standard Delivery"
+                };
+
                 // Aligned to match your exact FraudAlert properties
                 var fraudAlert = new FraudAlert
                 {
                     AlertID = "FRD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                    OrderID = "BLOCKED-TX",
+                    OrderID = orderId,
                     RiskScore = (decimal)simulatedRiskScore,
-                    SHAP_Data = "{\"reason\": \"High transaction velocity and abnormal expenditure spike detected by XGBoost.\"}"
+                    Reason = "XGBoost behavioral anomaly detected: Abnormal expenditure spike.",
+                    SHAP_Data = "{\"reason\": \"High transaction velocity and abnormal expenditure spike detected by XGBoost.\"}",
+                    CreatedAt = DateTime.UtcNow
                 };
 
+                _context.Orders.Add(blockedOrder);
                 _context.FraudAlerts.Add(fraudAlert);
                 await _context.SaveChangesAsync();
 
@@ -346,7 +361,6 @@ namespace FYP.Controllers
                 return View("Checkout", model);
             }
 
-            string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
             string paymentId = "PAY-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
 
             // Aligned to match your exact Payment properties
@@ -363,7 +377,7 @@ namespace FYP.Controllers
             
             // Recalculate Shipping Fee dynamically
             decimal finalShippingFee = 0;
-            string finalCourierId = "COUR_DEFAULT";
+            string finalCourierId = "COUR_JNT";
             var defaultAddress = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == model.SelectedAddressID)
                                 ?? await _context.Addresses.FirstOrDefaultAsync(a => a.UserID == GetUserId() && a.IsDefault);
             if (defaultAddress != null)
@@ -470,7 +484,7 @@ namespace FYP.Controllers
                 decimal totalAmount = cartViewModel.Items.Where(i => i.IsSelected).Sum(i => i.Subtotal);
 
                 decimal finalShippingFee = 0;
-                string finalCourierId = "COUR_DEFAULT";
+                string finalCourierId = "COUR_JNT";
                 var defaultAddress = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == addressId)
                                     ?? await _context.Addresses.FirstOrDefaultAsync(a => a.UserID == GetUserId() && a.IsDefault);
                 if (defaultAddress != null)

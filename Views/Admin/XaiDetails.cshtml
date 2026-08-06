@@ -1,4 +1,4 @@
-﻿@model FYP.Models.Entities.FraudAlert
+@model FYP.Models.Entities.FraudAlert
 @{
     ViewData["Title"] = "XAI Diagnostics";
     Layout = null;
@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
     <link rel="stylesheet" href="~/css/admin-dashboard.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body style="background-color: #F8F9FA;">
 
@@ -21,7 +22,7 @@
             <span style="color: white; font-weight: 700; font-size: 1.2rem;">ADMIN<span style="color: #EE4D2D;">OS</span></span>
         </div>
         <div class="admin-nav-links">
-            <a asp-action="Dashboard">← Back to Dashboard</a>
+            <a asp-action="Dashboard">? Back to Dashboard</a>
         </div>
     </header>
 
@@ -101,5 +102,6 @@
                 return result.charAt(0).toUpperCase() + result.slice(1);
             }
     </script>
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

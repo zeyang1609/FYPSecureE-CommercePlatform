@@ -12,6 +12,7 @@
     <title>@ViewData["Title"] - SecurePlatform</title>
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body style="background-color: #F8F9FA;">
 
@@ -116,5 +117,6 @@
             }
         </div>
     </main>
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

@@ -44,6 +44,7 @@
         
         .action-section { padding: 16px 20px; background: white; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 12px; }
     </style>
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body style="background-color: #F8F9FA;">
 
@@ -323,5 +324,6 @@
         // Initialize view
         filterRefunds();
     </script>
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

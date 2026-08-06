@@ -1,4 +1,4 @@
-﻿@model IEnumerable<FYP.Models.Entities.Order>
+@model IEnumerable<FYP.Models.Entities.Order>
 @{
     ViewData["Title"] = "Buyer Portal & Order Tracking";
     Layout = null;
@@ -13,6 +13,7 @@
     <title>@ViewData["Title"] - SecurePlatform</title>
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
     <link rel="stylesheet" href="~/css/buyer-dashboard.css" />
 </head>
 <body style="background-color: #F8F9FA;">
@@ -180,5 +181,6 @@
         </div>
 
     </main>
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

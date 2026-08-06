@@ -1,4 +1,4 @@
-﻿@model FYP.Models.ViewModels.ProductUploadViewModel
+@model FYP.Models.ViewModels.ProductUploadViewModel
 @{
     ViewData["Title"] = "AI Inventory Studio - List New Product";
     Layout = null;
@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <!-- Seller Studio Dashboard Layout -->
     <link rel="stylesheet" href="~/css/seller-studio.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body>
 
@@ -29,7 +30,7 @@
                 </a>
                 <span class="page-label">Seller Studio</span>
             </div>
-            <a asp-controller="Seller" asp-action="Dashboard" class="help-link" style="font-weight: 600;">← Back to Dashboard</a>
+            <a asp-controller="Seller" asp-action="Dashboard" class="help-link" style="font-weight: 600;">? Back to Dashboard</a>
         </div>
     </header>
 
@@ -41,7 +42,7 @@
                 <h1>Add New Inventory</h1>
                 <p>Configure product specifications and submit imagery for automated security verification.</p>
             </div>
-            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🛡️ Zero-Trust Verification Active</span>
+            <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">??? Zero-Trust Verification Active</span>
         </div>
 
         <div class="studio-dashboard-card">
@@ -146,10 +147,10 @@
 
                             <!-- Real-Time AI Telemetry Indicator -->
                             <div class="forensic-status-box">
-                                <strong>🧠 Automated AI Security Pipeline:</strong>
-                                • SHA-256 Cryptographic Image Hash Computed on Upload<br />
-                                • OpenCV Error Level Analysis (ELA) for Photoshop Forgery<br />
-                                • Hugging Face Neural Network NSFW & Content Filter
+                                <strong>?? Automated AI Security Pipeline:</strong>
+                                � SHA-256 Cryptographic Image Hash Computed on Upload<br />
+                                � OpenCV Error Level Analysis (ELA) for Photoshop Forgery<br />
+                                � Hugging Face Neural Network NSFW & Content Filter
                             </div>
                         </div>
                     </div>
@@ -163,7 +164,7 @@
                     </div>
                     <div>
                         <button type="submit" class="btn-submit-primary" style="width: auto; padding: 12px 30px; font-size: 0.95rem; margin: 0;">
-                            RUN AI VISION SCAN & LIST PRODUCT →
+                            RUN AI VISION SCAN & LIST PRODUCT ?
                         </button>
                     </div>
                 </div>
@@ -194,5 +195,6 @@
                 }
             }
     </script>
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

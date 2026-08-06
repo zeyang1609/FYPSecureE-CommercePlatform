@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Become a Merchant";
     Layout = null; // Or use your shared layout
 }
@@ -20,6 +20,7 @@
                 border-top: 4px solid #DD6B20;
             }
     </style>
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body class="onboard-bg" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; font-family: 'Segoe UI', sans-serif;">
 
@@ -64,5 +65,6 @@
         </div>
     </div>
 
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

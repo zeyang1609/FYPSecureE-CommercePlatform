@@ -148,6 +148,33 @@ namespace FYP.Data
                 }
             );
 
+            // 1.5. Seed Admin Account
+            var demoAdminId = "admin_demo_1";
+            modelBuilder.Entity<User>().HasData(
+                new User
+                {
+                    UserID = demoAdminId,
+                    Role = "Admin",
+                    Email = "demo_admin@secureplatform.com",
+                    PasswordHash = "SEED_NO_LOGIN",
+                    DeviceHash = "SEED",
+                    MFA_Enabled = true,
+                    Name = "System Administrator",
+                    PhoneNumber = "0123456789"
+                },
+                new User
+                {
+                    UserID = "SYSTEM",
+                    Role = "Admin",
+                    Email = "system@secureplatform.com",
+                    PasswordHash = "SEED_NO_LOGIN",
+                    DeviceHash = "SEED",
+                    MFA_Enabled = false,
+                    Name = "SYSTEM",
+                    PhoneNumber = "0000000000"
+                }
+            );
+
             // 2. Seed Category
             var techCategoryId = "cat_tech_1";
             modelBuilder.Entity<Category>().HasData(

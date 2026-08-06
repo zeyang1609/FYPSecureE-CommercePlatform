@@ -4,16 +4,19 @@ using FYP.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace FYP.Migrations
+namespace FYP.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260806104545_AddChatAttachments")]
+    partial class AddChatAttachments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1001,7 +1004,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "seller_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 6, 11, 28, 14, 422, DateTimeKind.Utc).AddTicks(465),
+                            CreatedAt = new DateTime(2026, 8, 6, 10, 45, 44, 546, DateTimeKind.Utc).AddTicks(9220),
                             DeviceHash = "SEED",
                             Email = "demo_seller@secureplatform.com",
                             MFA_Enabled = true,
@@ -1009,30 +1012,6 @@ namespace FYP.Migrations
                             PasswordHash = "SEED_NO_LOGIN",
                             PhoneNumber = "0123456789",
                             Role = "Seller"
-                        },
-                        new
-                        {
-                            UserID = "admin_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 6, 11, 28, 14, 422, DateTimeKind.Utc).AddTicks(8498),
-                            DeviceHash = "SEED",
-                            Email = "demo_admin@secureplatform.com",
-                            MFA_Enabled = true,
-                            Name = "System Administrator",
-                            PasswordHash = "SEED_NO_LOGIN",
-                            PhoneNumber = "0123456789",
-                            Role = "Admin"
-                        },
-                        new
-                        {
-                            UserID = "SYSTEM",
-                            CreatedAt = new DateTime(2026, 8, 6, 11, 28, 14, 422, DateTimeKind.Utc).AddTicks(8503),
-                            DeviceHash = "SEED",
-                            Email = "system@secureplatform.com",
-                            MFA_Enabled = false,
-                            Name = "SYSTEM",
-                            PasswordHash = "SEED_NO_LOGIN",
-                            PhoneNumber = "0000000000",
-                            Role = "Admin"
                         });
                 });
 

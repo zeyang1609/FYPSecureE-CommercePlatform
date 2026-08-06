@@ -12,6 +12,7 @@
     <title>@ViewData["Title"] - SecurePlatform</title>
     <!-- Links to your custom storefront styling -->
     <link rel="stylesheet" href="~/css/platform-home.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body style="display: flex; flex-direction: column; min-height: 100vh;">
 
@@ -185,5 +186,7 @@
             &copy; 2026 - FYP - <a asp-controller="Home" asp-action="Privacy" style="color: #007bff; text-decoration: none;">Privacy</a>
         </div>
     </footer>
+
+    @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

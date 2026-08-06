@@ -73,4 +73,22 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+// Automatically update seeded accounts to have a real password for login and bypass OTP
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var seededUsers = db.Users.Where(u => u.Email == "demo_seller@secureplatform.com" || u.Email == "demo_admin@secureplatform.com").ToList();
+    if (seededUsers.Any())
+    {
+        string validHash = FYP.Security.Argon2idHasher.HashPassword("password123");
+        foreach (var user in seededUsers)
+        {
+            user.PasswordHash = validHash;
+            user.MFA_Enabled = false; // Bypass OTP for seed account
+        }
+        db.SaveChanges();
+        Console.WriteLine($"[INFO] Updated {seededUsers.Count} seeded accounts to use password123 and disabled MFA.");
+    }
+}
+
 app.Run();
