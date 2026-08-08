@@ -237,14 +237,14 @@
                                             }
                                             else if (order.Status == "Pending" || order.Status == "Pending Payment")
                                             {
-                                                var savedBank = order.ServiceType.Contains("|") ? order.ServiceType.Split('|')[1] : "hlb";
+                                                var savedBank = order.ServiceType.Contains("|") ? order.ServiceType.Split('|')[1] : "hong_leong_bank";
                                                 <button type="button" class="btn-action primary btn-pay-now" data-order-id="@order.OrderID" data-fpx-bank="@savedBank" style="background-color: #ee4d2d; color: white; border-color: #ee4d2d;">Pay Now</button>
                                                 <button type="button" class="btn-action secondary">Contact Seller</button>
                                                 <div class="action-container" style="display: inline-block;">
                                                     <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
                                                     <div class="dropdown-menu">
                                                         <a href="#" onclick="openCancelModal('@order.OrderID'); return false;">Cancel Order</a>
-                                                        <a href="#">Change Payment Method</a>
+                                                        <a href="#" onclick="openChangePaymentModal('@order.OrderID'); return false;">Change Payment Method</a>
                                                     </div>
                                                 </div>
                                             }
@@ -335,6 +335,91 @@
     </main>
 
     <!-- Modals -->
+    <!-- Change Payment Method Modal -->
+    <div id="changePaymentModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 650px !important; width: 100%; text-align: left; padding: 32px;">
+            <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 500; color: #333;">Change Payment Method</h2>
+            
+            <input type="hidden" id="changePaymentOrderId" />
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 25px;">
+                <label style="flex: 1; border: 1px solid #ddd; padding: 12px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="ChangePaymentMethodType" value="Credit Card" checked onchange="toggleChangePaymentMethod(this.value)" />
+                    <span style="font-weight: 500;">Credit/Debit Card</span>
+                </label>
+                <label style="flex: 1; border: 1px solid #ddd; padding: 12px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="ChangePaymentMethodType" value="Online Banking" onchange="toggleChangePaymentMethod(this.value)" />
+                    <span style="font-weight: 500;">FPX Online Banking</span>
+                </label>
+            </div>
+            
+            <!-- FPX Section -->
+            <div id="cp-fpx-section" style="display: none; margin-bottom: 25px;">
+                <label style="font-size: 14px; font-weight: 500; color: #333; display: block; margin-bottom: 8px;">Select Bank</label>
+                <div id="cpFpxBank-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 4px; background: white;"></div>
+            </div>
+            
+            <!-- Credit Card Section -->
+            <div id="cp-card-section" style="display: block; margin-bottom: 25px;">
+                
+                @if (ViewBag.SavedCards != null && ((IEnumerable<FYP.Models.Entities.SavedBankCard>)ViewBag.SavedCards).Any())
+                {
+                    <div id="cp-saved-cards-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                        @foreach (var card in (IEnumerable<FYP.Models.Entities.SavedBankCard>)ViewBag.SavedCards)
+                        {
+                            <label class="saved-card-label" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; cursor: pointer; width: fit-content;">
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <input type="radio" name="CPSavedCardID" value="@card.CardID" @(card.IsDefault ? "checked" : "") style="accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="toggleCPNewCardForm(false)" />
+                                    <span style="font-weight: bold; color: #1a1f71; font-style: italic; min-width: 50px;">@card.Brand</span>
+                                    <span style="font-weight: 500; color: #444;">**** @card.Last4</span>
+                                </div>
+                            </label>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <input type="hidden" name="CPSavedCardID" value="" />
+                    <div style="font-size: 14px; color: #666; margin-bottom: 15px; font-style: italic;">No saved cards found. Please add a new card below.</div>
+                }
+                
+                <div style="margin-bottom: 15px;">
+                    <button type="button" id="cp-open-add-card-btn" onclick="toggleCPNewCardForm(true)" style="padding: 6px 12px; border: 1px dashed #888; border-radius: 2px; color: #555; font-size: 0.9rem; cursor: pointer; background: #fafafa;">
+                        + Pay With New Card
+                    </button>
+                </div>
+
+                <div id="cp-new-card-form" style="@(ViewBag.SavedCards != null && ((IEnumerable<FYP.Models.Entities.SavedBankCard>)ViewBag.SavedCards).Any() ? "display: none;" : "display: block;")">
+                    <div style="font-weight: 500; margin-bottom: 10px; color: #555;">New Card Details</div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 14px; font-weight: 500; color: #333; display: block; margin-bottom: 8px;">Name on Card</label>
+                        <input type="text" id="cp-cardholder-name" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px;" placeholder="John Doe" />
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 14px; font-weight: 500; color: #333; display: block; margin-bottom: 8px;">Card Number</label>
+                        <div id="cpCardNumber-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 4px; background: white;"></div>
+                    </div>
+                    <div style="display: flex; gap: 15px;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 14px; font-weight: 500; color: #333; display: block; margin-bottom: 8px;">Expiry</label>
+                            <div id="cpCardExpiry-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 4px; background: white;"></div>
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-size: 14px; font-weight: 500; color: #333; display: block; margin-bottom: 8px;">CVC</label>
+                            <div id="cpCardCvc-element" style="padding: 12px; border: 1px solid #ccc; border-radius: 4px; background: white;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="cp-error-message" style="color: #ee4d2d; font-size: 14px; margin-bottom: 15px; min-height: 20px;"></div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn-action secondary" onclick="closeChangePaymentModal()">Cancel</button>
+                <button type="button" class="btn-action primary" id="btn-confirm-change-payment" style="background: #ee4d2d; color: white; border: none;">Confirm & Pay Now</button>
+            </div>
+        </div>
+    </div>
     <!-- Rate Product Modal -->
     <div id="rateModal" class="modal">
         <div class="modal-content" style="max-width: 720px !important; width: 100%; text-align: left; padding: 32px;">
@@ -773,6 +858,144 @@
             window.addEventListener("click", (event) => {
                 // viewRatingModal click-outside is disabled as requested
                 if (event.target == issueTypeModal) issueTypeModal.style.display = "none";
+                const cpModal = document.getElementById('changePaymentModal');
+                if (event.target == cpModal) closeChangePaymentModal();
+            });
+
+            window.openChangePaymentModal = function(orderId) {
+                document.getElementById('changePaymentOrderId').value = orderId;
+                document.getElementById('changePaymentModal').style.display = 'flex';
+                
+                // Initialize Stripe elements if not already done
+                if (!window.cpElementsMounted) {
+                    if (!window.cpStripe) window.cpStripe = Stripe('@Configuration["PaymentGateway:PublishableKey"]');
+                    const elements = window.cpStripe.elements();
+                    const style = { base: { fontSize: '16px', color: '#32325d' } };
+                    
+                    window.cpCardNumber = elements.create('cardNumber', {style: style, showIcon: true, disableLink: true});
+                    window.cpCardExpiry = elements.create('cardExpiry', {style: style});
+                    window.cpCardCvc = elements.create('cardCvc', {style: style});
+                    
+                    window.cpCardNumber.mount('#cpCardNumber-element');
+                    window.cpCardExpiry.mount('#cpCardExpiry-element');
+                    window.cpCardCvc.mount('#cpCardCvc-element');
+                    
+                    window.cpFpxBank = elements.create('fpxBank', {
+                        style: { base: { padding: '10px 14px', fontSize: '16px', color: '#32325d' } },
+                        accountHolderType: 'individual'
+                    });
+                    window.cpFpxBank.mount('#cpFpxBank-element');
+                    
+                    window.cpFpxBank.on('change', function(event) {
+                        window.cpSelectedBank = event.value || '';
+                    });
+                    
+                    window.cpElementsMounted = true;
+                }
+            };
+            
+            window.closeChangePaymentModal = function() {
+                document.getElementById('changePaymentModal').style.display = 'none';
+            };
+            
+            window.toggleChangePaymentMethod = function(method) {
+                if (method === 'Online Banking') {
+                    document.getElementById('cp-fpx-section').style.display = 'block';
+                    document.getElementById('cp-card-section').style.display = 'none';
+                } else {
+                    document.getElementById('cp-fpx-section').style.display = 'none';
+                    document.getElementById('cp-card-section').style.display = 'block';
+                }
+            };
+
+            window.toggleCPNewCardForm = function(showNew) {
+                if (showNew) {
+                    document.getElementById('cp-new-card-form').style.display = 'block';
+                    document.querySelectorAll('input[name="CPSavedCardID"]').forEach(r => r.checked = false);
+                } else {
+                    document.getElementById('cp-new-card-form').style.display = 'none';
+                }
+            };
+
+            document.getElementById('btn-confirm-change-payment').addEventListener('click', async function() {
+                const btn = this;
+                const originalText = btn.textContent;
+                const orderId = document.getElementById('changePaymentOrderId').value;
+                const selectedMethod = document.querySelector('input[name="ChangePaymentMethodType"]:checked').value;
+                const errorDiv = document.getElementById('cp-error-message');
+                
+                btn.disabled = true;
+                btn.textContent = 'Processing...';
+                errorDiv.textContent = '';
+                
+                try {
+                    if (selectedMethod === 'Online Banking') {
+                        if (!window.cpSelectedBank) throw new Error("Please select a bank to proceed with FPX.");
+                        
+                        const response = await fetch('/Cart/RetryPaymentIntent', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderId: orderId })
+                        });
+                        
+                        const data = await response.json();
+                        if (data.error) throw new Error(data.error);
+                        
+                        const returnUrl = window.location.origin + '/Cart/PaymentComplete?orderId=' + data.orderId;
+                        const { error } = await window.cpStripe.confirmFpxPayment(data.clientSecret, {
+                            payment_method: { fpx: { bank: window.cpSelectedBank } },
+                            return_url: returnUrl
+                        });
+                        
+                        if (error) throw new Error(error.message);
+                        
+                    } else if (selectedMethod === 'Credit Card') {
+                        const newCardForm = document.getElementById('cp-new-card-form');
+                        if (newCardForm && newCardForm.style.display !== 'none') {
+                            // Using New Card
+                            const cardholderName = document.getElementById('cp-cardholder-name').value;
+                            if (!cardholderName.trim()) throw new Error('Please enter name on card.');
+                            
+                            const setupRes = await fetch('/Buyer/CreateSetupIntent', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            const setupData = await setupRes.json();
+                            if (!setupData.clientSecret) throw new Error(setupData.error || 'Failed to init setup');
+                            
+                            const { setupIntent, error } = await window.cpStripe.confirmCardSetup(setupData.clientSecret, {
+                                payment_method: {
+                                    card: window.cpCardNumber,
+                                    billing_details: { name: cardholderName }
+                                }
+                            });
+                            
+                            if (error) throw new Error(error.message);
+                        } else {
+                            // Using Saved Card - just verify one is selected
+                            const selectedSavedCard = document.querySelector('input[name="CPSavedCardID"]:checked');
+                            if (!selectedSavedCard || !selectedSavedCard.value) throw new Error("Please select a saved card or add a new one.");
+                        }
+                        
+                        // Proceed with payment endpoint
+                        const payRes = await fetch('/Cart/PayExistingOrder', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderId: orderId, paymentMethod: 'Credit Card' })
+                        });
+                        
+                        const payData = await payRes.json();
+                        if (!payRes.ok) throw new Error(payData.error);
+                        
+                        window.location.reload();
+                    } else {
+                        throw new Error('Payment method not fully implemented yet.');
+                    }
+                } catch (err) {
+                    errorDiv.textContent = err.message || 'An error occurred';
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
             });
 
             document.querySelectorAll('.btn-rate').forEach(btn => {

@@ -89,7 +89,7 @@
                 </div>
 
                 <div class="button-group">
-                    <button type="submit" class="btn-add-cart">
+                    <button type="button" class="btn-add-cart" onclick="addToCartAjax()">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
                             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
@@ -253,5 +253,82 @@
         var form = document.getElementById('addToCartForm');
         form.action = '/Cart/BuyNow';
         form.submit();
+    }
+
+    async function addToCartAjax() {
+        var form = document.getElementById('addToCartForm');
+        var formData = new FormData(form);
+        
+        try {
+            var response = await fetch('/Cart/AddToCartAjax', {
+                method: 'POST',
+                body: formData
+            });
+            var data = await response.json();
+            
+            if (data.success) {
+                showToast(data.message);
+                
+                // Fetch updated Cart Preview from backend
+                try {
+                    var previewResponse = await fetch('/Cart/GetCartPreviewHtml');
+                    if (previewResponse.ok) {
+                        var previewHtml = await previewResponse.text();
+                        var container = document.querySelector('.cart-preview-container');
+                        if (container) {
+                            container.outerHTML = previewHtml;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to update cart preview", e);
+                }
+            } else {
+                alert(data.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to add to cart.');
+        }
+    }
+
+    function showToast(message) {
+        var toast = document.createElement('div');
+        toast.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: #00bfa5; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </div>
+                <div style="color: white; font-size: 16px; font-weight: 500; text-align: center;">${message}</div>
+            </div>
+        `;
+        toast.style.position = 'fixed';
+        toast.style.top = '50%';
+        toast.style.left = '50%';
+        toast.style.transform = 'translate(-50%, -50%)';
+        toast.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+        toast.style.padding = '35px 45px';
+        toast.style.borderRadius = '8px';
+        toast.style.zIndex = '99999';
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.2s ease-in-out';
+        
+        document.body.appendChild(toast);
+        
+        // Fade in
+        setTimeout(() => {
+            toast.style.opacity = '1';
+        }, 10);
+        
+        // Wait 1.5s, then fade out
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(toast)) {
+                    document.body.removeChild(toast);
+                }
+            }, 300);
+        }, 1500);
     }
 </script>

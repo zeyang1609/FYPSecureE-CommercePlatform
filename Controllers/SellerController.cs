@@ -214,7 +214,7 @@ namespace FYP.Controllers
             if (delivery != null && (order.Status == "Processing" || order.Status == "Paid"))
             {
                 delivery.TrackingNumber = "TRK-" + Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper();
-                delivery.Status = "Shipped";
+                delivery.Status = "Pending Pickup";
                 delivery.EstimatedDeliveryDate = DateTime.UtcNow.AddDays(3);
                 
                 // Update Order Status

@@ -110,16 +110,36 @@
                                 </td>
                                 <td style="font-size: 0.85rem;">@(order?.Buyer?.Email ?? "N/A")</td>
                                 <td>
-                                    <span class="badge" style="background: #e8a317; color: white;">In Transit</span>
+                                    @if (item.Status == "Pending Pickup")
+                                    {
+                                        <span class="badge" style="background: #e8a317; color: white;">Pending Pick Up</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge" style="background: #0284c7; color: white;">In Transit</span>
+                                    }
                                 </td>
                                 <td>
-                                    <form asp-controller="Courier" asp-action="MarkDelivered" method="post" style="margin:0;">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="deliveryId" value="@item.DeliveryID" />
-                                        <button type="submit" class="btn-submit-primary" style="padding: 6px 16px; font-size: 0.85rem; background: #28a745; border: none; color: white; border-radius: 4px; cursor: pointer;">
-                                            Mark Delivered ✓
-                                        </button>
-                                    </form>
+                                    @if (item.Status == "Pending Pickup")
+                                    {
+                                        <form asp-controller="Courier" asp-action="PickupDelivery" method="post" style="margin:0;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="deliveryId" value="@item.DeliveryID" />
+                                            <button type="submit" class="btn-submit-primary" style="padding: 6px 16px; font-size: 0.85rem; background: #e8a317; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                                                Accept Pick Up
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form asp-controller="Courier" asp-action="MarkDelivered" method="post" style="margin:0;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="deliveryId" value="@item.DeliveryID" />
+                                            <button type="submit" class="btn-submit-primary" style="padding: 6px 16px; font-size: 0.85rem; background: #28a745; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                                                Mark Delivered ✓
+                                            </button>
+                                        </form>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -387,22 +407,29 @@
                             // Show toast
                             showToast(result.message || 'Action completed successfully!', 'success');
                             
-                            // Animate row removal
-                            const tr = form.closest('tr');
-                            tr.style.transition = 'all 0.5s ease';
-                            tr.style.opacity = '0';
-                            tr.style.transform = 'translateX(20px)';
-                            
-                            setTimeout(() => {
-                                tr.remove();
+                            if (url.includes('Pickup')) {
+                                // For pick up actions, reload the page after a brief delay to show the new 'In Transit' state
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 1200);
+                            } else {
+                                // For mark delivered actions, animate row removal
+                                const tr = form.closest('tr');
+                                tr.style.transition = 'all 0.5s ease';
+                                tr.style.opacity = '0';
+                                tr.style.transform = 'translateX(20px)';
                                 
-                                // Check if tables are empty
-                                document.querySelectorAll('.data-table').forEach(table => {
-                                    if (table.querySelectorAll('tbody tr').length === 0) {
-                                        table.parentElement.innerHTML = '<div style="text-align: center; padding: 40px; color: #888;"><h3>All caught up!</h3><p>No more pending items here.</p></div>';
-                                    }
-                                });
-                            }, 500);
+                                setTimeout(() => {
+                                    tr.remove();
+                                    
+                                    // Check if tables are empty
+                                    document.querySelectorAll('.data-table').forEach(table => {
+                                        if (table.querySelectorAll('tbody tr').length === 0) {
+                                            table.parentElement.innerHTML = '<div style="text-align: center; padding: 40px; color: #888;"><h3>All caught up!</h3><p>No more pending items here.</p></div>';
+                                        }
+                                    });
+                                }, 500);
+                            }
                         } else {
                             showToast('Error processing request. Please try again.', 'error');
                             btn.disabled = false;

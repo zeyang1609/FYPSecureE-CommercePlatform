@@ -104,6 +104,9 @@ namespace FYP.Controllers
                 await _context.SaveChangesAsync();
             }
 
+            var savedCards = await _context.SavedBankCards.Where(c => c.UserID == buyerId).ToListAsync();
+            ViewBag.SavedCards = savedCards;
+
             return View(orders);
         }
 

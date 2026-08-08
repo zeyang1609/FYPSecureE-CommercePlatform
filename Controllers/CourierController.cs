@@ -41,9 +41,9 @@ namespace FYP.Controllers
         [HttpGet]
         public async Task<IActionResult> Dashboard()
         {
-            // Get all shipped deliveries waiting to be delivered
+            // Get all shipped or pending pickup deliveries waiting to be delivered
             var deliveries = await _context.Deliveries
-                .Where(d => d.Status == "Shipped")
+                .Where(d => d.Status == "Shipped" || d.Status == "Pending Pickup")
                 .OrderBy(d => d.EstimatedDeliveryDate)
                 .ToListAsync();
 
@@ -125,6 +125,25 @@ namespace FYP.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Tracking {delivery.TrackingNumber} successfully marked as Delivered!";
+            
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return Json(new { success = true, message = TempData["SuccessMessage"] });
+                
+            return RedirectToAction(nameof(Dashboard));
+        }
+
+        // POST: /Courier/PickupDelivery
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PickupDelivery(string deliveryId)
+        {
+            var delivery = await _context.Deliveries.FirstOrDefaultAsync(d => d.DeliveryID == deliveryId);
+            if (delivery != null && delivery.Status == "Pending Pickup")
+            {
+                delivery.Status = "Shipped"; // This marks it as 'In Transit'
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = $"Tracking {delivery.TrackingNumber} marked as Picked Up and is now in transit.";
+            }
             
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 return Json(new { success = true, message = TempData["SuccessMessage"] });

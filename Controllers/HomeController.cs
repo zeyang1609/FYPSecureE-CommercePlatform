@@ -16,26 +16,15 @@ namespace FYP.Controllers
             _context = context;
         }
 
-        // GET: /Home/Index
-        [HttpGet]
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public async Task<IActionResult> Index(string searchQuery, string categoryId)
+        private async Task<List<Product>> GetProductsBySearchAsync(string searchQuery, string categoryId)
         {
-            // 1. Fetch dynamic categories for the top grid
-            ViewBag.Categories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
-            ViewBag.SelectedCategory = categoryId;
-
-            // 2. Fetch products[cite: 10]
             var productsQuery = _context.Products
                 .Include(p => p.Category)
                 .Where(p => p.StockLevel > 0)
                 .AsQueryable();
 
-            // Filter by Search Query
             if (!string.IsNullOrWhiteSpace(searchQuery))
             {
-                ViewBag.SearchQuery = searchQuery;
-                
                 string normalizedQuery = searchQuery.Replace(" ", "").ToLower();
                 var allProducts = await productsQuery.Select(p => new { p.ProductID, p.Title }).ToListAsync();
                 
@@ -55,17 +44,53 @@ namespace FYP.Controllers
                 productsQuery = productsQuery.Where(p => matchedIds.Contains(p.ProductID));
             }
 
-            // Filter by Category Click
             if (!string.IsNullOrWhiteSpace(categoryId))
             {
                 productsQuery = productsQuery.Where(p => p.CategoryID == categoryId);
             }
 
-            var products = await productsQuery
-                .OrderByDescending(p => p.ProductID)
-                .ToListAsync();
+            return await productsQuery.OrderByDescending(p => p.ProductID).ToListAsync();
+        }
 
+        // GET: /Home/Index
+        [HttpGet]
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public async Task<IActionResult> Index(string searchQuery, string categoryId)
+        {
+            ViewBag.Categories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+            ViewBag.SelectedCategory = categoryId;
+            ViewBag.SearchQuery = searchQuery;
+
+            var products = await GetProductsBySearchAsync(searchQuery, categoryId);
             return View(products);
+        }
+
+        // GET: /Home/SearchAjax
+        [HttpGet]
+        public async Task<IActionResult> SearchAjax(string searchQuery, string categoryId)
+        {
+            ViewBag.SearchQuery = searchQuery;
+            var products = await GetProductsBySearchAsync(searchQuery, categoryId);
+            return PartialView("_ProductGrid", products);
+        }
+
+        // GET: /Home/SearchAutocomplete
+        [HttpGet]
+        public async Task<IActionResult> SearchAutocomplete(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return Json(new List<object>());
+            }
+            
+            var products = await GetProductsBySearchAsync(query, null);
+            var suggestions = products.Take(6).Select(p => new {
+                title = p.Title,
+                category = p.Category?.Name ?? "Uncategorized",
+                url = $"/Home/ProductDetails/{p.ProductID}"
+            }).ToList();
+            
+            return Json(suggestions);
         }
 
         // GET: /Home/ProductDetails/PRD-1234567890AB

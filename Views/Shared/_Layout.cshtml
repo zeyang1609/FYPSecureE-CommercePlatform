@@ -84,7 +84,7 @@
 
             <!-- Functional Live Search Form -->
             <form asp-controller="Home" asp-action="Index" method="get" class="search-container">
-                <input type="text" name="searchQuery" value="@ViewBag.SearchQuery" class="search-input" placeholder="Search for products, brands and shops..." />
+                <input type="text" name="searchQuery" value="@ViewBag.SearchQuery" class="search-input" placeholder="Search for products, brands and shops..." autocomplete="off" />
                 <button type="submit" class="search-btn" aria-label="Search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
@@ -356,6 +356,82 @@
                     console.error(err);
                 }
             }
+        </script>
+    }
+    @if (ViewContext.RouteData.Values["Action"]?.ToString() == "ProductDetails" || ViewContext.RouteData.Values["Action"]?.ToString() == "ShopProfile")
+    {
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const searchForm = document.querySelector('.search-container');
+                const searchInput = document.querySelector('.search-input');
+                let debounceTimer;
+
+                // Create dropdown container
+                const dropdown = document.createElement('div');
+                dropdown.className = 'search-autocomplete-dropdown';
+                dropdown.style.cssText = 'position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; z-index: 1000; overflow: hidden; text-align: left;';
+                if(searchForm) {
+                    searchForm.style.position = 'relative';
+                    searchForm.appendChild(dropdown);
+                }
+
+                if(searchInput) {
+                    searchInput.addEventListener('input', function () {
+                        const query = this.value.trim();
+                        clearTimeout(debounceTimer);
+                        
+                        if (query.length === 0) {
+                            closeAutocomplete();
+                            return;
+                        }
+
+                        debounceTimer = setTimeout(async () => {
+                            try {
+                                const response = await fetch(`/Home/SearchAutocomplete?query=${encodeURIComponent(query)}`);
+                                if (response.ok) {
+                                    const suggestions = await response.json();
+                                    renderAutocomplete(suggestions, query);
+                                }
+                            } catch (err) {
+                                console.error('Autocomplete failed', err);
+                            }
+                        }, 300); // 300ms debounce
+                    });
+                }
+
+                // Close when clicking outside
+                document.addEventListener('click', function (e) {
+                    if (searchForm && !searchForm.contains(e.target)) {
+                        closeAutocomplete();
+                    }
+                });
+
+                function renderAutocomplete(suggestions, query) {
+                    if (suggestions.length === 0) {
+                        closeAutocomplete();
+                        return;
+                    }
+
+                    dropdown.innerHTML = suggestions.map(s => `
+                        <a href="${s.url}" class="autocomplete-item" style="display: block; padding: 10px 15px; text-decoration: none; color: #333; border-bottom: 1px solid #f1f1f1; transition: background 0.2s;">
+                            <div style="font-size: 0.95rem; font-weight: 500;">${s.title}</div>
+                            <div style="font-size: 0.8rem; color: #888;">in ${s.category}</div>
+                        </a>
+                    `).join('');
+
+                    // Add hover style dynamically
+                    dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+                        item.addEventListener('mouseenter', () => item.style.backgroundColor = '#f8f9fa');
+                        item.addEventListener('mouseleave', () => item.style.backgroundColor = 'transparent');
+                    });
+
+                    dropdown.style.display = 'block';
+                }
+
+                function closeAutocomplete() {
+                    dropdown.style.display = 'none';
+                }
+            });
         </script>
     }
 </body>

@@ -142,6 +142,55 @@ namespace FYP.Controllers
             return RedirectToAction("Index");
         }
 
+        // GET: /Cart/GetCartPreviewHtml
+        [HttpGet]
+        public IActionResult GetCartPreviewHtml()
+        {
+            return ViewComponent("CartPreview");
+        }
+
+        // POST: /Cart/AddToCartAjax
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddToCartAjax(string productId, int quantity = 1)
+        {
+            if (quantity < 1) quantity = 1;
+
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductID == productId);
+            if (product == null || product.StockLevel <= 0)
+            {
+                return Json(new { success = false, message = "Product is out of stock or unavailable." });
+            }
+
+            var cart = await GetOrCreateCartForUserAsync();
+            var existingItem = cart.Items.FirstOrDefault(i => i.ProductID == productId);
+
+            if (existingItem != null)
+            {
+                if (existingItem.Quantity + quantity <= product.StockLevel)
+                {
+                    existingItem.Quantity += quantity;
+                }
+                else
+                {
+                    existingItem.Quantity = product.StockLevel;
+                }
+            }
+            else
+            {
+                cart.Items.Add(new CartItem
+                {
+                    ProductID = product.ProductID,
+                    Quantity = Math.Min(quantity, product.StockLevel)
+                });
+            }
+
+            cart.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = "Item has been added to your shopping cart" });
+        }
+
         // POST: /Cart/UpdateQuantityAjax
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -582,6 +631,16 @@ namespace FYP.Controllers
                 _context.Orders.Add(order);
                 _context.OrderItems.AddRange(orderItems);
                 _context.Deliveries.Add(delivery);
+
+                foreach (var item in checkoutItems)
+                {
+                    if (item.Product != null)
+                    {
+                        item.Product.StockLevel = Math.Max(0, item.Product.StockLevel - item.Quantity);
+                    }
+                }
+                _context.CartItems.RemoveRange(checkoutItems);
+
                 await _context.SaveChangesAsync();
 
                 return Json(new { 
@@ -639,7 +698,7 @@ namespace FYP.Controllers
             if (redirect_status != "succeeded")
             {
                 TempData["ErrorMessage"] = "Payment failed or was cancelled.";
-                return RedirectToAction("Checkout");
+                return RedirectToAction("Index", "Home");
             }
 
             try 
@@ -656,26 +715,22 @@ namespace FYP.Controllers
                         order.Status = "Processing";
 
                         string paymentId = "PAY-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+                        string detectedMethod = "Credit Card";
+                        if (paymentIntent.PaymentMethodTypes != null && paymentIntent.PaymentMethodTypes.Contains("fpx"))
+                        {
+                            detectedMethod = "FPX Online Banking";
+                        }
+                        
                         var payment = new Payment
                         {
                             PaymentID = paymentId,
                             OrderID = orderId,
                             PaymentToken = paymentIntent.Id,
+                            PaymentMethod = detectedMethod,
                             IdempotencyKey = Guid.NewGuid().ToString("N").ToUpper(),
                             Status = "Authorized"
                         };
                         _context.Payments.Add(payment);
-
-                        var cart = await GetOrCreateCartForUserAsync();
-                        var checkoutItems = cart.Items.Where(i => i.IsSelected).ToList();
-                        foreach (var item in checkoutItems)
-                        {
-                            if (item.Product != null)
-                            {
-                                item.Product.StockLevel = Math.Max(0, item.Product.StockLevel - item.Quantity);
-                            }
-                        }
-                        _context.CartItems.RemoveRange(checkoutItems);
 
                         string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
                         var auditLog = new AuditLog
@@ -703,6 +758,57 @@ namespace FYP.Controllers
 
             TempData["ErrorMessage"] = "Payment could not be verified or order already processed.";
             return RedirectToAction("Checkout");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> PayExistingOrder([FromBody] System.Text.Json.JsonElement requestData)
+        {
+            try
+            {
+                string orderId = requestData.GetProperty("orderId").GetString();
+                string paymentMethod = requestData.TryGetProperty("paymentMethod", out var pmProp) ? pmProp.GetString() : "Credit Card";
+
+                var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == GetUserId());
+                if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
+                {
+                    return BadRequest(new { error = "Order not found or not pending payment." });
+                }
+
+                order.Status = "Processing";
+                order.ServiceType = paymentMethod;
+
+                string paymentId = "PAY-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+                var payment = new Payment
+                {
+                    PaymentID = paymentId,
+                    OrderID = orderId,
+                    PaymentToken = "TOK-SESSION-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
+                    PaymentMethod = paymentMethod,
+                    IdempotencyKey = Guid.NewGuid().ToString("N").ToUpper(),
+                    Status = "Authorized"
+                };
+
+                string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+                var auditLog = new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = GetUserId(),
+                    Action = $"Completed checkout via {paymentMethod} for existing Order {orderId} (RM {order.TotalAmount:0.00})",
+                    IP_Address = currentIp,
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _context.Payments.Add(payment);
+                _context.AuditLogs.Add(auditLog);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = $"Order {orderId} paid successfully via {paymentMethod}!";
+                return Json(new { success = true, orderId = orderId });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpPost]
