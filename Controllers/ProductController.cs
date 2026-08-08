@@ -112,6 +112,8 @@ namespace FYP.Controllers
                 Title = model.Title,
                 Price = model.Price,
                 StockLevel = model.StockLevel,
+                WeightKg = model.WeightKg,
+                Description = model.Description,
                 ImageHash = imageHash
             };
 

@@ -15,7 +15,7 @@ using Stripe;
 
 namespace FYP.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Buyer")]
     public class CartController : Controller
     {
         private readonly ApplicationDbContext _context;

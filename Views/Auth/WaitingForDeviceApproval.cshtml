@@ -1,0 +1,119 @@
+@{
+    ViewData["Title"] = "Device Authorization Required";
+    Layout = null;
+    var token = ViewBag.Token as string;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - E-Commerce Security Portal</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <style>
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #EE4D2D;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @@keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .waiting-text {
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+                    </svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Device Authorization</span>
+            </div>
+            <a href="#" class="help-link">Need Help?</a>
+        </div>
+    </header>
+
+    <main class="login-main">
+        <div class="layout-grid">
+
+            <section class="hero-column">
+                <h1 class="hero-title">Zero-Trust Security Gate</h1>
+                <p class="hero-subtitle">We detected a login attempt from an unrecognized device. To protect your account, we require email authorization.</p>
+                <div class="security-badge">
+                    Device Fingerprinting Active
+                </div>
+            </section>
+
+            <section class="auth-card">
+                <div class="card-header">
+                    <h2>Authorize This Device</h2>
+                </div>
+
+                <div class="otp-container">
+                    <p class="otp-subtitle">
+                        An email containing an authorization link has been sent to your registered address.
+                    </p>
+
+                    <div class="spinner"></div>
+                    
+                    <p class="waiting-text" id="statusText">
+                        Waiting for approval... Do not close this tab.
+                    </p>
+
+                    <div class="resend-section" style="margin-top: 30px;">
+                        Didn't receive the email? <br />
+                        <a asp-controller="Auth" asp-action="Login" class="resend-link active">Return to Login to Try Again</a>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const token = '@token';
+            if (!token) return;
+
+            const checkApproval = setInterval(() => {
+                fetch(`/Auth/CheckDeviceApprovalStatus?token=${token}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'approved' && data.redirectUrl) {
+                            clearInterval(checkApproval);
+                            document.getElementById('statusText').innerText = "Device Approved! Logging you in...";
+                            document.getElementById('statusText').style.color = "green";
+                            setTimeout(() => {
+                                window.location.href = data.redirectUrl;
+                            }, 1000);
+                        } else if (data.status === 'expired') {
+                            clearInterval(checkApproval);
+                            document.getElementById('statusText').innerText = "Session expired. Please log in again.";
+                            document.getElementById('statusText').style.color = "red";
+                        }
+                    })
+                    .catch(err => console.error('Error checking approval status:', err));
+            }, 3000);
+        });
+    </script>
+</body>
+</html>

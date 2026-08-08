@@ -33,6 +33,7 @@ namespace FYP.Data
         public DbSet<Delivery> Deliveries { get; set; }
         public DbSet<Review> Reviews { get; set; }
         public DbSet<DeviceLockout> DeviceLockouts { get; set; }
+        public DbSet<UserDevice> UserDevices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -106,6 +107,12 @@ namespace FYP.Data
                 .HasOne(c => c.User)
                 .WithOne(u => u.Cart)
                 .HasForeignKey<Cart>(c => c.UserID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserDevice>()
+                .HasOne(ud => ud.User)
+                .WithMany(u => u.UserDevices)
+                .HasForeignKey(ud => ud.UserID)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<CartItem>()

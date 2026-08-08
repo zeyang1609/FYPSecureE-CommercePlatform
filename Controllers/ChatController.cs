@@ -77,23 +77,44 @@ namespace FYP.Controllers
                 string uniqueFileName = Guid.NewGuid().ToString("N") + "_" + attachment.FileName;
                 string filePath = Path.Combine(uploadFolder, uniqueFileName);
 
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                if (attachment.ContentType.StartsWith("image/"))
                 {
-                    await attachment.CopyToAsync(fileStream);
+                    using var memoryStream = new MemoryStream();
+                    await attachment.CopyToAsync(memoryStream);
+                    var imageBytes = memoryStream.ToArray();
+                    
+                    // Synchronous AI Image Scan for NSFW/Forgery
+                    var scanResult = await _aiClient.ScanImageForForgeryAsync(imageBytes);
+                    if (scanResult.IsForgeryDetected)
+                    {
+                        return Json(new
+                        {
+                            success = false,
+                            isBlocked = true,
+                            message = $"Security Warning: Image blocked. {scanResult.ForgeryReason}"
+                        });
+                    }
+
+                    await System.IO.File.WriteAllBytesAsync(filePath, imageBytes);
+                    attachmentType = "image";
+                }
+                else
+                {
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await attachment.CopyToAsync(fileStream);
+                    }
+                    attachmentType = "video";
                 }
 
                 attachmentUrl = "/uploads/chat/" + uniqueFileName;
-                attachmentType = attachment.ContentType.StartsWith("video/") ? "video" : "image";
             }
 
-            // 2. Pass payload through Custom TF-IDF Random Forest NLP AI Engine
-            bool isMalicious = false;
-            if (!string.IsNullOrWhiteSpace(safePayload)) 
-            {
-                 isMalicious = await _aiClient.ScanChatMessageAsync(safePayload);
-            }
-
+            // 2. Save the message immediately (no AI delay)
             string chatId = "CHT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+
+            // Phishing URL Detection
+            bool isPhishingUrl = System.Text.RegularExpressions.Regex.IsMatch(safePayload, @"(bit\.ly|tinyurl\.com|ngrok\.io|t\.co|wa\.me\/|t\.me\/)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
             var chatMessage = new ChatMessage
             {
@@ -101,7 +122,7 @@ namespace FYP.Controllers
                 SenderID = senderId,
                 ReceiverID = receiverId,
                 Payload = safePayload,
-                NLP_Flag = isMalicious,
+                NLP_Flag = isPhishingUrl, // Flag immediately if suspicious link detected
                 IsRead = false,
                 Timestamp = DateTime.UtcNow,
                 AttachmentUrl = attachmentUrl,
@@ -111,19 +132,48 @@ namespace FYP.Controllers
             _context.ChatMessages.Add(chatMessage);
             await _context.SaveChangesAsync();
 
-            if (isMalicious)
+            // 3. Deliver instantly via SignalR
+            await _hubContext.Clients.User(receiverId).SendAsync("ReceiveMessage", senderId, safePayload, chatMessage.Timestamp.ToLocalTime().ToString("HH:mm"), attachmentUrl, attachmentType, chatMessage.ChatID);
+            await _hubContext.Clients.User(receiverId).SendAsync("UpdateUnreadBadge");
+
+            // 4. Fire-and-forget background NLP scan (no delay for the user)
+            if (!string.IsNullOrWhiteSpace(safePayload))
             {
-                return Json(new
+                var savedChatId = chatMessage.ChatID;
+                var scopeFactory = HttpContext.RequestServices.GetRequiredService<IServiceScopeFactory>();
+                var capturedSenderId = senderId;
+                _ = Task.Run(async () =>
                 {
-                    success = false,
-                    isBlocked = true,
-                    message = "Security Warning: Message blocked by NLP AI. Phishing or off-platform payment steering detected."
+                    try
+                    {
+                        bool isMalicious = await _aiClient.ScanChatMessageAsync(safePayload);
+                        if (isMalicious)
+                        {
+                            // Use a new DbContext scope since we're on a background thread
+                            using var scope = scopeFactory.CreateScope();
+                            var bgContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                            var msg = await bgContext.ChatMessages.FindAsync(savedChatId);
+                            if (msg != null)
+                            {
+                                msg.NLP_Flag = true;
+                                await bgContext.SaveChangesAsync();
+                            }
+
+                            // Notify sender that their message was flagged
+                            await _hubContext.Clients.User(capturedSenderId).SendAsync("MessageFlagged", savedChatId,
+                                "⚠️ Your message was flagged by our NLP security system for potential phishing content.");
+
+                            // Notify receiver with a warning
+                            await _hubContext.Clients.User(receiverId).SendAsync("MessageFlagged", savedChatId,
+                                "⚠️ Warning: This message has been flagged for suspicious content.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Background NLP scan failed: {ex.Message}");
+                    }
                 });
             }
-
-            // 3. Trigger Real-Time WebSocket Push via SignalR Context!
-            await _hubContext.Clients.User(receiverId).SendAsync("ReceiveMessage", senderId, safePayload, chatMessage.Timestamp.ToString("HH:mm"), attachmentUrl, attachmentType);
-            await _hubContext.Clients.User(receiverId).SendAsync("UpdateUnreadBadge");
 
             return Json(new { success = true, data = chatMessage });
         }
@@ -154,6 +204,18 @@ namespace FYP.Controllers
             return Json(users);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetUnreadCount()
+        {
+            string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(currentUserId)) return Json(0);
+
+            var unreadCount = await _context.ChatMessages
+                .CountAsync(m => m.ReceiverID == currentUserId && !m.IsRead);
+
+            return Json(unreadCount);
+        }
+
         // GET: /Chat/GetRecentConversations
         [HttpGet]
         public async Task<IActionResult> GetRecentConversations()
@@ -176,7 +238,7 @@ namespace FYP.Controllers
                     ContactId = g.Key,
                     ContactEmail = g.First().SenderID == currentUserId ? g.First().Receiver.Email : g.First().Sender.Email,
                     LastMessage = g.First().Payload,
-                    Timestamp = g.First().Timestamp.ToString("MMM dd, HH:mm"),
+                    Timestamp = g.First().Timestamp.ToLocalTime().ToString("MMM dd, HH:mm"),
                     // Bonus: Count how many unread messages we have from this specific contact
                     UnreadCount = g.Count(m => m.ReceiverID == currentUserId && !m.IsRead)
                 })
@@ -198,11 +260,13 @@ namespace FYP.Controllers
                 .OrderBy(m => m.Timestamp) // Oldest at the top, newest at the bottom
                 .Select(m => new
                 {
+                    chatId = m.ChatID,
                     isMine = m.SenderID == currentUserId, // Boolean flag so JS knows which color to use
                     payload = m.Payload,
-                    timestamp = m.Timestamp.ToString("HH:mm"),
+                    timestamp = m.Timestamp.ToLocalTime().ToString("HH:mm"),
                     attachmentUrl = m.AttachmentUrl,
-                    attachmentType = m.AttachmentType
+                    attachmentType = m.AttachmentType,
+                    nlpFlag = m.NLP_Flag
                 })
                 .ToListAsync();
 

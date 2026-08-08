@@ -44,6 +44,12 @@ namespace FYP.Models.Entities
         [MaxLength(255)]
         public string? PaymentGatewayCustomerId { get; set; }
 
+        [MaxLength(100)]
+        public string? StoreName { get; set; }
+
+        [MaxLength(50)]
+        public string? SSMNumber { get; set; }
+
         // Navigation Properties
         public virtual ICollection<Order> Orders { get; set; }
         public virtual ICollection<Product> Products { get; set; }
@@ -53,6 +59,7 @@ namespace FYP.Models.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public virtual Cart Cart { get; set; }
         public bool IsDisabled { get; set; } = false;
+        public virtual ICollection<UserDevice> UserDevices { get; set; }
     }
 
 }

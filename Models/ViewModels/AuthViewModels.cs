@@ -28,6 +28,12 @@ namespace FYP.Models.ViewModels
 
         [Required]
         public string Role { get; set; } = "Buyer";
+
+        [Display(Name = "Store Name")]
+        public string? StoreName { get; set; }
+
+        [Display(Name = "SSM Registration Number")]
+        public string? SSMNumber { get; set; }
     }
 
     public class LoginViewModel
@@ -94,5 +100,14 @@ namespace FYP.Models.ViewModels
         [Display(Name = "Confirm New Password")]
         [Compare("NewPassword", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    public class PendingDeviceApproval
+    {
+        public string UserID { get; set; }
+        public string DeviceHash { get; set; }
+        public string IPAddress { get; set; }
+        public string UserAgent { get; set; }
+        public bool IsApproved { get; set; } = false;
     }
 }

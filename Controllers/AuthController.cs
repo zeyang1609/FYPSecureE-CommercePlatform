@@ -6,6 +6,7 @@ using FYP.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -20,20 +21,24 @@ namespace FYP.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IOtpService _otpService;
         private readonly TotpService _totpService;
+        private readonly IMemoryCache _cache;
 
-        public AuthController(ApplicationDbContext context, IOtpService otpService, TotpService totpService)
+        public AuthController(ApplicationDbContext context, IOtpService otpService, TotpService totpService, IMemoryCache cache)
         {
             _context = context;
             _otpService = otpService;
             _totpService = totpService;
+            _cache = cache;
         }
 
         // ==========================================
         // 1. REGISTRATION
         // ==========================================
         [HttpGet]
-        public IActionResult Register()
+        public IActionResult Register(string role = "Buyer")
         {
+            if (role == "Seller") return View("~/Views/Seller/Register.cshtml");
+            if (role == "Courier") return View("~/Views/Courier/Register.cshtml");
             return View();
         }
 
@@ -68,6 +73,8 @@ namespace FYP.Controllers
                     Email = model.Email,
                     PasswordHash = hashedPassword,
                     Role = string.IsNullOrWhiteSpace(model.Role) ? "Buyer" : model.Role,
+                    StoreName = model.StoreName,
+                    SSMNumber = model.SSMNumber,
                     MFA_Enabled = true,
                     DeviceHash = HttpContext.Request.Headers["User-Agent"].ToString()
                 };
@@ -170,17 +177,60 @@ namespace FYP.Controllers
 
                 // Check device fingerprint anomaly
                 string currentDevice = HttpContext.Request.Headers["User-Agent"].ToString();
-                if (user.DeviceHash != currentDevice)
+                
+                // For backward compatibility, check if the single DeviceHash matches, or if it's in UserDevices
+                bool deviceRecognized = (user.DeviceHash == currentDevice) || await _context.UserDevices.AnyAsync(ud => ud.UserID == user.UserID && ud.DeviceHash == currentDevice);
+
+                // BYPASS: Disable device fingerprinting for the Seed Admin account
+                if (user.Email == "demo_admin@secureplatform.com" || user.Email == "demo_seller@secureplatform.com")
                 {
-                    user.DeviceHash = currentDevice;
+                    deviceRecognized = true;
+                }
+
+                if (!deviceRecognized)
+                {
+                    // Device not recognized, start approval flow
+                    string approvalToken = Guid.NewGuid().ToString("N");
+                    var pendingLogin = new PendingDeviceApproval 
+                    {
+                        UserID = user.UserID,
+                        DeviceHash = currentDevice,
+                        IPAddress = currentIp,
+                        UserAgent = currentDevice
+                    };
+                    
+                    var cacheOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+                    _cache.Set($"DeviceApproval_{approvalToken}", pendingLogin, cacheOptions);
+
+                    string approvalLink = Url.Action("ApproveDevice", "Auth", new { token = approvalToken }, Request.Scheme);
+                    
+                    // Simple parsing for email display
+                    string os = currentDevice.Contains("Windows") ? "Windows" : currentDevice.Contains("Mac OS") ? "Mac OS" : currentDevice.Contains("Linux") ? "Linux" : "Unknown OS";
+                    string browser = currentDevice.Contains("Chrome") ? "Chrome" : currentDevice.Contains("Firefox") ? "Firefox" : currentDevice.Contains("Safari") ? "Safari" : "Unknown Browser";
+
+                    await _otpService.SendDeviceApprovalEmailAsync(user.Email, os, browser, currentIp, approvalLink);
+
                     _context.AuditLogs.Add(new AuditLog
                     {
                         LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                         UserID = user.UserID,
-                        Action = "SECURITY WARNING: New device fingerprint detected on login.",
+                        Action = "SECURITY WARNING: New device fingerprint detected. Approval email sent.",
                         IP_Address = currentIp,
                         Timestamp = DateTime.UtcNow
                     });
+                    await _context.SaveChangesAsync();
+
+                    return RedirectToAction("WaitingForDeviceApproval", new { token = approvalToken });
+                }
+                else 
+                {
+                    // Update LastUsedAt if it was in UserDevices
+                    var existingDevice = await _context.UserDevices.FirstOrDefaultAsync(ud => ud.UserID == user.UserID && ud.DeviceHash == currentDevice);
+                    if (existingDevice != null)
+                    {
+                        existingDevice.LastUsedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                    }
                 }
 
                 // Enforce MFA Step: Route to Authenticator App or Email OTP
@@ -226,6 +276,124 @@ namespace FYP.Controllers
             if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
             if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
             return View(model);
+        }
+
+        // ==========================================
+        // 2.5. DEVICE APPROVAL
+        // ==========================================
+        [HttpGet]
+        public IActionResult WaitingForDeviceApproval(string token)
+        {
+            if (string.IsNullOrEmpty(token) || !_cache.TryGetValue($"DeviceApproval_{token}", out PendingDeviceApproval pendingLogin))
+            {
+                return RedirectToAction("Login");
+            }
+            ViewBag.Token = token;
+            return View();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ApproveDevice(string token)
+        {
+            if (string.IsNullOrEmpty(token) || !_cache.TryGetValue($"DeviceApproval_{token}", out PendingDeviceApproval pendingLogin))
+            {
+                return Content("Invalid or expired link. Please try logging in again.");
+            }
+
+            // Save the device as trusted
+            var user = await _context.Users.FindAsync(pendingLogin.UserID);
+            if (user != null)
+            {
+                // Optionally update the single string for backward compatibility
+                if (string.IsNullOrEmpty(user.DeviceHash) || user.DeviceHash == "SEED")
+                {
+                    user.DeviceHash = pendingLogin.DeviceHash;
+                }
+
+                // Simple parsing for OS/Browser
+                string os = pendingLogin.UserAgent.Contains("Windows") ? "Windows" : pendingLogin.UserAgent.Contains("Mac OS") ? "Mac OS" : pendingLogin.UserAgent.Contains("Linux") ? "Linux" : "Unknown OS";
+                string browser = pendingLogin.UserAgent.Contains("Chrome") ? "Chrome" : pendingLogin.UserAgent.Contains("Firefox") ? "Firefox" : pendingLogin.UserAgent.Contains("Safari") ? "Safari" : "Unknown Browser";
+
+                _context.UserDevices.Add(new UserDevice
+                {
+                    UserID = user.UserID,
+                    DeviceHash = pendingLogin.DeviceHash,
+                    OS = os,
+                    Browser = browser,
+                    IPAddress = pendingLogin.IPAddress,
+                    AddedAt = DateTime.UtcNow,
+                    LastUsedAt = DateTime.UtcNow
+                });
+                
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = user.UserID,
+                    Action = $"User approved new device: {os} on {browser}",
+                    IP_Address = pendingLogin.IPAddress,
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+            }
+
+            // Mark as approved so the polling endpoint can log them in
+            pendingLogin.IsApproved = true;
+            _cache.Set($"DeviceApproval_{token}", pendingLogin, new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(10)));
+
+            return View("DeviceApproved");
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> CheckDeviceApprovalStatus(string token)
+        {
+            if (string.IsNullOrEmpty(token) || !_cache.TryGetValue($"DeviceApproval_{token}", out PendingDeviceApproval pendingLogin))
+            {
+                return Json(new { status = "expired" });
+            }
+
+            if (pendingLogin.IsApproved)
+            {
+                // Authenticate and log in the user
+                var user = await _context.Users.FindAsync(pendingLogin.UserID);
+                if (user == null) return Json(new { status = "error" });
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = user.UserID,
+                    Action = "User logged in successfully (After Device Approval).",
+                    IP_Address = pendingLogin.IPAddress,
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+
+                var claims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.UserID),
+                    new Claim(ClaimTypes.Name, user.Email.Split('@')[0]),
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, user.Role)
+                };
+
+                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
+
+                string redirectUrl = user.Role switch
+                {
+                    "Buyer" => Url.Action("Dashboard", "Buyer"),
+                    "Seller" => Url.Action("Dashboard", "Seller"),
+                    "Courier" => Url.Action("Dashboard", "Courier"),
+                    "Admin" => Url.Action("Dashboard", "Admin"),
+                    _ => Url.Action("Index", "Home")
+                };
+
+                // Clear the cache
+                _cache.Remove($"DeviceApproval_{token}");
+
+                return Json(new { status = "approved", redirectUrl });
+            }
+
+            return Json(new { status = "pending" });
         }
 
         // ==========================================

@@ -9,11 +9,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using FYP.Services;
 
 namespace FYP.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Buyer")]
     public class BuyerController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -114,6 +115,7 @@ namespace FYP.Controllers
         [HttpGet]
         public async Task<IActionResult> OrderDetails(string orderId)
         {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var order = await _context.Orders
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
@@ -122,11 +124,11 @@ namespace FYP.Controllers
                 .Include(o => o.FraudAlert)
                 .Include(o => o.Reviews)
                 .Include(o => o.Refunds)
-                .FirstOrDefaultAsync(o => o.OrderID == orderId); 
+                .FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId); 
 
             if (order == null)
             {
-                return NotFound("Order not found.");
+                return NotFound("Order not found or access denied.");
             }
 
             var delivery = await _context.Deliveries.FirstOrDefaultAsync(d => d.OrderID == orderId);
@@ -347,12 +349,12 @@ namespace FYP.Controllers
         [HttpGet]
         public async Task<IActionResult> RequestRefundForm(string orderId, string issueType)
         {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var order = await _context.Orders
                 .Include(o => o.OrderItems).ThenInclude(oi => oi.Product).ThenInclude(p => p.Seller)
-                .FirstOrDefaultAsync(o => o.OrderID == orderId);
+                .FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId);
             
-            if (order == null)
-                return NotFound();
+            if (order == null) return NotFound("Order not found or access denied.");
             
             ViewBag.IssueType = issueType;
             return View(order);
@@ -363,8 +365,9 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SubmitRefundRequest(string orderId, string issueType, string reason, string description, string refundEmail, List<IFormFile> imageFiles, IFormFile videoFile)
         {
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId); 
-            if (order == null) return NotFound();
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId); 
+            if (order == null) return NotFound("Order not found or access denied.");
 
             string mediaUrl = "";
             var urls = new List<string>();
@@ -990,9 +993,74 @@ namespace FYP.Controllers
         return RedirectToAction("Addresses");
     }
 
-    // ==========================================
-    // CHANGE PASSWORD FLOW
-    // ==========================================
+        // ==========================================
+        // TRUSTED DEVICES MANAGEMENT
+        // ==========================================
+        [HttpGet]
+        public async Task<IActionResult> TrustedDevices()
+        {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(buyerId)) return RedirectToAction("Login", "Auth");
+
+            var user = await _context.Users
+                .Include(u => u.UserDevices)
+                .FirstOrDefaultAsync(u => u.UserID == buyerId);
+
+            if (user == null) return RedirectToAction("Login", "Auth");
+
+            var currentDevice = HttpContext.Request.Headers["User-Agent"].ToString();
+            
+            // Auto-migrate current session if it doesn't exist in UserDevices
+            if (!string.IsNullOrEmpty(currentDevice) && !user.UserDevices.Any(ud => ud.DeviceHash == currentDevice))
+            {
+                string os = currentDevice.Contains("Windows") ? "Windows" : currentDevice.Contains("Mac OS") ? "Mac OS" : currentDevice.Contains("Linux") ? "Linux" : "Unknown OS";
+                string browser = currentDevice.Contains("Chrome") ? "Chrome" : currentDevice.Contains("Firefox") ? "Firefox" : currentDevice.Contains("Safari") ? "Safari" : "Unknown Browser";
+                string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+
+                var newDevice = new UserDevice
+                {
+                    UserID = user.UserID,
+                    DeviceHash = currentDevice,
+                    OS = os,
+                    Browser = browser,
+                    IPAddress = currentIp,
+                    AddedAt = DateTime.UtcNow,
+                    LastUsedAt = DateTime.UtcNow
+                };
+                
+                _context.UserDevices.Add(newDevice);
+                user.UserDevices.Add(newDevice);
+                await _context.SaveChangesAsync();
+            }
+
+            return View(user);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteDevice(int deviceId)
+        {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(buyerId)) return RedirectToAction("Login", "Auth");
+
+            var device = await _context.UserDevices.FirstOrDefaultAsync(d => d.Id == deviceId && d.UserID == buyerId);
+            if (device != null)
+            {
+                _context.UserDevices.Remove(device);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Device successfully removed.";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Device not found.";
+            }
+
+            return RedirectToAction("TrustedDevices");
+        }
+
+        // ==========================================
+        // CHANGE PASSWORD FLOW
+        // ==========================================
 
     [HttpGet]
     public IActionResult ChangePasswordVerify()
@@ -1106,17 +1174,18 @@ namespace FYP.Controllers
 
         public async Task<IActionResult> RefundTracking(string refundId)
         {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var refund = await _context.Refunds
                 .Include(r => r.Order)
                 .ThenInclude(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
                 .Include(r => r.Order.Buyer)
                 .ThenInclude(b => b.Addresses)
-                .FirstOrDefaultAsync(r => r.RefundID == refundId);
+                .FirstOrDefaultAsync(r => r.RefundID == refundId && r.Order.BuyerID == buyerId);
 
             if (refund == null)
             {
-                return NotFound("Refund request not found.");
+                return NotFound("Refund request not found or access denied.");
             }
 
             return View(refund);
@@ -1126,7 +1195,8 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateReturnMethod(string refundId, string returnMethod, string? dropOffCourier, string? pickupDate, int? pickupAddressId)
         {
-            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var refund = await _context.Refunds.Include(r => r.Order).FirstOrDefaultAsync(r => r.RefundID == refundId && r.Order.BuyerID == buyerId);
             if (refund != null)
             {
                 refund.ReturnMethod = returnMethod;
@@ -1217,6 +1287,58 @@ namespace FYP.Controllers
             var allowedExtensions = new[] { ".mp4" };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             return allowedExtensions.Contains(extension);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Buyer")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadProfilePicture(IFormFile profilePicture, IFormFile? originalPicture = null)
+        {
+            if (profilePicture != null && profilePicture.Length > 0)
+            {
+                if (profilePicture.Length > 1024 * 1024 || (originalPicture != null && originalPicture.Length > 1024 * 1024 * 5)) // 1MB limit for cropped, 5MB for original
+                {
+                    TempData["ErrorMessage"] = "Image size limit exceeded.";
+                    return RedirectToAction(nameof(Profile));
+                }
+
+                string userId = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+                string uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profiles");
+                
+                // Ensure directory exists
+                if (!Directory.Exists(uploadPath))
+                {
+                    Directory.CreateDirectory(uploadPath);
+                }
+
+                // Force format to JPG and name it {UserId}.jpg
+                string fileName = $"{userId}.jpg";
+                string filePath = Path.Combine(uploadPath, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await profilePicture.CopyToAsync(stream);
+                }
+
+                // Save original if provided
+                if (originalPicture != null && originalPicture.Length > 0)
+                {
+                    string originalFileName = $"{userId}_full.jpg";
+                    string originalFilePath = Path.Combine(uploadPath, originalFileName);
+                    using (var stream = new FileStream(originalFilePath, FileMode.Create))
+                    {
+                        await originalPicture.CopyToAsync(stream);
+                    }
+                }
+
+                TempData["SuccessMessage"] = "Profile picture updated successfully.";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Please select a valid image.";
+            }
+
+            return RedirectToAction(nameof(Profile));
         }
 }
 

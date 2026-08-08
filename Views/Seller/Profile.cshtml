@@ -1,14 +1,46 @@
-@model FYP.Models.ViewModels.BuyerProfileViewModel
+@model FYP.Models.ViewModels.SellerProfileViewModel
 @{
-    ViewData["Title"] = "My Profile";
+    ViewData["Title"] = "My Profile - Seller Centre";
+    Layout = null;
 }
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/user-profile.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet" />
+</head>
+<body style="background-color: #F8F9FA;">
 
+    <!-- Top Navigation Bar -->
+    <header class="auth-navbar">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Seller" asp-action="Dashboard" class="brand-group">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+                    </svg>
+                    <span class="brand-text">SecurePlatform</span>
+                </a>
+                <span class="page-label">Seller Centre</span>
+            </div>
+            <div>
+                <a asp-controller="Home" asp-action="Index" class="help-link" style="margin-right: 20px;">View Storefront</a>
+                <a asp-controller="Auth" asp-action="Logout" asp-route-returnUrl="/Seller/Login" style="color: var(--text-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem;">Log Out</a>
+            </div>
+        </div>
+    </header>
 
-<link rel="stylesheet" href="~/css/user-profile.css" />
-<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet" />
+    <!-- Main Content -->
+    <main class="dashboard-container">
 
-<div class="profile-container">
+<div class="profile-container" style="margin-top: 20px; box-shadow: none;">
     <div class="profile-sidebar">
         <div class="user-brief">
             <div class="avatar-circle" style="background: transparent; overflow: hidden; border: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: center; position: relative;">
@@ -37,25 +69,12 @@
                     <span>My Account</span>
                 </div>
                 <ul class="nav-list">
-                    <li><a href="/Buyer/Profile" class="active">Profile</a></li>
-                    <li><a href="/Buyer/BanksAndCards">Banks & Cards</a></li>
-                    <li><a href="/Buyer/Addresses">Addresses</a></li>
-                    <li><a href="/Buyer/ChangePasswordVerify">Change Password</a></li>
-                    <li><a href="/Buyer/TrustedDevices">Trusted Devices</a></li>
+                    <li><a href="/Seller/Profile" class="active">Profile</a></li>
+                    <li><a href="/Seller/ChangePasswordVerify">Change Password</a></li>
+                    <li><a href="/Seller/TrustedDevices">Trusted Devices</a></li>
                 </ul>
             </div>
-            <div class="nav-group">
-                <a href="/Buyer/Orders" class="nav-group-link">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    <span>My Purchase</span>
-                </a>
-            </div>
-            <div class="nav-group">
-                <a href="#" class="nav-group-link">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                    <span>Notifications</span>
-                </a>
-            </div>
+        </nav>
         </nav>
     </div>
 
@@ -124,53 +143,17 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <label>Gender</label>
-                        <div class="form-field radio-group">
-                            <label><input type="radio" asp-for="Gender" value="Male" /> Male</label>
-                            <label><input type="radio" asp-for="Gender" value="Female" /> Female</label>
-                            <label><input type="radio" asp-for="Gender" value="Other" /> Other</label>
+                        <label asp-for="StoreName"></label>
+                        <div class="form-field">
+                            <input asp-for="StoreName" class="form-control" />
+                            <span asp-validation-for="StoreName" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="form-row">
-                        <label>Date of birth</label>
+                        <label asp-for="SSMNumber"></label>
                         <div class="form-field">
-                            <input type="hidden" asp-for="DateOfBirth" id="hidden-dob" />
-                            @{
-                                var dobText = Model.DateOfBirth.HasValue 
-                                    ? "xx/xx/" + Model.DateOfBirth.Value.Year 
-                                    : "Not set";
-                            }
-                            <div id="dob-display-section" style="display: flex; align-items: center;">
-                                <span class="static-text" style="color: #333;">@dobText</span>
-                                <button type="button" onclick="showDobEdit()" class="btn btn-link p-0 ms-3 text-decoration-underline" style="color: #0055AA; font-size: 13px; border: none; cursor: pointer;">Change</button>
-                            </div>
-                            
-                            <div id="dob-edit-section" style="display: none; gap: 10px; align-items: center;">
-                                <select id="dob-day" class="form-control" style="width: auto; min-width: 80px; padding: 6px 12px; font-size: 14px;">
-                                    <option value="">Date</option>
-                                    @for(int i=1; i<=31; i++) {
-                                        if (Model.DateOfBirth?.Day == i) { <option value="@i" selected>@i</option> }
-                                        else { <option value="@i">@i</option> }
-                                    }
-                                </select>
-                                <select id="dob-month" class="form-control" style="width: auto; min-width: 90px; padding: 6px 12px; font-size: 14px;">
-                                    <option value="">Month</option>
-                                    @for(int i=1; i<=12; i++) {
-                                        if (Model.DateOfBirth?.Month == i) { <option value="@i" selected>@i</option> }
-                                        else { <option value="@i">@i</option> }
-                                    }
-                                </select>
-                                <select id="dob-year" class="form-control" style="width: auto; min-width: 90px; padding: 6px 12px; font-size: 14px;">
-                                    <option value="">Year</option>
-                                    @{ int currentYear = DateTime.Now.Year; }
-                                    @for(int i=currentYear; i>=1900; i--) {
-                                        if (Model.DateOfBirth?.Year == i) { <option value="@i" selected>@i</option> }
-                                        else { <option value="@i">@i</option> }
-                                    }
-                                </select>
-                            </div>
-                            
-                            <span asp-validation-for="DateOfBirth" class="text-danger"></span>
+                            <input asp-for="SSMNumber" class="form-control" />
+                            <span asp-validation-for="SSMNumber" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="form-row" style="align-items: flex-start;">
@@ -218,7 +201,7 @@
                     <h2>Change Phone Number</h2>
                     <p>Enter your new Malaysian phone number</p>
                 </div>
-                <a href="/Buyer/Profile" class="btn btn-outline-secondary" style="font-size: 13px; border-radius: 2px; padding: 6px 12px; background: white; border: 1px solid #ccc; cursor: pointer; text-decoration: none; color: #333;">&larr; Back to Profile</a>
+                <a href="/Seller/Profile" class="btn btn-outline-secondary" style="font-size: 13px; border-radius: 2px; padding: 6px 12px; background: white; border: 1px solid #ccc; cursor: pointer; text-decoration: none; color: #333;">&larr; Back to Profile</a>
             </div>
             <div class="content-body" style="padding-top: 10px;">
                 <form asp-action="ChangePhoneNumber" method="post" style="width: 100%;">
@@ -289,7 +272,7 @@
                     <h2>Verification Required</h2>
                     <p>Enter the 6-digit code sent to <strong>@ViewBag.PendingNewEmail</strong></p>
                 </div>
-                <a href="/Buyer/Profile" class="btn btn-outline-secondary" style="font-size: 13px; border-radius: 2px; padding: 6px 12px; background: white; border: 1px solid #ccc; cursor: pointer; text-decoration: none; color: #333;">&larr; Cancel</a>
+                <a href="/Seller/Profile" class="btn btn-outline-secondary" style="font-size: 13px; border-radius: 2px; padding: 6px 12px; background: white; border: 1px solid #ccc; cursor: pointer; text-decoration: none; color: #333;">&larr; Cancel</a>
             </div>
             <div class="content-body" style="padding-top: 10px;">
                 <form id="email-verify-form" asp-action="VerifyEmailChange" method="post" style="width: 100%;">
@@ -326,10 +309,12 @@
 
     </div>
 </div>
+</main>
 
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-    <script>
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+<script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+<script>
         function showEmailChange() {
             document.getElementById('profile-view-block').style.display = 'none';
             document.getElementById('change-email-step1').style.display = 'block';
@@ -502,7 +487,7 @@
                 }
 
                 try {
-                    const response = await fetch('/Buyer/UploadProfilePicture', {
+                    const response = await fetch('/Seller/UploadProfilePicture', {
                         method: 'POST',
                         body: formData
                     });
@@ -529,24 +514,27 @@
             document.getElementById('fullImageModal').style.display = 'none';
         }
     </script>
-}
 
-<!-- Cropper Modal -->
-<div id="cropperModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1050; align-items: center; justify-content: center; flex-direction: column;">
-    <div style="background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px;">
-        <h3 style="margin-top: 0; margin-bottom: 15px;">Crop Profile Picture</h3>
-        <div style="max-height: 400px; overflow: hidden; margin-bottom: 20px;">
-            <img id="cropperImage" style="max-width: 100%; display: block;" />
-        </div>
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button type="button" class="btn btn-outline-secondary" onclick="closeCropperModal()" style="padding: 8px 16px; border: 1px solid #ccc; background: white; cursor: pointer;">Cancel</button>
-            <button type="button" id="btnCropSave" onclick="cropAndUpload()" style="padding: 8px 16px; background: #EE4D2D; color: white; border: none; cursor: pointer;">Crop & Save</button>
+    <!-- Cropper Modal -->
+    <div id="cropperModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1050; align-items: center; justify-content: center; flex-direction: column;">
+        <div style="background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px;">
+            <h3 style="margin-top: 0; margin-bottom: 15px;">Crop Profile Picture</h3>
+            <div style="max-height: 400px; overflow: hidden; margin-bottom: 20px;">
+                <img id="cropperImage" style="max-width: 100%; display: block;" />
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary" onclick="closeCropperModal()" style="padding: 8px 16px; border: 1px solid #ccc; background: white; cursor: pointer;">Cancel</button>
+                <button type="button" id="btnCropSave" onclick="cropAndUpload()" style="padding: 8px 16px; background: #EE4D2D; color: white; border: none; cursor: pointer;">Crop & Save</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Full Image Viewer Modal -->
-<div id="fullImageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1100; align-items: center; justify-content: center;" onclick="closeFullImageModal()">
-    <span style="position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer;">&times;</span>
-    <img src="/uploads/profiles/@(Model.UserID)_full.jpg" style="max-width: 90%; max-height: 90%; object-fit: contain;" onerror="this.onerror=null; this.src='/uploads/profiles/@(Model.UserID).jpg';" />
-</div>
+    <!-- Full Image Viewer Modal -->
+    <div id="fullImageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1100; align-items: center; justify-content: center;" onclick="closeFullImageModal()">
+        <span style="position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer;">&times;</span>
+        <img src="/uploads/profiles/@(Model.UserID)_full.jpg" style="max-width: 90%; max-height: 90%; object-fit: contain;" onerror="this.onerror=null; this.src='/uploads/profiles/@(Model.UserID).jpg';" />
+    </div>
+
+    @await Html.PartialAsync("_ChatPartial")
+</body>
+</html>

@@ -46,14 +46,17 @@
                 <p>Monitoring active inventory and verified sales for Seller ID: <strong>@ViewBag.SellerID</strong></p>
             </div>
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <a asp-controller="Seller" asp-action="MyProducts" asp-route-sellerId="@ViewBag.SellerID" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
+                <a asp-controller="Seller" asp-action="MyProducts" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
                     📦 Manage Stock
                 </a>
-                <a asp-controller="Seller" asp-action="Orders" asp-route-sellerId="@ViewBag.SellerID" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
+                <a asp-controller="Seller" asp-action="Orders" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
                     🛒 View Orders
                 </a>
                 <a asp-controller="Seller" asp-action="Refunds" class="btn-social" style="text-decoration: none; font-weight: 600; background: white; color: #dc2626; border-color: #fca5a5;">
                     ↩️ Return & Refunds
+                </a>
+                <a asp-controller="Seller" asp-action="Profile" class="btn-social" style="text-decoration: none; font-weight: 600; background: white; color: #3b82f6; border-color: #93c5fd;">
+                    👤 Merchant Profile
                 </a>
                 <a asp-controller="Product" asp-action="Create" class="btn-add-product">
                     <span>+ Add New Inventory</span>
@@ -92,7 +95,7 @@
         <div class="table-card">
             <div class="table-header">
                 <h2>Active Inventory Overview</h2>
-                <a asp-controller="Seller" asp-action="MyProducts" asp-route-sellerId="@ViewBag.SellerID" style="color: var(--brand-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">Edit All Stock →</a>
+                <a asp-controller="Seller" asp-action="MyProducts" style="color: var(--brand-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">Edit All Stock →</a>
             </div>
 
             @if (Model != null && Model.Any())
@@ -151,7 +154,7 @@
         <div class="table-card">
             <div class="table-header">
                 <h2>Recent Order Activity</h2>
-                <a asp-controller="Seller" asp-action="Orders" asp-route-sellerId="@ViewBag.SellerID" style="color: var(--brand-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">View All Orders →</a>
+                <a asp-controller="Seller" asp-action="Orders" style="color: var(--brand-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">View All Orders →</a>
             </div>
 
             @if (recentSales != null && recentSales.Any())

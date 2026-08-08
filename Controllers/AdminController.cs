@@ -25,26 +25,13 @@ namespace FYP.Controllers
         [HttpGet]
         public IActionResult Login()
         {
-            // 1. Network Geofencing (IP Allowlist Simulation)
-            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-
-            // Example: Only allow localhost (::1 or 127.0.0.1) or specific university network IPs
-            List<string> allowedIps = new List<string> { "::1", "127.0.0.1" };
-
-            if (!allowedIps.Contains(clientIp))
+            // 1. Secret Key Protection (Security by Obscurity)
+            // The URL parameter is the encrypted string: ?key=aadec5c7857263ec97afa3b25ef6baed48af91911fa449e499ee693bfc6afd0b
+            string secretKey = Request.Query["key"];
+            if (string.IsNullOrEmpty(secretKey) || secretKey != "aadec5c7857263ec97afa3b25ef6baed48af91911fa449e499ee693bfc6afd0b")
             {
-                // Drop the connection immediately for unauthorized networks
-                _context.AuditLogs.Add(new AuditLog
-                {
-                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                    UserID = "SYSTEM",
-                    Action = $"SECURITY BLOCK: Unauthorized network {clientIp} attempted to access AdminOS gateway.",
-                    IP_Address = clientIp,
-                    Timestamp = DateTime.UtcNow
-                });
-                _context.SaveChanges();
-
-                return Unauthorized("Error 401: Connection dropped. Unauthorized network IP.");
+                // Return a fake 404 Not Found to hide the existence of the login page from scanners
+                return NotFound();
             }
 
             // 2. Render the dedicated AdminOS Login View
@@ -67,6 +54,8 @@ namespace FYP.Controllers
 
             ViewBag.TotalAlerts = alerts.Count;
             ViewBag.HighRiskCount = alerts.Count(a => a.RiskScore > 0.85m);
+            ViewBag.TotalAuditLogs = await _context.AuditLogs.CountAsync();
+            ViewBag.ActiveDisputes = await _context.Refunds.CountAsync(r => r.Status == "Dispute");
             ViewBag.AuditLogs = logs;
 
             return View(alerts);

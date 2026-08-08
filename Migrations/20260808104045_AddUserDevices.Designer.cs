@@ -4,16 +4,19 @@ using FYP.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace FYP.Migrations
+namespace FYP.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260808104045_AddUserDevices")]
+    partial class AddUserDevices
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1017,14 +1020,6 @@ namespace FYP.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
-                    b.Property<string>("SSMNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("StoreName")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
                     b.Property<string>("TotpSecret")
                         .HasColumnType("longtext");
 
@@ -1039,7 +1034,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "seller_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 8, 11, 22, 19, 94, DateTimeKind.Utc).AddTicks(829),
+                            CreatedAt = new DateTime(2026, 8, 8, 10, 40, 44, 268, DateTimeKind.Utc).AddTicks(7544),
                             DeviceHash = "SEED",
                             Email = "demo_seller@secureplatform.com",
                             IsDisabled = false,
@@ -1052,7 +1047,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "admin_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 8, 11, 22, 19, 94, DateTimeKind.Utc).AddTicks(8728),
+                            CreatedAt = new DateTime(2026, 8, 8, 10, 40, 44, 269, DateTimeKind.Utc).AddTicks(5066),
                             DeviceHash = "SEED",
                             Email = "demo_admin@secureplatform.com",
                             IsDisabled = false,
@@ -1065,7 +1060,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "SYSTEM",
-                            CreatedAt = new DateTime(2026, 8, 8, 11, 22, 19, 94, DateTimeKind.Utc).AddTicks(8733),
+                            CreatedAt = new DateTime(2026, 8, 8, 10, 40, 44, 269, DateTimeKind.Utc).AddTicks(5070),
                             DeviceHash = "SEED",
                             Email = "system@secureplatform.com",
                             IsDisabled = false,

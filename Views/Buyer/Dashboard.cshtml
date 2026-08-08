@@ -29,8 +29,8 @@
             </div>
             <div>
                 <a asp-controller="Home" asp-action="Index" class="help-link" style="margin-right: 20px;">🛍️ Storefront</a>
-                <a asp-controller="Buyer" asp-action="Orders" asp-route-buyerId="@ViewBag.BuyerID" class="help-link" style="margin-right: 20px;">📦 All Orders</a>
-                <a asp-controller="Buyer" asp-action="Profile" asp-route-buyerId="@ViewBag.BuyerID" class="help-link" style="margin-right: 20px; font-weight: bold;">🔒 Security Profile</a>
+                <a asp-controller="Buyer" asp-action="Orders" class="help-link" style="margin-right: 20px;">📦 All Orders</a>
+                <a asp-controller="Buyer" asp-action="Profile" class="help-link" style="margin-right: 20px; font-weight: bold;">🔒 Security Profile</a>
                 <a asp-controller="Auth" asp-action="Logout" asp-route-returnUrl="/Auth/Login" style="color: var(--text-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem;">Log Out</a>
             </div>
         </div>
@@ -43,7 +43,7 @@
                 <h1>Welcome Back, @ViewBag.Email</h1>
                 <p>Track your orders, review AI-verified transactions, and manage account security.</p>
             </div>
-            <a asp-controller="Buyer" asp-action="Profile" asp-route-buyerId="@ViewBag.BuyerID" class="btn-social" style="text-decoration: none; font-weight: 600; background: white; border: 1px solid var(--border-color); padding: 12px 20px;">
+            <a asp-controller="Buyer" asp-action="Profile" class="btn-social" style="text-decoration: none; font-weight: 600; background: white; border: 1px solid var(--border-color); padding: 12px 20px;">
                 ⚙️ Manage Zero-Trust Settings →
             </a>
         </div>
@@ -96,7 +96,7 @@
             <div class="table-card" style="margin-bottom: 0;">
                 <div class="table-header">
                     <h2>Recent Orders</h2>
-                    <a asp-controller="Buyer" asp-action="Orders" asp-route-buyerId="@ViewBag.BuyerID" style="color: var(--brand-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">View All Orders →</a>
+                    <a asp-controller="Buyer" asp-action="Orders" style="color: var(--brand-primary); font-size: 0.85rem; font-weight: 600; text-decoration: none;">View All Orders →</a>
                 </div>
 
                 @if (Model != null && Model.Any())

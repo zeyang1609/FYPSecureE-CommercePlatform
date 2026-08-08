@@ -55,12 +55,12 @@
                 <span class="kpi-value" style="color: #D63031;">@ViewBag.HighRiskCount</span>
             </div>
             <div class="kpi-card highlight">
-                <span class="kpi-label">Platform Uptime</span>
-                <span class="kpi-value" style="color: #38A169;">99.99%</span>
+                <span class="kpi-label">Pending Disputes</span>
+                <span class="kpi-value" style="color: #38A169;">@ViewBag.ActiveDisputes</span>
             </div>
             <div class="kpi-card">
-                <span class="kpi-label">Audit Trail Integrity</span>
-                <span class="kpi-value" style="font-size: 1.2rem; color: #38A169;">✓ SHA-256 Verified</span>
+                <span class="kpi-label">Total Audit Trails</span>
+                <span class="kpi-value" style="font-size: 1.2rem; color: #38A169;">@ViewBag.TotalAuditLogs</span>
             </div>
         </div>
 
