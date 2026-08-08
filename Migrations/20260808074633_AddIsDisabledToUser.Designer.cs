@@ -4,16 +4,19 @@ using FYP.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace FYP.Migrations
+namespace FYP.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260808074633_AddIsDisabledToUser")]
+    partial class AddIsDisabledToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -418,33 +421,6 @@ namespace FYP.Migrations
                             IncrementalWeightKg = 0.50m,
                             ZoneRegion = "East Malaysia"
                         });
-                });
-
-            modelBuilder.Entity("FYP.Models.Entities.DeviceLockout", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("DeviceIdentifier")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<int>("FailedAttempts")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("LockoutEnd")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DeviceIdentifier")
-                        .IsUnique();
-
-                    b.ToTable("DeviceLockouts");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.FraudAlert", b =>
@@ -1031,7 +1007,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "seller_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 8, 8, 9, 46, 905, DateTimeKind.Utc).AddTicks(7244),
+                            CreatedAt = new DateTime(2026, 8, 8, 7, 46, 31, 845, DateTimeKind.Utc).AddTicks(2081),
                             DeviceHash = "SEED",
                             Email = "demo_seller@secureplatform.com",
                             IsDisabled = false,
@@ -1044,7 +1020,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "admin_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 8, 8, 9, 46, 906, DateTimeKind.Utc).AddTicks(4595),
+                            CreatedAt = new DateTime(2026, 8, 8, 7, 46, 31, 847, DateTimeKind.Utc).AddTicks(7447),
                             DeviceHash = "SEED",
                             Email = "demo_admin@secureplatform.com",
                             IsDisabled = false,
@@ -1057,7 +1033,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "SYSTEM",
-                            CreatedAt = new DateTime(2026, 8, 8, 8, 9, 46, 906, DateTimeKind.Utc).AddTicks(4600),
+                            CreatedAt = new DateTime(2026, 8, 8, 7, 46, 31, 847, DateTimeKind.Utc).AddTicks(7456),
                             DeviceHash = "SEED",
                             Email = "system@secureplatform.com",
                             IsDisabled = false,

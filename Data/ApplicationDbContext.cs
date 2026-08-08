@@ -32,6 +32,7 @@ namespace FYP.Data
         public DbSet<DeliveryPricingRule> DeliveryPricingRules { get; set; }
         public DbSet<Delivery> Deliveries { get; set; }
         public DbSet<Review> Reviews { get; set; }
+        public DbSet<DeviceLockout> DeviceLockouts { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -57,6 +58,10 @@ namespace FYP.Data
 
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Email)
+                .IsUnique();
+
+            modelBuilder.Entity<DeviceLockout>()
+                .HasIndex(dl => dl.DeviceIdentifier)
                 .IsUnique();
 
             // 3. Configure Precise Decimal Precisions for Financial Integrity

@@ -101,12 +101,54 @@ namespace FYP.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
                 string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+                string deviceIdentifier = $"{model.Email}:{currentIp}";
+                var lockoutRecord = await _context.DeviceLockouts.FirstOrDefaultAsync(dl => dl.DeviceIdentifier == deviceIdentifier);
+
+                if (lockoutRecord != null && lockoutRecord.LockoutEnd.HasValue && lockoutRecord.LockoutEnd > DateTime.UtcNow)
+                {
+                    int minutesLeft = (int)Math.Ceiling((lockoutRecord.LockoutEnd.Value - DateTime.UtcNow).TotalMinutes);
+                    ModelState.AddModelError("", $"Account locked due to too many failed attempts. Please try again in {minutesLeft} minutes.");
+                    if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
+                    if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
+                    return View(model);
+                }
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
 
                 if (user == null || !Argon2idHasher.VerifyHash(model.Password, user.PasswordHash))
                 {
-                    ModelState.AddModelError("", "Invalid email or password.");
+                    if (lockoutRecord == null)
+                    {
+                        lockoutRecord = new FYP.Models.Entities.DeviceLockout { DeviceIdentifier = deviceIdentifier, FailedAttempts = 1 };
+                        _context.DeviceLockouts.Add(lockoutRecord);
+                    }
+                    else
+                    {
+                        lockoutRecord.FailedAttempts++;
+                        if (lockoutRecord.FailedAttempts >= 5)
+                        {
+                            lockoutRecord.LockoutEnd = DateTime.UtcNow.AddMinutes(10);
+                        }
+                    }
+                    await _context.SaveChangesAsync();
+
+                    if (lockoutRecord.FailedAttempts >= 5)
+                    {
+                        ModelState.AddModelError("", "Account locked due to too many failed attempts. Please try again in 10 minutes.");
+                    }
+                    else
+                    {
+                        ModelState.AddModelError("", $"Invalid email or password. Attempt {lockoutRecord.FailedAttempts} of 5.");
+                    }
+                    if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
+                    if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
+                    return View(model);
+                }
+                
+                if (user.IsDisabled)
+                {
+                    ModelState.AddModelError("", "Your account has been disabled by an administrator.");
                     if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
                     if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
                     return View(model);
@@ -118,6 +160,12 @@ namespace FYP.Controllers
                     if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
                     if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
                     return View(model);
+                }
+
+                if (lockoutRecord != null)
+                {
+                    _context.DeviceLockouts.Remove(lockoutRecord);
+                    await _context.SaveChangesAsync();
                 }
 
                 // Check device fingerprint anomaly

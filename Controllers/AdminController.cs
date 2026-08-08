@@ -231,5 +231,134 @@ namespace FYP.Controllers
             // Just redirect back to the page the request came from (Seller Refunds)
             return Redirect(Request.Headers["Referer"].ToString());
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddUser(string email, string name, string role, string password)
+        {
+            var actingAdminEmail = User.FindFirstValue(ClaimTypes.Email);
+            if (role == "Admin" && actingAdminEmail != "demo_admin@secureplatform.com")
+            {
+                TempData["ErrorMessage"] = "Access Denied: Only the Seed Admin can create new administrators.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(password, @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&^#_.:,+-])[a-zA-Z\d@$!%*?&^#_.:,+-]{8,}$"))
+            {
+                TempData["ErrorMessage"] = "Password does not meet the strict security policy requirements.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            if (await _context.Users.AnyAsync(u => u.Email == email))
+            {
+                TempData["ErrorMessage"] = "Email is already registered.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            string hashedPassword = FYP.Security.Argon2idHasher.HashPassword(password);
+            string userId = "USR-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+
+            var newUser = new User
+            {
+                UserID = userId,
+                Name = name,
+                Email = email,
+                PasswordHash = hashedPassword,
+                Role = role,
+                MFA_Enabled = false,
+                DeviceHash = "Pending"
+            };
+
+            _context.Users.Add(newUser);
+            
+            _context.AuditLogs.Add(new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = User.FindFirstValue(ClaimTypes.NameIdentifier),
+                Action = $"Created new user {email} with role {role}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = $"User {email} successfully created.";
+            return RedirectToAction(nameof(Users));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleUserStatus(string userId)
+        {
+            var actingAdminEmail = User.FindFirstValue(ClaimTypes.Email);
+            var actingAdminId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user == null) return NotFound();
+            
+            if (user.UserID == actingAdminId)
+            {
+                TempData["ErrorMessage"] = "You cannot disable your own account.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            if (user.Role == "Admin" && actingAdminEmail != "demo_admin@secureplatform.com")
+            {
+                TempData["ErrorMessage"] = "Access Denied: Only the Seed Admin can modify administrators.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            user.IsDisabled = !user.IsDisabled;
+            
+            _context.AuditLogs.Add(new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = actingAdminId,
+                Action = $"{(user.IsDisabled ? "Disabled" : "Enabled")} account {user.Email}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = $"User account {(user.IsDisabled ? "disabled" : "enabled")}.";
+            return RedirectToAction(nameof(Users));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteUser(string userId)
+        {
+            var actingAdminEmail = User.FindFirstValue(ClaimTypes.Email);
+            var actingAdminId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user == null) return NotFound();
+            
+            if (user.UserID == actingAdminId)
+            {
+                TempData["ErrorMessage"] = "You cannot delete your own account.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            if (user.Role == "Admin" && actingAdminEmail != "demo_admin@secureplatform.com")
+            {
+                TempData["ErrorMessage"] = "Access Denied: Only the Seed Admin can delete administrators.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            _context.Users.Remove(user);
+            
+            _context.AuditLogs.Add(new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = actingAdminId,
+                Action = $"Deleted user account {user.Email}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "User successfully deleted.";
+            return RedirectToAction(nameof(Users));
+        }
     }
 }

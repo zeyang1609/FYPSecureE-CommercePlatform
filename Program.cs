@@ -7,10 +7,18 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// 0. Add Cookie Authentication
+// 0. Add Cookie Authentication (Industry Standard Security)
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
+        options.Cookie.Name = "SecurePlatform.AuthToken"; // Custom cookie name to obfuscate stack
+        options.Cookie.HttpOnly = true; // Prevents JavaScript XSS access
+        options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always; // Enforces HTTPS transmission
+        options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict; // Prevents CSRF attacks
+        
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60); // Idle timeout
+        options.SlidingExpiration = true; // Renew cookie on activity
+
         options.LoginPath = "/Auth/Login";
         options.LogoutPath = "/Auth/Logout";
         options.AccessDeniedPath = "/Auth/Login";
