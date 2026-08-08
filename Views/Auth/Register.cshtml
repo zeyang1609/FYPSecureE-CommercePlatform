@@ -87,9 +87,8 @@
 
                         <div id="passwordBubble" class="validation-bubble">
                             <strong>Password Requirements:</strong><br />
-                            Must be over 8 characters and contain at least <strong>1 uppercase letter</strong>, <strong>1 number</strong>, and <strong>1 special character</strong> (@@$!%*?&^#_.:,+-).
+                            Must be at least 8 characters long, contain no spaces or emojis, and include at least <strong>1 uppercase letter</strong>, <strong>1 lowercase letter</strong>, <strong>1 number</strong>, and <strong>1 special character</strong> (@@$!%*?&^#_.:,+-).
                         </div>
-                        <span asp-validation-for="Password" class="text-danger field-validation-error"></span>
                     </div>
 
 
@@ -176,7 +175,7 @@
                     }
                 });
 
-                const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@@$!%*?&^#_.:,+-]).{9,}$/;
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@@$!%*?&^#_.:,+-])[a-zA-Z\d@@$!%*?&^#_.:,+-]{8,}$/;
 
                 passwordInput.addEventListener("input", function() {
                     const val = this.value;

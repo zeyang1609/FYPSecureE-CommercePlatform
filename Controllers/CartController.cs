@@ -297,18 +297,56 @@ namespace FYP.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
-            model.CartItems = cartViewModel.Items;
-            model.TotalAmount = cartViewModel.GrandTotal;
-
-            if (model.PaymentMethod == "Credit Card" && !string.IsNullOrEmpty(model.SelectedSavedCardID))
+            if (string.IsNullOrEmpty(model.CourierName))
             {
-                ModelState.Remove("RawCardNumber");
-                ModelState.Remove("CardNumber");
-                ModelState.Remove("ExpiryDate");
-                ModelState.Remove("CVV");
+                // Fallback for stale form submission or missing data
+                var userAddresses = await _context.Addresses.Where(a => a.UserID == GetUserId()).ToListAsync();
+                var selectedAddress = userAddresses.FirstOrDefault(a => a.AddressID == model.SelectedAddressID);
+                if (selectedAddress != null)
+                {
+                    var addressString = $"{selectedAddress.HouseBuildingStreet}, {selectedAddress.StateArea} {selectedAddress.PostalCode}";
+                    var shippingItems = cart.Items.Where(i => i.IsSelected).Select(i => (i.ProductID, i.Quantity));
+                    var (originalFee, fee, courier) = await _shippingService.CalculateAndAssignShippingAsync(shippingItems, cartViewModel.GrandTotal, addressString);
+                    
+                    model.OriginalShippingFee = originalFee;
+                    model.ShippingFee = fee;
+                    model.CourierName = courier?.Name ?? "Standard Courier";
+                    model.CourierID = courier?.CourierID ?? "COUR_JNT";
+                    
+                    ModelState.Remove("CourierName");
+                    ModelState.Remove("CourierID");
+                    ModelState.Remove("OriginalShippingFee");
+                    ModelState.Remove("ShippingFee");
+                }
             }
-            else if (model.PaymentMethod != "Credit Card")
+
+            model.CartItems = cartViewModel.Items.Where(i => i.IsSelected).ToList();
+            model.TotalAmount = cartViewModel.GrandTotal + model.ShippingFee;
+
+            if (model.PaymentMethod == "Credit Card")
             {
+                if (string.IsNullOrEmpty(model.SelectedSavedCardID))
+                {
+                    // No saved card selected, validate that new card fields are provided
+                    if (string.IsNullOrWhiteSpace(model.RawCardNumber) || 
+                        string.IsNullOrWhiteSpace(model.ExpiryDate) || 
+                        string.IsNullOrWhiteSpace(model.CVV))
+                    {
+                        ModelState.AddModelError("SelectedSavedCardID", "Please select a saved card or enter new card details to proceed with Credit/Debit Card payment.");
+                    }
+                }
+                else
+                {
+                    // Saved card selected, remove validation for new card fields
+                    ModelState.Remove("RawCardNumber");
+                    ModelState.Remove("CardNumber");
+                    ModelState.Remove("ExpiryDate");
+                    ModelState.Remove("CVV");
+                }
+            }
+            else
+            {
+                // Non-credit card payment method, ignore card fields
                 ModelState.Remove("RawCardNumber");
                 ModelState.Remove("CardNumber");
                 ModelState.Remove("ExpiryDate");

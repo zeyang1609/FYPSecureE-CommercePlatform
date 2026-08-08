@@ -19,7 +19,8 @@ namespace FYP.Models.ViewModels
         [Display(Name = "Payment Method")]
         public string PaymentMethod { get; set; } = "Credit Card";
 
-        public string ServiceType { get; set; } = "Standard Delivery";
+        [Display(Name = "Shipping Option")]
+        public string? ServiceType { get; set; } = "Standard Delivery";
 
         [Range(0.01, 1000000.00)]
         public decimal TotalAmount { get; set; }

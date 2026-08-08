@@ -69,7 +69,7 @@
         
         @if (!ViewData.ModelState.IsValid)
         {
-            <div style="background: #FFF0F0; color: #D63031; padding: 15px; border-radius: 6px; border: 1px solid #FFCDCD; margin-bottom: 20px; font-size: 0.9rem; font-weight: bold;">
+            <div id="top-validation-errors" style="background: #FFF0F0; color: #D63031; padding: 15px; border-radius: 6px; border: 1px solid #FFCDCD; margin-bottom: 20px; font-size: 0.9rem; font-weight: bold;">
                 @Html.ValidationSummary(false, "", new { @style = "margin: 0; padding-left: 15px;" })
             </div>
         }
@@ -96,15 +96,15 @@
                                     @selectedAddress.PhoneNumber
                                 </div>
                                 <div style="color: #444;">
-                                    @selectedAddress.HouseBuildingStreet, @selectedAddress.UnitNumber, <br/>
-                                    @selectedAddress.StateArea, @selectedAddress.PostalCode
-                                    
+                                    @selectedAddress.HouseBuildingStreet, @selectedAddress.UnitNumber, 
                                     @if(selectedAddress.IsDefault) {
                                         <span style="border: 1px solid var(--brand-primary); color: var(--brand-primary); font-size: 0.75rem; padding: 2px 6px; margin-left: 10px; border-radius: 3px;">Default</span>
                                     }
+                                    <br/>
+                                    @selectedAddress.StateArea, @selectedAddress.PostalCode
                                 </div>
                             </div>
-                            <div>
+                            <div style="margin-left: 20px; flex-shrink: 0;">
                                 <button type="button" id="open-address-modal-btn" style="color: #0056b3; font-weight: bold; text-decoration: none; background: none; border: none; cursor: pointer; padding: 0;">Change</button>
                             </div>
                         </div>
@@ -113,11 +113,18 @@
                     }
                     else
                     {
-                        <div style="color: #D63031; font-weight: bold;">
-                            No address found. Please add a shipping address in your profile.
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%;">
+                            <div style="color: #D63031; font-weight: bold;">
+                                No address found. Please add a shipping address to proceed.
+                            </div>
+                            <div style="margin-left: 20px; flex-shrink: 0;">
+                                <button type="button" onclick="openAddAddressModal()" style="display: inline-flex; align-items: center; gap: 8px; color: white; background: var(--brand-primary); font-weight: bold; border: none; padding: 10px 20px; border-radius: 4px; font-size: 0.9rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                                    <span style="font-size: 1.2rem; line-height: 1;">+</span> Add New Address
+                                </button>
+                            </div>
+                            <!-- Provide a fallback input so form can submit -->
+                            <input type="hidden" asp-for="ShippingAddress" value="Pending Address" />
                         </div>
-                        <!-- Provide a fallback input so form can submit -->
-                        <input type="hidden" asp-for="ShippingAddress" value="Pending Address" />
                     }
                 </div>
             </div>
@@ -156,32 +163,54 @@
                         <span style="margin-right: 15px; color: #333; font-weight: 500;">Message:</span>
                         <input type="text" asp-for="MessageToSeller" placeholder="(Optional) Leave a message to seller" style="flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; outline: none;" />
                     </div>
-                    <div style="flex: 1; padding: 20px; display: flex; align-items: flex-start; justify-content: space-between;">
+                    <div style="flex: 1; padding: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
                         <div style="display: flex; align-items: flex-start;">
-                            <span style="color: #2bb371; font-weight: bold; margin-right: 15px; width: 130px;">Shipping Option:</span>
+                            <span style="color: #2bb371; font-weight: bold; margin-right: 12px; width: 130px;">Shipping Option:</span>
                             <div>
                                 <div style="display: flex; align-items: center; gap: 15px;">
-                                    <span style="font-weight: bold; color: #333;" id="display-shipping-option">@Model.CourierName</span>
-                                    <div style="font-weight: bold; color: #333;" id="display-shipping-cost">
-                                        @if (Model.OriginalShippingFee > Model.ShippingFee)
-                                        {
-                                            <span style="text-decoration: line-through; color: #999; margin-right: 8px; font-weight: normal; font-size: 0.9rem;">RM @Model.OriginalShippingFee.ToString("0.00")</span>
-                                        }
-                                        @if (Model.ShippingFee == 0)
-                                        {
-                                            <span style="color: #2E7D32;">FREE</span>
-                                        }
-                                        else
-                                        {
-                                            <span>RM @Model.ShippingFee.ToString("0.00")</span>
-                                        }
-                                    </div>
+                                    @if (selectedAddress == null)
+                                    {
+                                        <span style="color: #D63031; font-weight: 500; font-size: 0.9rem;" id="display-shipping-option">Add a shipping address to calculate fees</span>
+                                        <div style="display: none;" id="display-shipping-cost"></div>
+                                    }
+                                    else
+                                    {
+                                        <span style="font-weight: bold; color: #333;" id="display-shipping-option">@Model.CourierName</span>
+                                        <div style="font-weight: bold; color: #333;" id="display-shipping-cost">
+                                            @if (Model.OriginalShippingFee > Model.ShippingFee)
+                                            {
+                                                <span style="text-decoration: line-through; color: #999; margin-right: 8px; font-weight: normal; font-size: 0.9rem;">RM @Model.OriginalShippingFee.ToString("0.00")</span>
+                                            }
+                                            @if (Model.ShippingFee == 0)
+                                            {
+                                                <span style="color: #2E7D32;">FREE</span>
+                                            }
+                                            else
+                                            {
+                                                <span>RM @Model.ShippingFee.ToString("0.00")</span>
+                                            }
+                                        </div>
+                                    }
                                 </div>
-                                <span style="color: #777; font-size: 0.85rem;" id="display-shipping-date">Get by @DateTime.Now.AddDays(3).ToString("d MMM") - @DateTime.Now.AddDays(5).ToString("d MMM")</span>
+                                @if (selectedAddress != null)
+                                {
+                                    <span style="color: #777; font-size: 0.85rem;" id="display-shipping-date">Get by @DateTime.Now.AddDays(3).ToString("d MMM") - @DateTime.Now.AddDays(5).ToString("d MMM")</span>
+                                }
+                                else
+                                {
+                                    <span style="color: #777; font-size: 0.85rem; display: none;" id="display-shipping-date"></span>
+                                }
                             </div>
                         </div>
-                        <div style="text-align: right;">
-                            <button type="button" id="open-change-courier-btn" style="color: #0056b3; font-weight: bold; text-decoration: none; border: none; background: none; cursor: pointer; padding: 0;">Change</button>
+                        <div style="text-align: right; margin-left: 12px; flex-shrink: 0;">
+                            @if (selectedAddress != null)
+                            {
+                                <button type="button" id="open-change-courier-btn" style="color: #0056b3; font-weight: bold; text-decoration: none; border: none; background: none; cursor: pointer; padding: 0;">Change</button>
+                            }
+                            else
+                            {
+                                <button type="button" id="open-change-courier-btn" style="color: #ccc; font-weight: bold; text-decoration: none; border: none; background: none; cursor: not-allowed; padding: 0;" disabled>Change</button>
+                            }
                         </div>
                     </div>
                 </div>
@@ -236,9 +265,14 @@
                         else
                         {
                             <input type="hidden" name="SelectedSavedCardID" value="" />
+                            <div style="margin-bottom: 15px;">
+                                <button type="button" id="open-add-card-btn" style="padding: 6px 12px; border: 1px dashed #888; border-radius: 2px; color: #555; font-size: 0.9rem; cursor: pointer; background: #fafafa;">
+                                    + Pay With New Card
+                                </button>
+                            </div>
                         }
 
-                        <div id="new-card-form" style="@(Model.SavedCards != null && Model.SavedCards.Any(c => c.IsDefault) ? "display: none;" : "display: block;") padding-top: 10px;">
+                        <div id="new-card-form" style="display: none; padding-top: 10px;">
                             <div style="font-weight: 500; margin-bottom: 10px; color: #555;">New Card Details</div>
                             <div style="display: flex; gap: 15px;">
                                 <input asp-for="CardNumber" placeholder="Card Number (16 Digits)" maxlength="16" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 250px;" />
@@ -284,7 +318,10 @@
                         </div>
 
                         <input type="hidden" asp-for="ServiceType" id="ServiceTypeInput" value="@Model.CourierName" />
-                        <input type="hidden" name="selectedCourierId" id="SelectedCourierID" value="@Model.CourierID" />
+                        <input type="hidden" asp-for="CourierName" id="CourierNameInput" value="@Model.CourierName" />
+                        <input type="hidden" asp-for="CourierID" id="SelectedCourierID" value="@Model.CourierID" />
+                        <input type="hidden" asp-for="OriginalShippingFee" id="OriginalShippingFeeInput" value="@Model.OriginalShippingFee" />
+                        <input type="hidden" asp-for="ShippingFee" id="ShippingFeeInput" value="@Model.ShippingFee" />
                         <button type="submit" class="btn-submit-primary" style="width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 2px;">
                             Place Order
                         </button>
@@ -368,7 +405,7 @@
                     var addrString = $"{addr.HouseBuildingStreet}, {addr.StateArea} {addr.PostalCode}";
                     <label style="display: flex; align-items: flex-start; justify-content: space-between; padding: 15px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" class="address-option-lbl">
                         <div style="display: flex; align-items: flex-start;">
-                            <input type="radio" name="modal_address_selection" value="@addr.AddressID" data-fullname="@addr.FullName" data-phone="@addr.PhoneNumber" data-addrstring="@addrString" data-details="@addr.HouseBuildingStreet, @addr.UnitNumber, <br/> @addr.StateArea, @addr.PostalCode" @isChecked style="margin-top: 4px; margin-right: 15px; accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="selectAddressRadio(this)" />
+                            <input type="radio" name="modal_address_selection" value="@addr.AddressID" data-fullname="@addr.FullName" data-phone="@addr.PhoneNumber" data-addrstring="@addrString" data-details="@addr.HouseBuildingStreet, @addr.UnitNumber, <br/> @addr.StateArea, @addr.PostalCode" data-isdefault="@(addr.IsDefault ? "true" : "false")" @isChecked style="margin-top: 4px; margin-right: 15px; accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="selectAddressRadio(this)" />
                             <div>
                                 <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
                                     @addr.FullName | @addr.PhoneNumber
@@ -403,6 +440,9 @@
         // Payment logic
         document.querySelectorAll('input[name="PaymentMethod"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
+                const errDiv = document.getElementById('top-validation-errors');
+                if (errDiv) errDiv.style.display = 'none';
+
                 document.querySelectorAll('input[name="PaymentMethod"]').forEach(r => {
                     r.parentElement.style.borderColor = '#ccc';
                     r.parentElement.style.color = '#333';
@@ -508,6 +548,9 @@
 
         if (confirmCourierBtn) {
             confirmCourierBtn.addEventListener('click', () => {
+                const errDiv = document.getElementById('top-validation-errors');
+                if (errDiv) errDiv.style.display = 'none';
+
                 const selectedRadio = document.querySelector('input[name="modal_courier_selection"]:checked');
                 if (selectedRadio) {
                     const selectedId = selectedRadio.value;
@@ -516,6 +559,9 @@
                     if (opt) {
                         document.getElementById('SelectedCourierID').value = selectedId;
                         document.getElementById('ServiceTypeInput').value = opt.courierName;
+                        document.getElementById('CourierNameInput').value = opt.courierName;
+                        document.getElementById('OriginalShippingFeeInput').value = opt.originalFee;
+                        document.getElementById('ShippingFeeInput').value = opt.finalFee;
                         document.getElementById('display-shipping-option').textContent = opt.courierName;
                         
                         let priceHtml = '';
@@ -697,6 +743,10 @@
                     fpxError.textContent = '';
                     
                     try {
+                        if (!selectedFpxBank) {
+                            throw new Error("Please select a bank to proceed with FPX Online Banking.");
+                        }
+                        
                         const addressId = document.querySelector('input[name="SelectedAddressID"]')?.value || 0;
                         const response = await fetch('/Cart/CreatePaymentIntent', {
                             method: 'POST',
@@ -774,6 +824,7 @@
                     const phone = selectedRadio.getAttribute('data-phone');
                     const details = selectedRadio.getAttribute('data-details');
                     const addrstring = selectedRadio.getAttribute('data-addrstring');
+                    const isDefault = selectedRadio.getAttribute('data-isdefault') === 'true';
                     
                     document.getElementById('SelectedAddressID').value = addrId;
                     document.getElementById('ShippingAddress').value = addrstring;

@@ -161,18 +161,18 @@
                     }
                 }
                 
-                @if (hasRefund || !step5_received)
+                @if (hasRefund || !step4_delivered)
                 {
-                    <button type="button" class="btn-action-panel" disabled>Request For Return/Refund</button>
+                    <button type="button" class="btn-action-panel" disabled style="opacity: 0.5; cursor: not-allowed;">Request For Return/Refund</button>
                 }
                 else
                 {
-                    <button type="button" class="btn-action-panel">Request For Return/Refund</button>
+                    <button type="button" class="btn-action-panel" onclick="document.getElementById('issueTypeModal').style.display='flex';">Request For Return/Refund</button>
                 }
                 
                 <button type="button" class="btn-action-panel">Contact Seller</button>
                 
-                <button type="button" class="btn-action-panel">Buy Again</button>
+                <button type="button" class="btn-action-panel" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
                 
                 <button type="button" class="btn-action-panel">View Receipt</button>
             </div>
@@ -190,9 +190,9 @@
                         <button class="btn-chat" style="padding: 4px 12px; border: 1px solid #ee4d2d; color: #ee4d2d; background: white; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem;">
                             Chat
                         </button>
-                        <button class="btn-view-shop" style="padding: 4px 12px; border: 1px solid #ccc; color: #555; background: white; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem;">
+                        <a href="/Home/ShopProfile/@(firstItem?.Product?.SellerID)" class="btn-view-shop" style="padding: 4px 12px; border: 1px solid #ccc; color: #555; background: white; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem; text-decoration: none;">
                             View Shop
-                        </button>
+                        </a>
                     </div>
                 </div>
                 <!-- Body -->
@@ -246,6 +246,55 @@
             </div>
         </div>
     </main>
+
+    <!-- Issue Type Modal (Return/Refund) -->
+    <div id="issueTypeModal" class="modal" style="display:none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+        <div class="modal-content" style="background-color: #fff; max-width: 600px; width: 100%; text-align: left; padding: 24px; border-radius: 4px; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin: 0; font-size: 22px; font-weight: 500; color: #222;">What happened to your order?</h2>
+                <span class="close-modal" onclick="document.getElementById('issueTypeModal').style.display='none';" style="font-size: 28px; cursor: pointer; color: #666;">&times;</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Option 1 -->
+                <div onclick="proceedToRefund('Received Items with Issues')" style="display: flex; align-items: center; padding: 20px; background-color: #f8f8f8; border: 1px solid #eaeaea; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="margin-right: 20px; color: #ee4d2d;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="11 3 11 11 14 13 14 21"></polyline></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 18px; color: #222; margin-bottom: 4px;">Received Items with Issues</div>
+                        <div style="font-size: 14px; color: #888;">Received all items but there are problems and/or I would like to return parcel</div>
+                    </div>
+                </div>
+
+                <!-- Option 2 -->
+                <div onclick="proceedToRefund('Did Not Receive Some/All of the Item(s)')" style="display: flex; align-items: center; padding: 20px; background-color: #f8f8f8; border: 1px solid #eaeaea; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="margin-right: 20px; color: #ee4d2d;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 18px; color: #222; margin-bottom: 4px;">Did Not Receive Some/All of the Item(s)</div>
+                        <div style="font-size: 14px; color: #888;">Some/all of my item(s) or accessories are not delivered</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function proceedToRefund(issueType) {
+            window.location.href = `/Buyer/RequestRefundForm?orderId=@Model.OrderID&issueType=${encodeURIComponent(issueType)}`;
+        }
+        
+        // Close modal when clicking outside
+        window.addEventListener("click", (event) => {
+            const modal = document.getElementById("issueTypeModal");
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        });
+    </script>
+
     @await Html.PartialAsync("_ChatPartial")
 </body>
 </html>

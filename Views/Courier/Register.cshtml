@@ -152,10 +152,10 @@
                     // Reset errors (Using ASP.NET validation spans where possible, or simple alerts)
                     // For a seamless integration, we will alert or modify the DOM if password policy fails
                     
-                    // Password Policy: Over 8 chars, 1 uppercase, 1 number, 1 special char
-                    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@@$!%*?&^#_.:,+-]).{9,}$/;
+                    // Password Policy: At least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char, no spaces/emojis
+                    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@@$!%*?&^#_.:,+-])[a-zA-Z\d@@$!%*?&^#_.:,+-]{8,}$/;
                     if (!passwordRegex.test(passwordInput.value)) {
-                        alert("Password must be at least 9 characters long and contain at least 1 uppercase letter, 1 number, and 1 special character.");
+                        alert("Password must be at least 8 characters long, contain no spaces or emojis, and include at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.");
                         passwordInput.focus();
                         isValid = false;
                     }

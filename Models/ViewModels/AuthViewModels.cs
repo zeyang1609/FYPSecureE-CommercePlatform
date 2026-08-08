@@ -16,8 +16,8 @@ namespace FYP.Models.ViewModels
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Password is required.")]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 9)]
-        [RegularExpression(@"^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&^#_.:,+-]).{9,}$", ErrorMessage = "Password must contain at least 1 uppercase letter, 1 number, and 1 special character.")]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 8)]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&^#_.:,+-])[a-zA-Z\d@$!%*?&^#_.:,+-]{8,}$", ErrorMessage = "Password must be at least 8 characters long, contain no spaces or emojis, and include at least 1 uppercase, 1 lowercase, 1 number, and 1 special character.")]
         [DataType(DataType.Password)]
         [Display(Name = "Password")]
         public string Password { get; set; } = string.Empty;
@@ -85,6 +85,7 @@ namespace FYP.Models.ViewModels
 
         [Required(ErrorMessage = "New password is required.")]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 8)]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&^#_.:,+-])[a-zA-Z\d@$!%*?&^#_.:,+-]{8,}$", ErrorMessage = "Password must be at least 8 characters long, contain no spaces or emojis, and include at least 1 uppercase, 1 lowercase, 1 number, and 1 special character.")]
         [DataType(DataType.Password)]
         [Display(Name = "New Password")]
         public string NewPassword { get; set; } = string.Empty;

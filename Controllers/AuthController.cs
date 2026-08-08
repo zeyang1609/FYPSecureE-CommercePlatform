@@ -72,18 +72,8 @@ namespace FYP.Controllers
                     DeviceHash = HttpContext.Request.Headers["User-Agent"].ToString()
                 };
 
-                var auditLog = new AuditLog
-                {
-                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                    UserID = userId,
-                    Action = $"New user registered with role: {newUser.Role}",
-                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
-                    Timestamp = DateTime.UtcNow
-                };
-
-                _context.Users.Add(newUser);
-                _context.AuditLogs.Add(auditLog);
-                await _context.SaveChangesAsync();
+                string pendingUserJson = System.Text.Json.JsonSerializer.Serialize(newUser);
+                TempData["PendingUser_" + model.Email] = pendingUserJson;
 
                 // Dispatch initial welcome OTP
                 await _otpService.GenerateAndSendOtpAsync(model.Email, "Account Registration");
@@ -202,6 +192,16 @@ namespace FYP.Controllers
                 return View("~/Views/Courier/VerifyOtp.cshtml", new VerifyOtpViewModel { Email = email });
             }
             
+            var pendingJson = TempData.Peek("PendingUser_" + email) as string;
+            if (!string.IsNullOrEmpty(pendingJson))
+            {
+                var pendingUser = System.Text.Json.JsonSerializer.Deserialize<User>(pendingJson);
+                if (pendingUser?.Role == "Courier")
+                {
+                    return View("~/Views/Courier/VerifyOtp.cshtml", new VerifyOtpViewModel { Email = email });
+                }
+            }
+
             return View(new VerifyOtpViewModel { Email = email });
         }
 
@@ -215,6 +215,28 @@ namespace FYP.Controllers
                 if (isValid)
                 {
                     var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+                    if (user == null)
+                    {
+                        var pendingJson = TempData["PendingUser_" + model.Email] as string;
+                        if (!string.IsNullOrEmpty(pendingJson))
+                        {
+                            user = System.Text.Json.JsonSerializer.Deserialize<User>(pendingJson);
+                            if (user != null)
+                            {
+                                _context.Users.Add(user);
+                                _context.AuditLogs.Add(new AuditLog
+                                {
+                                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                                    UserID = user.UserID,
+                                    Action = $"New user registered with role: {user.Role}",
+                                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                                    Timestamp = DateTime.UtcNow
+                                });
+                                await _context.SaveChangesAsync();
+                            }
+                        }
+                    }
+
                     if (user != null)
                     {
                         var claims = new List<Claim>
@@ -243,6 +265,16 @@ namespace FYP.Controllers
             if (fallbackUser != null && fallbackUser.Role == "Courier")
             {
                 return View("~/Views/Courier/VerifyOtp.cshtml", model);
+            }
+
+            var fallbackJson = TempData.Peek("PendingUser_" + model.Email) as string;
+            if (!string.IsNullOrEmpty(fallbackJson))
+            {
+                var pendingUser = System.Text.Json.JsonSerializer.Deserialize<User>(fallbackJson);
+                if (pendingUser?.Role == "Courier")
+                {
+                    return View("~/Views/Courier/VerifyOtp.cshtml", model);
+                }
             }
 
             return View(model);
@@ -452,9 +484,14 @@ namespace FYP.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Logout()
+        public async Task<IActionResult> Logout(string returnUrl = null)
         {
+            TempData.Clear();
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return LocalRedirect(returnUrl);
+            }
             return RedirectToAction("Index", "Home");
         }
 

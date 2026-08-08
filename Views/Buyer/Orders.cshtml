@@ -257,7 +257,14 @@
                                                         <button type="submit" class="btn-action primary">Order Received</button>
                                                     </form>
                                                 }
-                                                <button type="button" class="btn-action secondary btn-request-refund" data-order-id="@order.OrderID">Request Return/Refund</button>
+                                                @if (order.Status != "Delivered")
+                                                {
+                                                    <button type="button" class="btn-action secondary" disabled style="opacity: 0.5; cursor: not-allowed;">Request Return/Refund</button>
+                                                }
+                                                else
+                                                {
+                                                    <button type="button" class="btn-action secondary btn-request-refund" data-order-id="@order.OrderID">Request Return/Refund</button>
+                                                }
 
                                                 <div class="action-container" style="display: inline-block;">
                                                     <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>

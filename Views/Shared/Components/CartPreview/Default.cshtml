@@ -1,0 +1,55 @@
+@model FYP.Models.ViewModels.CartPreviewViewModel
+
+<div class="cart-preview-container">
+    <a asp-controller="Cart" asp-action="Index" class="cart-link" aria-label="Shopping Cart">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        @if (Model.TotalItems > 0)
+        {
+            <span class="cart-badge">@Model.TotalItems</span>
+        }
+    </a>
+
+    <!-- Dropdown Menu -->
+    <div class="cart-dropdown-menu">
+        @if (Model.TotalItems == 0)
+        {
+            <div class="cart-empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ddd" stroke-width="1.5">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <p>No products yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="cart-dropdown-header">
+                Recently Added Products
+            </div>
+            <div class="cart-dropdown-items">
+                @foreach (var item in Model.RecentItems)
+                {
+                    <a href="/Home/ProductDetails/@item.ProductID" class="cart-dropdown-item">
+                        <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" onerror="this.src='/images/default-product.jpg';" />
+                        <div class="cart-item-title">@item.Title</div>
+                        <div class="cart-item-price">RM @item.Price.ToString("0.00")</div>
+                    </a>
+                }
+            </div>
+            <div class="cart-dropdown-footer">
+                <div class="cart-overflow-text">
+                    @if (Model.UniqueItemsCount > 5)
+                    {
+                        @($"{Model.UniqueItemsCount - 5} More Products In Cart")
+                    }
+                </div>
+                <a href="/Cart" class="btn-view-cart">View My Shopping Cart</a>
+            </div>
+        }
+    </div>
+</div>

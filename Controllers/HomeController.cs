@@ -18,6 +18,7 @@ namespace FYP.Controllers
 
         // GET: /Home/Index
         [HttpGet]
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public async Task<IActionResult> Index(string searchQuery, string categoryId)
         {
             // 1. Fetch dynamic categories for the top grid
@@ -33,8 +34,25 @@ namespace FYP.Controllers
             // Filter by Search Query
             if (!string.IsNullOrWhiteSpace(searchQuery))
             {
-                productsQuery = productsQuery.Where(p => p.Title.Contains(searchQuery)); 
-        ViewBag.SearchQuery = searchQuery;
+                ViewBag.SearchQuery = searchQuery;
+                
+                string normalizedQuery = searchQuery.Replace(" ", "").ToLower();
+                var allProducts = await productsQuery.Select(p => new { p.ProductID, p.Title }).ToListAsync();
+                
+                var matchedIds = allProducts.Where(p => {
+                    if (string.IsNullOrEmpty(p.Title)) return false;
+                    string normalizedTitle = p.Title.Replace(" ", "").ToLower();
+                    
+                    if (normalizedTitle.Contains(normalizedQuery)) return true;
+                    if (normalizedQuery.Contains(normalizedTitle)) return true;
+                    
+                    int distance = MinDistanceSubstring(normalizedTitle, normalizedQuery);
+                    double similarity = 1.0 - (double)distance / normalizedQuery.Length;
+                    
+                    return similarity >= 0.7; // 70% similarity threshold for typos
+                }).Select(p => p.ProductID).ToList();
+                
+                productsQuery = productsQuery.Where(p => matchedIds.Contains(p.ProductID));
             }
 
             // Filter by Category Click
@@ -232,6 +250,37 @@ namespace FYP.Controllers
                 return Content("Unlocked! Email: demo_seller@secureplatform.com | Password: Password@123");
             }
             return Content("Demo seller not found.");
+        }
+
+        private int MinDistanceSubstring(string text, string pattern)
+        {
+            if (string.IsNullOrEmpty(pattern)) return 0;
+            if (string.IsNullOrEmpty(text)) return pattern.Length;
+
+            int[] v0 = new int[pattern.Length + 1];
+            int[] v1 = new int[pattern.Length + 1];
+
+            for (int i = 0; i < v0.Length; i++) v0[i] = i;
+
+            int minDistance = pattern.Length;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                v1[0] = 0; 
+                
+                for (int j = 0; j < pattern.Length; j++)
+                {
+                    int cost = (text[i] == pattern[j]) ? 0 : 1;
+                    v1[j + 1] = System.Math.Min(v1[j] + 1, System.Math.Min(v0[j + 1] + 1, v0[j] + cost));
+                }
+                for (int j = 0; j < v0.Length; j++) v0[j] = v1[j];
+                
+                if (v1[pattern.Length] < minDistance)
+                {
+                    minDistance = v1[pattern.Length];
+                }
+            }
+            return minDistance;
         }
     }
 }
