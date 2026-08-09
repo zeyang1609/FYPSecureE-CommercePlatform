@@ -653,5 +653,19 @@ namespace FYP.Controllers
 
             return RedirectToAction(nameof(Profile));
         }
+    
+
+        [HttpGet]
+        public async Task<IActionResult> Notifications()
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var notifications = await _context.Notifications
+                .Where(n => n.UserID == userId)
+                .OrderByDescending(n => n.NotificationID)
+                .ToListAsync();
+
+            return View(notifications);
+        }
+
     }
 }

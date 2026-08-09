@@ -55,8 +55,16 @@ namespace FYP.Controllers
             ViewBag.TotalAlerts = alerts.Count;
             ViewBag.HighRiskCount = alerts.Count(a => a.RiskScore > 0.85m);
             ViewBag.TotalAuditLogs = await _context.AuditLogs.CountAsync();
-            ViewBag.ActiveDisputes = await _context.Refunds.CountAsync(r => r.Status == "Dispute");
+            ViewBag.ActiveDisputes = await _context.Refunds.CountAsync(r => r.Status == "Dispute" || r.Status == "DISPUTED");
             ViewBag.AuditLogs = logs;
+
+            var adminId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            var securityAlerts = await _context.Notifications
+                .Where(n => n.UserID == adminId && n.Type == "Security Alert")
+                .OrderByDescending(n => n.NotificationID)
+                .Take(20)
+                .ToListAsync();
+            ViewBag.SecurityAlerts = securityAlerts;
 
             return View(alerts);
         }
@@ -349,5 +357,48 @@ namespace FYP.Controllers
             TempData["SuccessMessage"] = "User successfully deleted.";
             return RedirectToAction(nameof(Users));
         }
+    
+
+        [HttpPost]
+        public async Task<IActionResult> SendBulkNotification(string targetAudience, string type, string content)
+        {
+            var usersQuery = _context.Users.AsQueryable();
+            
+            if (targetAudience == "Buyers") 
+                usersQuery = usersQuery.Where(u => u.Role == "Buyer");
+            else if (targetAudience == "Sellers") 
+                usersQuery = usersQuery.Where(u => u.Role == "Seller");
+            
+            var users = await usersQuery.ToListAsync();
+            var notifications = new System.Collections.Generic.List<Notification>();
+            
+            foreach (var user in users)
+            {
+                notifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = user.UserID,
+                    Type = type,
+                    Content = content
+                });
+            }
+
+            _context.Notifications.AddRange(notifications);
+            
+            var adminId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            _context.AuditLogs.Add(new AuditLog {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = adminId ?? "SYS-ADMIN",
+                Action = $"Admin sent bulk notification to {targetAudience}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Bulk notification successfully sent to {users.Count} users.";
+            return RedirectToAction("Dashboard");
+        }
+
     }
 }

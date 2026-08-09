@@ -1,0 +1,42 @@
+@{
+    ViewData["Title"] = "Security Check - Authenticator Required";
+}
+
+<div class="container mt-5 mb-5" style="max-width: 600px; margin: 0 auto;">
+    <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
+        <div class="card-header bg-warning text-dark text-center py-4" style="border-bottom: 3px solid #ff9800;">
+            <i class="fas fa-shield-alt fa-3x mb-2"></i>
+            <h4 class="mb-0 fw-bold">Authenticator Verification Required</h4>
+        </div>
+        <div class="card-body p-5 bg-white">
+            <p class="text-center text-muted mb-4">
+                Our AI Security Shield has flagged this transaction as medium-risk. 
+                Please enter the 6-digit code from your Authenticator app to finalize checkout.
+            </p>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger" role="alert" style="border-radius: 8px;">
+                    <i class="fas fa-exclamation-circle me-2"></i> @Html.ValidationSummary(false, "", new { @class = "mb-0" })
+                </div>
+            }
+
+            <form asp-action="VerifyCheckoutTotp" asp-controller="Cart" method="post">
+                @Html.AntiForgeryToken()
+                <div class="form-group mb-4">
+                    <label for="code" class="form-label fw-bold">Authenticator Code</label>
+                    <input type="text" id="code" name="code" class="form-control form-control-lg text-center" 
+                           placeholder="000000" required style="letter-spacing: 2px; font-size: 1.5rem;" />
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-warning btn-lg fw-bold" style="background-color: #ff9800; border: none;">
+                        Verify & Complete Checkout <i class="fas fa-arrow-right ms-2"></i>
+                    </button>
+                    <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-secondary mt-2">
+                        Cancel Checkout
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

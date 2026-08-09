@@ -23,12 +23,17 @@ namespace FYP.Controllers
         private readonly IConfiguration _configuration;
         private readonly IShippingService _shippingService;
 
-        public CartController(ApplicationDbContext context, PythonAiClient aiClient, IConfiguration configuration, IShippingService shippingService)
+        private readonly FYP.Services.IOtpService _otpService;
+        private readonly FYP.Services.TotpService _totpService;
+
+        public CartController(ApplicationDbContext context, PythonAiClient aiClient, IConfiguration configuration, IShippingService shippingService, FYP.Services.IOtpService otpService, FYP.Services.TotpService totpService)
         {
             _context = context;
             _aiClient = aiClient;
             _configuration = configuration;
             _shippingService = shippingService;
+            _otpService = otpService;
+            _totpService = totpService;
         }
 
         private string GetUserId()
@@ -414,8 +419,40 @@ namespace FYP.Controllers
 
             // Simulate the algorithmic risk score check:
             double simulatedRiskScore = (double)model.TotalAmount > 5000 ? 0.85 : 0.12;
+            
+            if ((double)model.TotalAmount > 3000 && (double)model.TotalAmount <= 5000)
+            {
+                simulatedRiskScore = 0.60;
+            }
+
+            if (TempData["SkipRiskCheck"] != null)
+            {
+                simulatedRiskScore = 0.0;
+            }
 
             string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+
+            if (simulatedRiskScore > 0.50 && simulatedRiskScore <= 0.80)
+            {
+                // Medium Risk: Enforce MFA
+                var userId = GetUserId();
+                var user = await _context.Users.FindAsync(userId);
+                
+                // Save model to TempData
+                TempData["PendingCheckout"] = System.Text.Json.JsonSerializer.Serialize(model);
+                
+                if (user != null && !string.IsNullOrEmpty(user.TotpSecret))
+                {
+                    return RedirectToAction("VerifyCheckoutTotp");
+                }
+                else
+                {
+                    if (user != null) {
+                        await _otpService.GenerateAndSendOtpAsync(user.Email);
+                    }
+                    return RedirectToAction("VerifyCheckoutOtp");
+                }
+            }
 
             if (simulatedRiskScore > 0.80)
             {
@@ -442,9 +479,22 @@ namespace FYP.Controllers
 
                 _context.Orders.Add(blockedOrder);
                 _context.FraudAlerts.Add(fraudAlert);
+
+                var admins = _context.Users.Where(u => u.Role == "Admin").ToList();
+                foreach (var admin in admins)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = admin.UserID,
+                        Type = "Security Alert",
+                        Content = $"High-Risk Checkout Blocked! Score: {simulatedRiskScore:P1}. Order: {orderId}"
+                    });
+                }
+                
                 await _context.SaveChangesAsync();
 
-                ModelState.AddModelError("", $"🚨 SECURITY BLOCK: Transaction flagged by XGBoost AI (Risk Score: {simulatedRiskScore:P0}). Please complete step-up MFA verification.");
+                ModelState.AddModelError("", $"?? SECURITY BLOCK: Transaction flagged by XGBoost AI (Risk Score: {simulatedRiskScore:P0}).");
                 return View("Checkout", model);
             }
 
@@ -489,6 +539,8 @@ namespace FYP.Controllers
             };
 
             var orderItems = new List<OrderItem>();
+            var orderItems = new List<OrderItem>();
+            var notifications = new List<Notification>();
             
             foreach (var item in checkoutItems)
             {
@@ -503,9 +555,35 @@ namespace FYP.Controllers
                         Quantity = item.Quantity,
                         UnitPrice = item.Product.Price
                     });
+
+                    // Low Stock Alert
+                    if (item.Product.StockLevel <= 5)
+                    {
+                        notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = item.Product.SellerID,
+                            Type = "Inventory Alert",
+                            Content = $"Low Stock Warning! Product '{item.Product.Name}' has only {item.Product.StockLevel} left."
+                        });
+                    }
                 }
             }
 
+            // New Order Notifications for Sellers
+            var sellerIds = checkoutItems.Where(i => i.Product != null).Select(i => i.Product.SellerID).Distinct();
+            foreach (var sellerId in sellerIds)
+            {
+                notifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = sellerId,
+                    Type = "New Order",
+                    Content = $"You have received a new order (Order ID: {orderId})."
+                });
+            }
+            
+            _context.Notifications.AddRange(notifications);
             var delivery = new Delivery
             {
                 DeliveryID = "DEL-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
@@ -843,5 +921,81 @@ namespace FYP.Controllers
                 return StatusCode(500, new { error = ex.Message });
             }
         }
+    
+
+        [HttpGet]
+        public IActionResult VerifyCheckoutOtp()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VerifyCheckoutOtp(string otp)
+        {
+            var userId = GetUserId();
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return Unauthorized();
+
+            if (await _otpService.VerifyOtpAsync(user.Email, otp))
+            {
+                var pendingJson = TempData["PendingCheckout"] as string;
+                if (!string.IsNullOrEmpty(pendingJson))
+                {
+                    // MFA passed, bypass the risk check this time
+                    TempData["SkipRiskCheck"] = true;
+                    TempData.Keep("PendingCheckout");
+                    return RedirectToAction("FinalizeCheckoutMfaPassed"); 
+                }
+                return RedirectToAction("Index");
+            }
+
+            ModelState.AddModelError("", "Invalid OTP.");
+            return View();
+        }
+
+        [HttpGet]
+        public IActionResult VerifyCheckoutTotp()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VerifyCheckoutTotp(string code)
+        {
+            var userId = GetUserId();
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return Unauthorized();
+
+            if (_totpService.ValidateTotp(user.TotpSecret, code))
+            {
+                var pendingJson = TempData["PendingCheckout"] as string;
+                if (!string.IsNullOrEmpty(pendingJson))
+                {
+                    TempData["SkipRiskCheck"] = true;
+                    TempData.Keep("PendingCheckout");
+                    return RedirectToAction("FinalizeCheckoutMfaPassed");
+                }
+                return RedirectToAction("Index");
+            }
+
+            ModelState.AddModelError("", "Invalid Code.");
+            return View();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> FinalizeCheckoutMfaPassed()
+        {
+            var pendingJson = TempData["PendingCheckout"] as string;
+            if (string.IsNullOrEmpty(pendingJson)) return RedirectToAction("Index");
+
+            var model = System.Text.Json.JsonSerializer.Deserialize<CheckoutViewModel>(pendingJson);
+            
+            // Re-run ProcessCheckout with SkipRiskCheck active
+            TempData["SkipRiskCheck"] = true;
+            return await ProcessCheckout(model);
+        }
+
     }
 }

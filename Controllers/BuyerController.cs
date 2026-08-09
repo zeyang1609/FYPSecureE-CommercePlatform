@@ -441,6 +441,51 @@ namespace FYP.Controllers
                 RequestedAt = DateTime.UtcNow
             }; 
 
+            // --- Refund Abuse Detection (Friendly Fraud) ---
+            var totalOrders = await _context.Orders.CountAsync(o => o.BuyerID == buyerId);
+            var totalRefunds = await _context.Refunds.CountAsync(r => r.Order.BuyerID == buyerId);
+            
+            // Rule: If >=3 refunds AND Refund Ratio > 30%
+            if (totalOrders > 0 && totalRefunds >= 3 && ((double)totalRefunds / totalOrders) > 0.3)
+            {
+                refund.Status = "DISPUTED"; // Send directly to dispute instead of seller approval
+                refund.SellerNotes = "Auto-flagged by System: Refund Abuse Detection (Friendly Fraud Threshold Exceeded)";
+                
+                var fraudAlert = new FraudAlert
+                {
+                    AlertID = "ALT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    OrderID = orderId,
+                    RiskScore = 0.95m,
+                    Reason = $"Refund Abuse Detected: {totalRefunds} refunds on {totalOrders} orders ({(double)totalRefunds/totalOrders:P1})",
+                    SHAP_Data = "{}", // No SHAP data for rule-based flags
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.FraudAlerts.Add(fraudAlert);
+
+                _context.AuditLogs.Add(new AuditLog
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = buyerId,
+                    Action = "SECURITY FLAG: Excessive refund request intercepted and disputed.",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+                
+                var admins = _context.Users.Where(u => u.Role == "Admin").ToList();
+                foreach (var admin in admins)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = admin.UserID,
+                        Type = "Security Alert",
+                        Content = $"Refund Abuse Detected: {totalRefunds} refunds on {totalOrders} orders for User {buyerId}."
+                    });
+                }
+            }
+            // ----------------------------------------------
+
             var auditLog = new AuditLog
             {
                 LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
@@ -457,10 +502,22 @@ namespace FYP.Controllers
                 Type = "Refund Request",
                 Content = $"Refund requested for Order {orderId}. Reason: {reason}"
             }; 
+            _context.Notifications.Add(notification);
+
+            var sellerIds = order.OrderItems.Where(oi => oi.Product != null).Select(oi => oi.Product.SellerID).Distinct().ToList();
+            foreach (var sellerId in sellerIds)
+            {
+                _context.Notifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = sellerId,
+                    Type = "Refund Request",
+                    Content = $"Buyer has requested a refund for Order {orderId}."
+                });
+            }
 
             _context.Refunds.Add(refund); 
             _context.AuditLogs.Add(auditLog); 
-            _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = "Refund request submitted successfully.";
