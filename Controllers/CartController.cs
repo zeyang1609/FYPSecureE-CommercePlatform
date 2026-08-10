@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Microsoft.Extensions.Configuration;
 using Stripe;
+using Microsoft.AspNetCore.SignalR;
+using FYP.Hubs;
 
 namespace FYP.Controllers
 {
@@ -22,13 +24,15 @@ namespace FYP.Controllers
         private readonly PythonAiClient _aiClient;
         private readonly IConfiguration _configuration;
         private readonly IShippingService _shippingService;
+        private readonly IHubContext<OrderHub> _orderHubContext;
 
-        public CartController(ApplicationDbContext context, PythonAiClient aiClient, IConfiguration configuration, IShippingService shippingService)
+        public CartController(ApplicationDbContext context, PythonAiClient aiClient, IConfiguration configuration, IShippingService shippingService, IHubContext<OrderHub> orderHubContext)
         {
             _context = context;
             _aiClient = aiClient;
             _configuration = configuration;
             _shippingService = shippingService;
+            _orderHubContext = orderHubContext;
         }
 
         private string GetUserId()
@@ -55,6 +59,23 @@ namespace FYP.Controllers
             }
 
             return cart;
+        }
+
+        private async Task BroadcastNewOrderToSellersAsync(string orderId)
+        {
+            var sellerIds = await _context.OrderItems
+                .Where(oi => oi.OrderID == orderId)
+                .Select(oi => oi.Product.SellerID)
+                .Distinct()
+                .ToListAsync();
+
+            foreach (var sellerId in sellerIds)
+            {
+                if (!string.IsNullOrEmpty(sellerId))
+                {
+                    await _orderHubContext.Clients.Group(sellerId).SendAsync("NewOrderToShip", orderId, $"You have a new order ({orderId}) pending shipment!");
+                }
+            }
         }
 
         private async Task<CartViewModel> MapCartToViewModelAsync(Cart cart)
@@ -534,6 +555,7 @@ namespace FYP.Controllers
             _context.CartItems.RemoveRange(checkoutItems);
             
             await _context.SaveChangesAsync();
+            await BroadcastNewOrderToSellersAsync(orderId);
 
             TempData["SuccessMessage"] = $"Order {orderId} placed successfully! Cleared by XGBoost AI Security.";
             return RedirectToAction("OrderDetails", "Buyer", new { orderId = orderId });
@@ -744,6 +766,7 @@ namespace FYP.Controllers
                         _context.AuditLogs.Add(auditLog);
 
                         await _context.SaveChangesAsync();
+                        await BroadcastNewOrderToSellersAsync(orderId);
 
                         TempData["SuccessMessage"] = $"Order {orderId} placed successfully via FPX!";
                         return RedirectToAction("OrderDetails", "Buyer", new { orderId = orderId });
@@ -801,6 +824,7 @@ namespace FYP.Controllers
                 _context.Payments.Add(payment);
                 _context.AuditLogs.Add(auditLog);
                 await _context.SaveChangesAsync();
+                await BroadcastNewOrderToSellersAsync(orderId);
 
                 TempData["SuccessMessage"] = $"Order {orderId} paid successfully via {paymentMethod}!";
                 return Json(new { success = true, orderId = orderId });

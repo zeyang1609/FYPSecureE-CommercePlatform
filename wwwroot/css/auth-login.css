@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --brand-primary: #EE4D2D;
     --brand-primary-hover: #D73211;
     --auth-bg-tint: #FFECE8;
@@ -617,4 +617,12 @@ body {
     .page-label {
         display: none;
     }
+}
+
+/* Hide default browser password reveal and clear icons globally */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+    display: none !important;
 }

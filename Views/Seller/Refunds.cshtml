@@ -79,7 +79,7 @@
 
         <div style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 24px;">
             <button id="tab-pending" class="refund-tab active" onclick="switchTab('pending')" style="padding: 12px 24px; border: none; background: transparent; font-weight: 600; cursor: pointer; color: #ee4d2d; border-bottom: 3px solid #ee4d2d; font-size: 1rem;">Pending Actions</button>
-            <button id="tab-completed" class="refund-tab" onclick="switchTab('completed')" style="padding: 12px 24px; border: none; background: transparent; font-weight: 500; cursor: pointer; color: #666; border-bottom: 3px solid transparent; font-size: 1rem;">Completed / Disputed</button>
+            <button id="tab-completed" class="refund-tab" onclick="switchTab('completed')" style="padding: 12px 24px; border: none; background: transparent; font-weight: 500; cursor: pointer; color: #666; border-bottom: 3px solid transparent; font-size: 1rem;">Completed</button>
         </div>
 
         @if (TempData["SuccessMessage"] != null)
@@ -113,7 +113,10 @@
                 <div class="refund-header">
                     <div>
                         <span class="refund-id-text" style="font-weight: 600; color: #333;">Refund #@refund.RefundID</span>
-                        <span class="order-id-text" style="color: #888; font-size: 0.9rem; margin-left: 12px;">Order #@refund.OrderID</span>
+                        <span class="order-id-text" style="color: #888; font-size: 0.9rem; margin-left: 12px; margin-right: 12px;">Order #@refund.OrderID</span>
+                        <button type="button" onclick="openChatWithBuyer('@refund.Order?.BuyerID', '@(refund.Order?.Buyer?.Name ?? refund.Order?.Buyer?.Email ?? "")')" style="background: none; border: none; cursor: pointer; color: var(--brand-primary); display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--brand-primary); font-size: 0.8rem; font-weight: 500; transition: all 0.2s;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> Chat
+                        </button>
                     </div>
                     <span class="badge @badgeClass">@refund.Status.Replace("_", " ")</span>
                 </div>
@@ -149,16 +152,43 @@
                             <div style="color: #888; font-size: 0.9rem; margin-top: 4px;">@refund.Description</div>
                         }
                         @{
-                            var firstMediaUrl = "/images/default-product.png";
+                            var mediaUrls = new List<string>();
                             if (!string.IsNullOrEmpty(refund.MediaUrl))
                             {
-                                var urls = refund.MediaUrl.Split(';', StringSplitOptions.RemoveEmptyEntries);
-                                if (urls.Length > 0) firstMediaUrl = urls[0];
+                                mediaUrls = refund.MediaUrl.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList();
                             }
                         }
-                        <div class="media-thumbnail" onclick="openMediaModal('@Url.Content(firstMediaUrl)')" title="View Buyer Evidence">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                        </div>
+
+                        @if (mediaUrls.Any())
+                        {
+                            <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
+                                @foreach (var url in mediaUrls)
+                                {
+                                    var isVideo = url.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) || url.EndsWith(".webm", StringComparison.OrdinalIgnoreCase);
+                                    if (isVideo)
+                                    {
+                                        <div class="media-thumbnail" onclick="openMediaModal('@Url.Content(url)')" title="View Video Evidence" style="position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #ddd; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #000;">
+                                            <video src="@Url.Content(url)" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.7;"></video>
+                                            <div style="position: absolute; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); border-radius: 50%; width: 24px; height: 24px;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="media-thumbnail" onclick="openMediaModal('@Url.Content(url)')" title="View Image Evidence" style="width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid #ddd; cursor: pointer;">
+                                            <img src="@Url.Content(url)" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/images/default-product.png';" />
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="media-thumbnail" style="margin-top: 8px; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: #f0f0f0; border-radius: 4px; border: 1px solid #ddd;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            </div>
+                        }
                     </div>
                 </div>
 
@@ -201,7 +231,7 @@
 
     <!-- Reject Modal -->
     <div id="rejectModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center;">
-        <div style="background:white; padding:24px; border-radius:8px; width:100%; max-width:400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="background:white; padding:24px; border-radius:8px; width:100%; max-width:600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <h3 style="margin-top:0; font-weight:600;">Reject Refund Request</h3>
             <form asp-action="RejectRefund" method="post">
                 <input type="hidden" name="refundId" id="rejectRefundId" />
@@ -248,6 +278,22 @@
     <script>
         let currentTab = 'pending';
 
+        function openChatWithBuyer(buyerId, buyerName) {
+            if (!buyerId) {
+                alert("Buyer information is not available.");
+                return;
+            }
+            if (typeof toggleSecureChat === 'function') {
+                const win = document.getElementById('secureChatWindow');
+                if (win && (win.style.display === 'none' || win.style.display === '')) {
+                    toggleSecureChat();
+                }
+            }
+            if (typeof startSecureChat === 'function') {
+                startSecureChat(buyerId, buyerName);
+            }
+        }
+
         function switchTab(tab) {
             currentTab = tab;
             document.getElementById('tab-pending').classList.remove('active');
@@ -275,7 +321,7 @@
                 var refundId = card.getAttribute('data-refundid').toLowerCase();
                 var orderId = card.getAttribute('data-orderid').toLowerCase();
                 
-                var isPendingStatus = (status === 'RETURN_REQUESTED' || status === 'Requested' || status === 'RETURN_APPROVED' || status === 'RETURN_IN_TRANSIT' || status === 'RETURN_RECEIVED');
+                var isPendingStatus = (status === 'RETURN_REQUESTED' || status === 'Requested' || status === 'RETURN_APPROVED' || status === 'RETURN_IN_TRANSIT' || status === 'RETURN_RECEIVED' || status === 'DISPUTED');
                 
                 var tabMatch = (currentTab === 'pending' && isPendingStatus) || (currentTab === 'completed' && !isPendingStatus);
                 var searchMatch = searchStr === '' || refundId.includes(searchStr) || orderId.includes(searchStr);
@@ -325,5 +371,32 @@
         filterRefunds();
     </script>
     @await Html.PartialAsync("_ChatPartial")
+    
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        const returnConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/orderHub")
+            .withAutomaticReconnect()
+            .build();
+
+        returnConnection.on("ReceiveReturnUpdate", function () {
+            fetch(window.location.href, { cache: 'no-store' })
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    document.body.innerHTML = doc.body.innerHTML;
+                    
+                    // re-initialize the view filter
+                    if(typeof filterRefunds === 'function') filterRefunds();
+                });
+        });
+
+        returnConnection.start().then(async function () {
+            await returnConnection.invoke("JoinGroup", "@ViewBag.SellerID");
+        }).catch(function (err) {
+            console.error(err.toString());
+        });
+    </script>
 </body>
 </html>

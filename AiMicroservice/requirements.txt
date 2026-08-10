@@ -1,0 +1,9 @@
+Flask
+xgboost
+shap
+opencv-python
+numpy
+joblib
+Pillow
+transformers
+torch

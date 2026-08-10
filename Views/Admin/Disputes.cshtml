@@ -1,4 +1,4 @@
-﻿@model IEnumerable<FYP.Models.Entities.Refund>
+@model IEnumerable<FYP.Models.Entities.Refund>
 @{
     ViewData["Title"] = "Dispute Arbitration - AdminOS";
     Layout = null;
@@ -149,6 +149,30 @@
         function closeResolveModal() {
             document.getElementById('resolveModal').style.display = 'none';
         }
+    </script>
+    
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        const returnConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/orderHub")
+            .withAutomaticReconnect()
+            .build();
+
+        returnConnection.on("ReceiveReturnUpdate", function () {
+            fetch(window.location.href, { cache: 'no-store' })
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    document.body.innerHTML = doc.body.innerHTML;
+                });
+        });
+
+        returnConnection.start().then(async function () {
+            await returnConnection.invoke("JoinGroup", "Admins");
+        }).catch(function (err) {
+            console.error(err.toString());
+        });
     </script>
 </body>
 </html>

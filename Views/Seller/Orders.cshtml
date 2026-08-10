@@ -111,5 +111,62 @@
         </div>
     </main>
     @await Html.PartialAsync("_ChatPartial")
+    <script>
+        (async function() {
+            const sellerId = '@ViewBag.SellerID';
+            if (!sellerId) return;
+
+            const orderConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/orderHub")
+                .withAutomaticReconnect()
+                .build();
+
+            orderConnection.on("NewOrderToShip", async (orderId, message) => {
+                const toast = document.createElement('div');
+                toast.style.position = 'fixed';
+                toast.style.top = '20px';
+                toast.style.left = '50%';
+                toast.style.transform = 'translateX(-50%)';
+                toast.style.background = '#EE4D2D';
+                toast.style.color = 'white';
+                toast.style.padding = '12px 24px';
+                toast.style.borderRadius = '4px';
+                toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                toast.style.zIndex = '9999';
+                toast.style.fontWeight = 'bold';
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.2s';
+                toast.innerHTML = `🛒 ${message}`;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => toast.style.opacity = '1', 10);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 200);
+                }, 4000);
+
+                // Dynamically fetch latest table data without full page reload
+                try {
+                    const res = await fetch(window.location.href, { cache: 'no-store' });
+                    const html = await res.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const newTableCard = doc.querySelector('.table-card');
+                    if (newTableCard) {
+                        document.querySelector('.table-card').innerHTML = newTableCard.innerHTML;
+                    }
+                } catch(e) {
+                    console.error("Failed to update table dynamically", e);
+                }
+            });
+
+            try {
+                await orderConnection.start();
+                await orderConnection.invoke("JoinGroup", sellerId);
+                console.log("Connected to OrderHub as Seller.");
+            } catch (err) {
+                console.error("OrderHub connection failed: ", err);
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -5,6 +5,7 @@
     var issueType = ViewBag.IssueType as string;
     var firstItem = Model.OrderItems.FirstOrDefault();
     var sellerName = firstItem?.Product?.Seller?.Name ?? "Various Sellers";
+    ViewData["ReturnUrl"] = $"/Buyer/RequestRefundForm?orderId={Model.OrderID}&issueType={issueType}";
 }
 
 <!DOCTYPE html>
@@ -130,7 +131,7 @@
             </div>
         }
 
-        <form asp-controller="Buyer" asp-action="SubmitRefundRequest" method="post" enctype="multipart/form-data">
+        <form id="refundForm" asp-controller="Buyer" asp-action="SubmitRefundRequest" method="post" enctype="multipart/form-data" onsubmit="return validateRefundForm()">
             <input type="hidden" name="orderId" value="@Model.OrderID" />
             <input type="hidden" name="issueType" value="@issueType" />
 
@@ -350,6 +351,55 @@
                 </div>
             </div>
 
+            <!-- Section: Return Method -->
+            <div class="section-box">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 class="section-title" style="margin-bottom: 0;">Return Method</h3>
+                    <button type="button" class="btn-action secondary" style="padding: 6px 12px; min-width: auto;" onclick="document.getElementById('changeReturnMethodModal').style.display='flex'">Change</button>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <div id="display-return-method" style="font-weight: 500; font-size: 16px; margin-bottom: 5px;">Drop-Off</div>
+                    <div id="display-return-desc" style="color: #666; font-size: 14px;">Drop off your parcel at the nearest courier branch.</div>
+                </div>
+
+                <input type="hidden" name="returnMethod" id="input-return-method" value="Drop-Off" />
+                <input type="hidden" name="pickupAddressId" id="input-pickup-address" value="" />
+
+                <!-- Dynamic Address Box (Only shown if Pickup is selected) -->
+                <div id="pickup-address-section" style="display: none; margin-top: 20px; padding: 15px; border: 1px solid #eee; border-radius: 4px; background: #fafafa;">
+                    <div id="pickup-address-header-btn" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: 500; color: #333;">Pickup Address</span>
+                        @if (ViewBag.AvailableAddresses != null && ((IEnumerable<FYP.Models.Entities.Address>)ViewBag.AvailableAddresses).Any())
+                        {
+                            <button type="button" onclick="document.getElementById('change-address-modal').style.display='flex'" style="color: #0056b3; font-weight: bold; background: none; border: none; cursor: pointer; padding: 0;">Change</button>
+                        }
+                        else
+                        {
+                            <button type="button" onclick="openAddAddressModal()" style="color: #ee4d2d; font-weight: bold; background: none; border: none; cursor: pointer; padding: 0;">+ Add New Address</button>
+                        }
+                    </div>
+                    
+                    <div id="selected-address-display" style="font-size: 14px; color: #555;">
+                        @if (ViewBag.AvailableAddresses != null && ((IEnumerable<FYP.Models.Entities.Address>)ViewBag.AvailableAddresses).Any())
+                        {
+                            var defaultAddr = ((IEnumerable<FYP.Models.Entities.Address>)ViewBag.AvailableAddresses).FirstOrDefault(a => a.IsDefault) ?? ((IEnumerable<FYP.Models.Entities.Address>)ViewBag.AvailableAddresses).First();
+                            <div style="font-weight: 500; color: #333; margin-bottom: 4px;">@defaultAddr.FullName | @defaultAddr.PhoneNumber</div>
+                            <div>@defaultAddr.HouseBuildingStreet, @defaultAddr.UnitNumber, <br/> @defaultAddr.StateArea, @defaultAddr.PostalCode</div>
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    document.getElementById('input-pickup-address').value = '@defaultAddr.AddressID';
+                                });
+                            </script>
+                        }
+                        else
+                        {
+                            <span style="color: #d0011b;">No address found. Please add an address.</span>
+                        }
+                    </div>
+                </div>
+            </div>
+
             <!-- Section 4: Solution -->
             <div class="section-box" style="display: flex; align-items: center;">
                 <h3 class="section-title" style="margin-bottom: 0; width: 200px;">Solution:</h3>
@@ -427,8 +477,172 @@
         </div>
     </div>
 
-    <script>
+    <!-- Return Method Modal -->
+    <div id="changeReturnMethodModal" class="modal">
+        <div class="modal-content" style="max-width: 500px; text-align: left; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin: 0; font-size: 20px; font-weight: 500; color: #222;">Select Return Method</h2>
+                <span class="close-modal" onclick="document.getElementById('changeReturnMethodModal').style.display='none'" style="font-size: 28px; cursor: pointer; color: #666;">&times;</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <label style="display: flex; align-items: flex-start; padding: 15px; border: 1px solid var(--brand-primary); border-radius: 4px; cursor: pointer;" id="lbl-dropoff">
+                    <input type="radio" name="modal_return_method" value="Drop-Off" checked style="margin-top: 4px; margin-right: 15px; accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="selectReturnMethod(this, 'Drop-Off', 'Drop off your parcel at the nearest courier branch.')" />
+                    <div>
+                        <div style="font-size: 16px; font-weight: 500; color: #222; margin-bottom: 4px;">Drop-Off</div>
+                        <div style="font-size: 14px; color: #888;">Drop off your parcel at the nearest courier branch.</div>
+                    </div>
+                </label>
 
+                <label style="display: flex; align-items: flex-start; padding: 15px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" id="lbl-pickup">
+                    <input type="radio" name="modal_return_method" value="Pickup" style="margin-top: 4px; margin-right: 15px; accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="selectReturnMethod(this, 'Pickup', 'Courier will pick up the parcel from your address.')" />
+                    <div>
+                        <div style="font-size: 16px; font-weight: 500; color: #222; margin-bottom: 4px;">Pickup</div>
+                        <div style="font-size: 14px; color: #888;">Courier will pick up the parcel from your address.</div>
+                    </div>
+                </label>
+            </div>
+            <div style="text-align: right; margin-top: 24px;">
+                <button type="button" onclick="confirmReturnMethod()" class="btn-action primary" style="padding: 10px 20px;">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Address Modal -->
+    <div id="change-address-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: #fff; width: 550px; max-width: 90%; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); padding: 0; display: flex; flex-direction: column;">
+            <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: #333; font-size: 1.2rem;">Select Address</h3>
+                <button type="button" onclick="document.getElementById('change-address-modal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;">&times;</button>
+            </div>
+            <div id="address-list-container" style="padding: 20px; overflow-y: auto; max-height: 400px; display: flex; flex-direction: column; gap: 15px;">
+                @if(ViewBag.AvailableAddresses != null)
+                {
+                    foreach (var addr in (IEnumerable<FYP.Models.Entities.Address>)ViewBag.AvailableAddresses)
+                    {
+                        var isChecked = addr.IsDefault ? "checked" : "";
+                        var addrString = $"{addr.HouseBuildingStreet}, {addr.StateArea} {addr.PostalCode}";
+                        <label style="display: flex; align-items: flex-start; justify-content: space-between; padding: 15px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" class="address-option-lbl">
+                            <div style="display: flex; align-items: flex-start;">
+                                <input type="radio" name="modal_address_selection" value="@addr.AddressID" data-fullname="@addr.FullName" data-phone="@addr.PhoneNumber" data-details="@addr.HouseBuildingStreet, @addr.UnitNumber, <br/> @addr.StateArea, @addr.PostalCode" @isChecked style="margin-top: 4px; margin-right: 15px; accent-color: var(--brand-primary); width: 16px; height: 16px;" onclick="selectAddressRadio(this)" />
+                                <div>
+                                    <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
+                                        @addr.FullName | @addr.PhoneNumber
+                                        @if(addr.IsDefault) {
+                                            <span style="border: 1px solid var(--brand-primary); color: var(--brand-primary); font-size: 0.75rem; padding: 2px 6px; border-radius: 3px;">Default</span>
+                                        }
+                                    </div>
+                                    <div style="color: #666; font-size: 0.95rem;">
+                                        @addr.HouseBuildingStreet, @addr.UnitNumber, <br/>
+                                        @addr.StateArea, @addr.PostalCode
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                                <a href="javascript:void(0)" onclick="document.getElementById('change-address-modal').style.display='none'; openEditAddressModal('@addr.AddressID', '@addr.FullName.Replace("'", "\\'")', '@addr.PhoneNumber', '@addr.StateArea.Replace("'", "\\'")', '@addr.PostalCode', '@(addr.UnitNumber?.Replace("'", "\\'") ?? "")', '@addr.HouseBuildingStreet.Replace("'", "\\'")', '@addr.Label', @addr.IsDefault.ToString().ToLower(), '@addr.Latitude', '@addr.Longitude')" style="color: #0056b3; font-weight: bold; text-decoration: none; font-size: 0.9rem;">Edit</a>
+                                <a href="javascript:void(0)" onclick="deleteAddressAJAX('@addr.AddressID', this)" style="color: #ee4d2d; font-weight: bold; text-decoration: none; font-size: 0.9rem;">Delete</a>
+                            </div>
+                        </label>
+                    }
+                }
+            </div>
+            <div style="padding: 20px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <button type="button" onclick="document.getElementById('change-address-modal').style.display='none'; openAddAddressModal()" style="display: inline-flex; align-items: center; gap: 5px; color: #555; background: none; font-weight: bold; border: 1px solid #ccc; padding: 8px 15px; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
+                    <span style="font-size: 1.2rem;">+</span> Add New Address
+                </button>
+                <button type="button" id="confirm-address-btn" onclick="confirmAddressSelection()" class="btn btn-primary" style="background: var(--brand-primary); color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tempReturnMethod = 'Drop-Off';
+        let tempReturnDesc = 'Drop off your parcel at the nearest courier branch.';
+
+        function validateRefundForm() {
+            confirmReturnMethod(); // Ensure any unconfirmed selection is applied before submit
+            if (refundImageDT.files.length === 0 && refundVideoDT.files.length === 0) {
+                alert("Please upload at least one image or video as proof.");
+                return false;
+            }
+            if (document.getElementById('input-return-method').value === 'Pickup' && !document.getElementById('input-pickup-address').value) {
+                alert("Please select a pickup address.");
+                return false;
+            }
+            return true;
+        }
+
+        function selectReturnMethod(radio, method, desc) {
+            document.getElementById('lbl-dropoff').style.borderColor = '#ddd';
+            document.getElementById('lbl-pickup').style.borderColor = '#ddd';
+            radio.closest('label').style.borderColor = 'var(--brand-primary)';
+            tempReturnMethod = method;
+            tempReturnDesc = desc;
+        }
+
+        function confirmReturnMethod() {
+            document.getElementById('display-return-method').textContent = tempReturnMethod;
+            document.getElementById('display-return-desc').textContent = tempReturnDesc;
+            document.getElementById('input-return-method').value = tempReturnMethod;
+            
+            if (tempReturnMethod === 'Pickup') {
+                document.getElementById('pickup-address-section').style.display = 'block';
+            } else {
+                document.getElementById('pickup-address-section').style.display = 'none';
+            }
+            
+            document.getElementById('changeReturnMethodModal').style.display = 'none';
+        }
+
+        function selectAddressRadio(radio) {
+            document.querySelectorAll('input[name="modal_address_selection"]').forEach(r => {
+                r.closest('.address-option-lbl').style.borderColor = '#ddd';
+            });
+            radio.closest('.address-option-lbl').style.borderColor = 'var(--brand-primary)';
+        }
+
+        function confirmAddressSelection() {
+            const selectedRadio = document.querySelector('input[name="modal_address_selection"]:checked');
+            if (selectedRadio) {
+                document.getElementById('input-pickup-address').value = selectedRadio.value;
+                const fullname = selectedRadio.getAttribute('data-fullname');
+                const phone = selectedRadio.getAttribute('data-phone');
+                const details = selectedRadio.getAttribute('data-details');
+                
+                document.getElementById('selected-address-display').innerHTML = `
+                    <div style="font-weight: 500; color: #333; margin-bottom: 4px;">${fullname} | ${phone}</div>
+                    <div>${details}</div>
+                `;
+            }
+            document.getElementById('change-address-modal').style.display = 'none';
+        }
+
+        function deleteAddressAJAX(id, element) {
+            if (!confirm('Are you sure you want to delete this address?')) return;
+            
+            const formData = new FormData();
+            formData.append('id', id);
+            
+            fetch('/Buyer/DeleteAddress', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.success) {
+                    element.closest('.address-option-lbl').remove();
+                } else {
+                    alert('Error deleting address.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting address.');
+            });
+        }
         
         // Email Validation Logic
         const emailInput = document.getElementById('refundEmailInput');
@@ -447,7 +661,34 @@
             e.preventDefault();
             emailError.style.display = 'block';
         });
+
+        document.addEventListener('addressSaved', function(e) {
+            window.addressSavedHandled = true;
+            const newAddr = e.detail;
+            
+            const addrId = newAddr.addressID || newAddr.AddressID;
+            const fullname = newAddr.fullName || newAddr.FullName;
+            const phone = newAddr.phoneNumber || newAddr.PhoneNumber;
+            const street = newAddr.houseBuildingStreet || newAddr.HouseBuildingStreet;
+            const state = newAddr.stateArea || newAddr.StateArea;
+            const postal = newAddr.postalCode || newAddr.PostalCode;
+            const unitObj = newAddr.unitNumber || newAddr.UnitNumber;
+            const unit = unitObj ? unitObj + ', <br/> ' : '';
+            
+            document.getElementById('input-pickup-address').value = addrId;
+            
+            document.getElementById('selected-address-display').innerHTML = `
+                <div style="font-weight: 500; color: #333; margin-bottom: 4px;">${fullname} | ${phone}</div>
+                <div>${street}, ${unit}${state}, ${postal}</div>
+            `;
+            
+            document.getElementById('pickup-address-header-btn').innerHTML = `
+                <span style="font-weight: 500; color: #333;">Pickup Address</span>
+                <button type="button" onclick="document.getElementById('change-address-modal').style.display='flex'" style="color: #0056b3; font-weight: bold; background: none; border: none; cursor: pointer; padding: 0;">Change</button>
+            `;
+        });
     </script>
     @await Html.PartialAsync("_ChatPartial")
+    @await Html.PartialAsync("_AddressModalPartial")
 </body>
 </html>

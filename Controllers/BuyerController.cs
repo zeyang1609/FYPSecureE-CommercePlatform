@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using FYP.Services;
+using Microsoft.AspNetCore.SignalR;
+using FYP.Hubs;
 
 namespace FYP.Controllers
 {
@@ -20,12 +22,14 @@ namespace FYP.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IOtpService _otpService;
         private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
+        private readonly IHubContext<OrderHub> _orderHubContext;
 
-        public BuyerController(ApplicationDbContext context, IOtpService otpService, Microsoft.Extensions.Configuration.IConfiguration configuration)
+        public BuyerController(ApplicationDbContext context, IOtpService otpService, Microsoft.Extensions.Configuration.IConfiguration configuration, IHubContext<OrderHub> orderHubContext)
         {
             _context = context;
             _otpService = otpService;
             _configuration = configuration;
+            _orderHubContext = orderHubContext;
         }
 
         // GET: /Buyer/Dashboard
@@ -356,6 +360,9 @@ namespace FYP.Controllers
             
             if (order == null) return NotFound("Order not found or access denied.");
             
+            var buyer = await _context.Users.Include(b => b.Addresses).FirstOrDefaultAsync(b => b.UserID == buyerId);
+            ViewBag.AvailableAddresses = buyer?.Addresses?.ToList() ?? new List<Address>();
+
             ViewBag.IssueType = issueType;
             return View(order);
         }
@@ -363,11 +370,26 @@ namespace FYP.Controllers
         // POST: /Buyer/SubmitRefundRequest
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SubmitRefundRequest(string orderId, string issueType, string reason, string description, string refundEmail, List<IFormFile> imageFiles, IFormFile videoFile)
+        public async Task<IActionResult> SubmitRefundRequest(string orderId, string issueType, string reason, string description, string refundEmail, List<IFormFile> imageFiles, IFormFile videoFile, string returnMethod, int? pickupAddressId)
         {
             var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId); 
+            var order = await _context.Orders
+                .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId); 
             if (order == null) return NotFound("Order not found or access denied.");
+
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                TempData["ErrorMessage"] = "Description is required.";
+                return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+            }
+
+            if (string.IsNullOrWhiteSpace(refundEmail))
+            {
+                TempData["ErrorMessage"] = "Refund email is required.";
+                return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+            }
 
             string mediaUrl = "";
             var urls = new List<string>();
@@ -425,6 +447,18 @@ namespace FYP.Controllers
 
             mediaUrl = string.Join(";", urls);
 
+            if (string.IsNullOrWhiteSpace(mediaUrl))
+            {
+                TempData["ErrorMessage"] = "At least one image or video proof is required.";
+                return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+            }
+
+            if (returnMethod == "Pickup" && (!pickupAddressId.HasValue || pickupAddressId.Value <= 0))
+            {
+                TempData["ErrorMessage"] = "Please select a valid pickup address before submitting.";
+                return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+            }
+
             string refundId = "RFD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
             var refund = new Refund
             {
@@ -437,8 +471,13 @@ namespace FYP.Controllers
                 Description = description,
                 RefundEmail = refundEmail,
                 MediaUrl = mediaUrl,
-                ReturnMethod = "Drop-Off", // Default Return Method
-                RequestedAt = DateTime.UtcNow
+                ReturnMethod = returnMethod,
+                PickupAddressID = pickupAddressId,
+                RequestedAt = DateTime.UtcNow,
+                AdminResolution = "",
+                SellerNotes = "",
+                ReturnTrackingNumber = "",
+                ReturnCourier = ""
             }; 
 
             var auditLog = new AuditLog
@@ -462,6 +501,12 @@ namespace FYP.Controllers
             _context.AuditLogs.Add(auditLog); 
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
+
+            var firstItem = order.OrderItems.FirstOrDefault();
+            if (firstItem?.Product?.SellerID != null)
+            {
+                await _orderHubContext.Clients.Group(firstItem.Product.SellerID).SendAsync("ReceiveReturnUpdate");
+            }
 
             TempData["SuccessMessage"] = "Refund request submitted successfully.";
             return RedirectToAction(nameof(RefundTracking), new { refundId = refundId });
@@ -951,6 +996,19 @@ namespace FYP.Controllers
         }
 
         await _context.SaveChangesAsync();
+        
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        {
+            var savedAddr = AddressID.HasValue && AddressID.Value > 0 
+                ? await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == AddressID.Value && a.UserID == userId)
+                : await _context.Addresses.OrderByDescending(a => a.AddressID).FirstOrDefaultAsync(a => a.UserID == userId);
+                
+            return Json(new { 
+                success = true, 
+                address = savedAddr 
+            });
+        }
+
         if (!string.IsNullOrEmpty(returnUrl))
         {
             return Redirect(returnUrl);
@@ -978,7 +1036,7 @@ namespace FYP.Controllers
     }
 
     [HttpPost]
-    public async Task<IActionResult> DeleteAddress(int id)
+    public async Task<IActionResult> DeleteAddress(int id, string returnUrl = null)
     {
         var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         var addr = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == id && a.UserID == userId);
@@ -990,6 +1048,15 @@ namespace FYP.Controllers
             TempData["SuccessMessage"] = "Address successfully deleted.";
         }
 
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        {
+            return Json(new { success = true });
+        }
+
+        if (!string.IsNullOrEmpty(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
         return RedirectToAction("Addresses");
     }
 
@@ -1222,6 +1289,7 @@ namespace FYP.Controllers
                 }
                 
                 await _context.SaveChangesAsync();
+                await _orderHubContext.Clients.Group("Couriers").SendAsync("ReceiveReturnUpdate");
                 return Ok();
             }
             return NotFound();

@@ -1,4 +1,4 @@
-﻿@model FYP.Models.ViewModels.LoginViewModel
+@model FYP.Models.ViewModels.LoginViewModel
 @{
     ViewData["Title"] = "AdminOS Gateway";
     Layout = null;
@@ -24,16 +24,20 @@
             <p style="color: #A0ABC0; font-size: 0.85rem; margin-top: 8px; font-family: monospace;">RESTRICTED ACCESS GATEWAY</p>
         </div>
 
-        @if (!ViewData.ModelState.IsValid)
+        @if (!ViewData.ModelState.IsValid && ViewData.ModelState.ContainsKey(string.Empty) && ViewData.ModelState[string.Empty].Errors.Count > 0)
         {
             <div style="background: rgba(229, 62, 62, 0.1); color: #FC8181; padding: 12px; border-radius: 4px; border: 1px solid #E53E3E; margin-bottom: 20px; font-size: 0.85rem; text-align: center;">
-                @Html.ValidationSummary(true, "", new { @style = "list-style: none; padding: 0; margin: 0;" })
+                @foreach (var error in ViewData.ModelState[string.Empty].Errors)
+                {
+                    <div>@error.ErrorMessage</div>
+                }
             </div>
         }
 
         <!-- POST to the central AuthController logic -->
         <form asp-controller="Auth" asp-action="Login" method="post">
             @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Role" value="Admin" />
 
             <div class="form-group" style="margin-bottom: 20px;">
                 <label style="font-size: 0.8rem; font-weight: 600; color: #A0ABC0; margin-bottom: 8px; display: block;">Administrator Email</label>
@@ -57,6 +61,7 @@
             IP Signature: @(Context.Connection.RemoteIpAddress?.ToString() ?? "Unknown") logged.
         </div>
     </div>
-
+    
+    <script src="~/js/password-toggle.js"></script>
 </body>
 </html>

@@ -7,6 +7,8 @@ using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
+using FYP.Hubs;
 
 namespace FYP.Controllers
 {
@@ -14,10 +16,12 @@ namespace FYP.Controllers
     public class CourierController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IHubContext<OrderHub> _orderHubContext;
 
-        public CourierController(ApplicationDbContext context)
+        public CourierController(ApplicationDbContext context, IHubContext<OrderHub> orderHubContext)
         {
             _context = context;
+            _orderHubContext = orderHubContext;
         }
 
         // GET: /Courier/Login
@@ -59,7 +63,7 @@ namespace FYP.Controllers
             
             // Get return and refund deliveries
             var returnDeliveries = await _context.Refunds
-                .Where(r => (r.Status == "RETURN_APPROVED" && r.ReturnMethod == "Pick-Up") || r.Status == "RETURN_IN_TRANSIT")
+                .Where(r => ((r.Status == "RETURN_APPROVED" || r.Status == "RETURN_REQUESTED" || r.Status == "Requested") && (r.ReturnMethod == "Pick-Up" || r.ReturnMethod == "Pickup" || (r.ReturnMethod == "Drop-Off" && !string.IsNullOrEmpty(r.ReturnCourier)))) || r.Status == "RETURN_IN_TRANSIT")
                 .OrderBy(r => r.RequestedAt)
                 .ToListAsync();
                 
@@ -124,6 +128,11 @@ namespace FYP.Controllers
             _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
+            if (order != null && !string.IsNullOrEmpty(order.BuyerID))
+            {
+                await _orderHubContext.Clients.Group(order.BuyerID).SendAsync("OrderStatusUpdated", order.OrderID, "Delivered", $"Your order {order.OrderID} has been delivered.");
+            }
+
             TempData["SuccessMessage"] = $"Tracking {delivery.TrackingNumber} successfully marked as Delivered!";
             
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
@@ -137,11 +146,17 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> PickupDelivery(string deliveryId)
         {
-            var delivery = await _context.Deliveries.FirstOrDefaultAsync(d => d.DeliveryID == deliveryId);
+            var delivery = await _context.Deliveries.Include(d => d.Order).FirstOrDefaultAsync(d => d.DeliveryID == deliveryId);
             if (delivery != null && delivery.Status == "Pending Pickup")
             {
                 delivery.Status = "Shipped"; // This marks it as 'In Transit'
                 await _context.SaveChangesAsync();
+                
+                if (delivery.Order != null && !string.IsNullOrEmpty(delivery.Order.BuyerID))
+                {
+                    await _orderHubContext.Clients.Group(delivery.Order.BuyerID).SendAsync("OrderStatusUpdated", delivery.OrderID, "Shipped", $"Your parcel for order {delivery.OrderID} has been picked up by the courier.");
+                }
+
                 TempData["SuccessMessage"] = $"Tracking {delivery.TrackingNumber} marked as Picked Up and is now in transit.";
             }
             
@@ -155,11 +170,23 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> PickupReturn(string refundId)
         {
-            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            var refund = await _context.Refunds
+                .Include(r => r.Order)
+                .ThenInclude(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(r => r.RefundID == refundId);
             if (refund != null && refund.Status == "RETURN_APPROVED")
             {
                 refund.Status = "RETURN_IN_TRANSIT";
                 await _context.SaveChangesAsync();
+                
+                if (refund.Order != null)
+                {
+                    await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
+                    var sellerId = refund.Order.OrderItems.FirstOrDefault()?.Product?.SellerID;
+                    if (sellerId != null) await _orderHubContext.Clients.Group(sellerId).SendAsync("ReceiveReturnUpdate");
+                }
+                
                 TempData["SuccessMessage"] = $"Return parcel {refund.ReturnTrackingNumber} marked as Picked Up.";
             }
             
@@ -173,11 +200,23 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeliverReturn(string refundId)
         {
-            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            var refund = await _context.Refunds
+                .Include(r => r.Order)
+                .ThenInclude(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(r => r.RefundID == refundId);
             if (refund != null && refund.Status == "RETURN_IN_TRANSIT")
             {
                 refund.Status = "RETURN_RECEIVED";
                 await _context.SaveChangesAsync();
+                
+                if (refund.Order != null)
+                {
+                    await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
+                    var sellerId = refund.Order.OrderItems.FirstOrDefault()?.Product?.SellerID;
+                    if (sellerId != null) await _orderHubContext.Clients.Group(sellerId).SendAsync("ReceiveReturnUpdate");
+                }
+                
                 TempData["SuccessMessage"] = $"Return parcel {refund.ReturnTrackingNumber} successfully delivered to Seller.";
             }
             

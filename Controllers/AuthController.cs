@@ -118,12 +118,16 @@ namespace FYP.Controllers
                     ModelState.AddModelError("", $"Account locked due to too many failed attempts. Please try again in {minutesLeft} minutes.");
                     if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
                     if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
+                    if (model.Role == "Admin") return View("~/Views/Admin/Login.cshtml", model);
                     return View(model);
                 }
 
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
 
-                if (user == null || !Argon2idHasher.VerifyHash(model.Password, user.PasswordHash))
+                string expectedRole = string.IsNullOrEmpty(model.Role) ? "Buyer" : model.Role;
+                bool isRoleMismatch = user != null && !string.Equals(user.Role, expectedRole, StringComparison.OrdinalIgnoreCase);
+
+                if (user == null || !Argon2idHasher.VerifyHash(model.Password, user.PasswordHash) || isRoleMismatch)
                 {
                     if (lockoutRecord == null)
                     {
@@ -146,10 +150,11 @@ namespace FYP.Controllers
                     }
                     else
                     {
-                        ModelState.AddModelError("", $"Invalid email or password. Attempt {lockoutRecord.FailedAttempts} of 5.");
+                        ModelState.AddModelError("", "Invalid email or password");
                     }
                     if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
                     if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
+                    if (model.Role == "Admin") return View("~/Views/Admin/Login.cshtml", model);
                     return View(model);
                 }
                 
@@ -158,16 +163,11 @@ namespace FYP.Controllers
                     ModelState.AddModelError("", "Your account has been disabled by an administrator.");
                     if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
                     if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
+                    if (model.Role == "Admin") return View("~/Views/Admin/Login.cshtml", model);
                     return View(model);
                 }
 
-                if (!string.IsNullOrEmpty(model.Role) && model.Role != "Buyer" && user.Role != model.Role)
-                {
-                    ModelState.AddModelError("", $"Unauthorized access. This account does not have {model.Role} privileges.");
-                    if (model.Role == "Courier") return View("~/Views/Courier/Login.cshtml", model);
-                    if (model.Role == "Seller") return View("~/Views/Seller/Login.cshtml", model);
-                    return View(model);
-                }
+
 
                 if (lockoutRecord != null)
                 {

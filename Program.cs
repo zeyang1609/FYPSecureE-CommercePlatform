@@ -14,7 +14,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Name = "SecurePlatform.AuthToken"; // Custom cookie name to obfuscate stack
         options.Cookie.HttpOnly = true; // Prevents JavaScript XSS access
         options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always; // Enforces HTTPS transmission
-        options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Strict; // Prevents CSRF attacks
+        options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax; // Lax allows cross-site top-level redirects like Stripe
         
         options.ExpireTimeSpan = TimeSpan.FromMinutes(60); // Idle timeout
         options.SlidingExpiration = true; // Renew cookie on activity
@@ -77,6 +77,7 @@ app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHub<FYP.Hubs.ChatHub>("/chatHub");
+app.MapHub<FYP.Hubs.OrderHub>("/orderHub");
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
@@ -99,4 +100,4 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.Run();
+app.Run();
