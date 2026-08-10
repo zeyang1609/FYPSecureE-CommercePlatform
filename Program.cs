@@ -1,7 +1,10 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Http;
 using FYP.Data;
 using FYP.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -50,12 +53,20 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// 3. Add Session Support (Required for Cart functionality)
-builder.Services.AddSession(options =>
+// Rate limiting setup
+builder.Services.AddRateLimiter(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                QueueLimit = 0,
+                Window = TimeSpan.FromMinutes(1)
+            }));
 });
 
 builder.Services.AddSignalR();
@@ -70,14 +81,17 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseMiddleware<FYP.Middleware.IpFilteringMiddleware>();
+app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapHub<FYP.Hubs.ChatHub>("/chatHub");
-app.MapHub<FYP.Hubs.OrderHub>("/orderHub");
+app.MapHub<FYP.Hubs.OrderHub>("/orderHub"); // Keep our OrderHub!
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
@@ -100,4 +114,4 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.Run();
+app.Run();

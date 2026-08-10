@@ -44,6 +44,14 @@
             <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px; background: #FFF5F3; color: #D63031;">● System Armed</span>
         </div>
 
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background-color: #38A169; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center;">
+                <span style="font-size: 1.2rem; margin-right: 10px;">?</span>
+                @TempData["SuccessMessage"]
+            </div>
+        }
+
         <!-- System KPIs -->
         <div class="kpi-grid">
             <div class="kpi-card">
