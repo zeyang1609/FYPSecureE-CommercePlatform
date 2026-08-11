@@ -489,7 +489,9 @@ namespace FYP.Controllers
                         NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                         UserID = admin.UserID,
                         Type = "Security Alert",
-                        Content = $"Refund Abuse Detected: {totalRefunds} refunds on {totalOrders} orders for User {buyerId}."
+                        Content = $"Refund Abuse Detected: {totalRefunds} refunds on {totalOrders} orders for User {buyerId}.",
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false
                     });
                 }
             }
@@ -1240,6 +1242,14 @@ namespace FYP.Controllers
                     Timestamp = DateTime.UtcNow
                 });
 
+                _context.Notifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = user.UserID,
+                    Type = "Security Alert",
+                    Content = "Security Alert: Your password has been successfully changed."
+                });
+
                 await _context.SaveChangesAsync();
 
                 TempData["SuccessMessage"] = "Your password has been changed successfully.";
@@ -1332,7 +1342,10 @@ namespace FYP.Controllers
             string orderId = requestData.GetProperty("orderId").GetString();
             var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == userId);
+            var order = await _context.Orders
+                .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == userId);
             
             if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
             {
@@ -1343,6 +1356,18 @@ namespace FYP.Controllers
             if (!order.ServiceType.Contains("CancelledByUser"))
                 order.ServiceType += "|CancelledByUser";
                 
+            var sellerIds = order.OrderItems.Select(oi => oi.Product.SellerID).Distinct().ToList();
+            foreach (var sellerId in sellerIds)
+            {
+                _context.Notifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = sellerId,
+                    Type = "Order Alert",
+                    Content = $"Order {orderId} has been cancelled by the buyer."
+                });
+            }
+
             await _context.SaveChangesAsync();
             
             return Json(new { success = true });
@@ -1418,7 +1443,26 @@ namespace FYP.Controllers
 
             return RedirectToAction(nameof(Profile));
         }
-}
+
+        [HttpGet]
+        public async Task<IActionResult> Notifications()
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var notifications = await _context.Notifications
+                .Where(n => n.UserID == userId)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
+
+            var unreadNotifications = notifications.Where(n => !n.IsRead).ToList();
+            if (unreadNotifications.Any())
+            {
+                foreach (var n in unreadNotifications) { n.IsRead = true; }
+                await _context.SaveChangesAsync();
+            }
+
+            return View(notifications);
+        }
+    }
 
     public class SyncCardRequest
     {

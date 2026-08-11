@@ -613,10 +613,20 @@ namespace FYP.Controllers
                         NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                         UserID = admin.UserID,
                         Type = "Security Alert",
-                        Content = $"High-Risk Checkout Blocked! Score: {simulatedRiskScore:P1}. Order: {orderId}"
+                        Content = $"High-Risk Checkout Blocked! Score: {simulatedRiskScore:P1}. Order: {orderId}",
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false
                     });
                 }
                 
+                _context.Notifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = userId,
+                    Type = "Security Alert",
+                    Content = "Security Alert: A suspicious transaction attempt was blocked on your account."
+                });
+
                 await _context.SaveChangesAsync();
 
                 ModelState.AddModelError("", $"?? SECURITY BLOCK: Transaction flagged by XGBoost AI (Risk Score: {simulatedRiskScore:P0}).");
@@ -681,8 +691,18 @@ namespace FYP.Controllers
                         UnitPrice = item.Product.Price
                     });
 
-                    // Low Stock Alert
-                    if (item.Product.StockLevel <= 5)
+                    // Low Stock Alert / Out of Stock Alert
+                    if (item.Product.StockLevel == 0)
+                    {
+                        notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = item.Product.SellerID,
+                            Type = "Inventory Alert",
+                            Content = $"Out of Stock Alert! Product '{item.Product.Title}' is now completely out of stock."
+                        });
+                    }
+                    else if (item.Product.StockLevel <= 5)
                     {
                         notifications.Add(new Notification
                         {
@@ -708,6 +728,15 @@ namespace FYP.Controllers
                 });
             }
             
+            // Order Confirmation & Payment Success for Buyer
+            notifications.Add(new Notification
+            {
+                NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = userId,
+                Type = "Order Confirmation",
+                Content = $"Your order {orderId} has been confirmed and payment of RM {order.TotalAmount:0.00} was successful."
+            });
+
             _context.Notifications.AddRange(notifications);
             var delivery = new Delivery
             {

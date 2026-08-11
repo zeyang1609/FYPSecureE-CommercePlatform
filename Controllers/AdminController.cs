@@ -256,9 +256,28 @@ namespace FYP.Controllers
                 
                 if (refund.Order != null)
                 {
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = refund.Order.BuyerID,
+                        Type = "Refund Alert",
+                        Content = $"Your dispute for Order {refund.OrderID} was resolved in your favor. Refund processed."
+                    });
+
                     await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
                     var sellerId = refund.Order.OrderItems.FirstOrDefault()?.Product?.SellerID;
-                    if (sellerId != null) await _orderHubContext.Clients.Group(sellerId).SendAsync("ReceiveReturnUpdate");
+                    if (sellerId != null) 
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = sellerId,
+                            Type = "Refund Alert",
+                            Content = $"Admin has forced a refund for Order {refund.OrderID} in favor of the buyer."
+                        });
+                        await _orderHubContext.Clients.Group(sellerId).SendAsync("ReceiveReturnUpdate");
+                    }
+                    await _context.SaveChangesAsync();
                 }
                 
                 TempData["SuccessMessage"] = "Dispute resolved in favor of Buyer (Refund Issued).";
@@ -295,9 +314,28 @@ namespace FYP.Controllers
                 
                 if (refund.Order != null)
                 {
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = refund.Order.BuyerID,
+                        Type = "Refund Alert",
+                        Content = $"Your dispute for Order {refund.OrderID} was rejected."
+                    });
+
                     await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
                     var sellerId = refund.Order.OrderItems.FirstOrDefault()?.Product?.SellerID;
-                    if (sellerId != null) await _orderHubContext.Clients.Group(sellerId).SendAsync("ReceiveReturnUpdate");
+                    if (sellerId != null) 
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = sellerId,
+                            Type = "Refund Alert",
+                            Content = $"Admin has rejected the buyer's dispute for Order {refund.OrderID}."
+                        });
+                        await _orderHubContext.Clients.Group(sellerId).SendAsync("ReceiveReturnUpdate");
+                    }
+                    await _context.SaveChangesAsync();
                 }
                 
                 TempData["SuccessMessage"] = "Dispute resolved in favor of Seller (Return Rejected).";
@@ -547,6 +585,71 @@ namespace FYP.Controllers
             }
 
             return RedirectToAction("TrustedDevices");
+        }
+
+        [HttpGet]
+        public IActionResult Announcements()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateAnnouncement(string message, string targetRoles)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                TempData["ErrorMessage"] = "Announcement message cannot be empty.";
+                return RedirectToAction(nameof(Announcements));
+            }
+
+            var usersQuery = _context.Users.AsQueryable();
+            
+            if (targetRoles != "All")
+            {
+                usersQuery = usersQuery.Where(u => u.Role == targetRoles);
+            }
+
+            var userIds = await usersQuery.Select(u => u.UserID).ToListAsync();
+            var notifications = new List<Notification>();
+
+            foreach (var userId in userIds)
+            {
+                notifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = userId,
+                    Type = "System Announcement",
+                    Content = message
+                });
+            }
+
+            if (notifications.Any())
+            {
+                _context.Notifications.AddRange(notifications);
+                await _context.SaveChangesAsync();
+            }
+
+            TempData["SuccessMessage"] = $"Announcement sent to {notifications.Count} users successfully.";
+            return RedirectToAction(nameof(Announcements));
+        }
+        [HttpGet]
+        public async Task<IActionResult> Notifications()
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            var notifications = await _context.Notifications
+                .Where(n => n.UserID == userId)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
+
+            var unreadNotifications = notifications.Where(n => !n.IsRead).ToList();
+            if (unreadNotifications.Any())
+            {
+                foreach (var n in unreadNotifications) { n.IsRead = true; }
+                await _context.SaveChangesAsync();
+            }
+
+            return View(notifications);
         }
 }
 }

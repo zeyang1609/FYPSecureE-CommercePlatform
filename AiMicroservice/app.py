@@ -15,51 +15,87 @@ app = Flask(__name__)
 # ==========================================
 # 1. AI Model Initialization
 # ==========================================
+
+# --- Fraud Detection Model (XGBoost + SHAP) ---
+xgb_model = None
+explainer = None
 try:
     xgb_model = xgb.XGBClassifier()
     xgb_model.load_model("fraud_model.json")
     explainer = shap.TreeExplainer(xgb_model)
 except Exception as e:
-    print("Warning: Fraud model not loaded.")
-    xgb_model = None
+    print(f"Warning: Fraud model not loaded. ({e})")
 
+# --- Image Forgery Classifier (Scikit-learn) ---
+image_clf = None
 try:
     image_clf = joblib.load("image_forgery_model.pkl")
 except Exception as e:
-    print("Warning: image_forgery_model.pkl not found.")
-    image_clf = None
+    print(f"Warning: image_forgery_model.pkl not found. ({e})")
 
-# Initialize the Pre-Trained Inappropriate Content Detector
+# --- NSFW Content Detector (Hugging Face) ---
+nsfw_detector = None
 try:
     print("Loading NSFW Image Classifier... (This may take a moment the first time)")
     nsfw_detector = pipeline("image-classification", model="Falconsai/nsfw_image_detection")
 except Exception as e:
-    print("Warning: NSFW detector failed to load.")
-    nsfw_detector = None
+    print(f"Warning: NSFW detector failed to load. ({e})")
 
+# --- Chat NLP Spam/Phishing Classifier (TF-IDF + Random Forest) ---
+chat_vectorizer = None
+chat_clf = None
+try:
+    chat_vectorizer = joblib.load("chat_tfidf_vectorizer.pkl")
+    chat_clf = joblib.load("chat_nlp_model.pkl")
+    print("Chat NLP model and vectorizer loaded successfully.")
+except Exception as e:
+    print(f"Warning: Chat NLP model not loaded. ({e})")
+
+# Known fraudulent image hashes (SHA-256)
 KNOWN_FRAUD_HASHES = [
-    "5d41402abc4b2a76b9719d911017c592",
-    "7d793037a0760186574b0282f2f435e7"
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"
 ]
 
 # ==========================================
-# 2. Fraud Detection & XAI Endpoint
+# 2. Health Check Endpoint
+# ==========================================
+@app.route('/api/ai/health', methods=['GET'])
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "models": {
+            "fraud_xgboost": xgb_model is not None,
+            "image_forgery": image_clf is not None,
+            "nsfw_detector": nsfw_detector is not None,
+            "chat_nlp": chat_clf is not None
+        }
+    })
+
+# ==========================================
+# 3. Fraud Detection & XAI Endpoint
 # ==========================================
 @app.route('/api/ai/evaluate-risk', methods=['POST'])
 def evaluate_risk():
     data = request.get_json()
-    
-    features = np.array([[
-        data.get("transactionAmount", 0),
-        data.get("accountAgeDays", 0),
-        data.get("failedLoginAttempts", 0),
-        data.get("distanceFromShippingAddress", 0)
-    ]])
+
+    if not data:
+        return jsonify({"error": "Invalid or missing JSON payload."}), 400
+
+    try:
+        features = np.array([[
+            float(data.get("transactionAmount", 0)),
+            float(data.get("accountAgeDays", 0)),
+            float(data.get("failedLoginAttempts", 0)),
+            float(data.get("distanceFromShippingAddress", 0))
+        ]])
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": f"Invalid feature values: {e}"}), 400
 
     risk_score = 0.0
     shap_data_json = "{}"
     
-    if xgb_model:
+    if xgb_model and explainer:
         probabilities = xgb_model.predict_proba(features)
         risk_score = float(probabilities[0][1]) 
         shap_values = explainer.shap_values(features)
@@ -82,31 +118,30 @@ def evaluate_risk():
     })
 
 # ==========================================
-# 3. Image Forgery & Inappropriate Content Endpoint
+# 4. Image Forgery & Inappropriate Content Endpoint
 # ==========================================
 @app.route('/api/ai/scan-image', methods=['POST'])
 def scan_image():
     image_bytes = request.data
-    
-    # Check 1: Cryptographic Sieve (MD5 Hashing)
-    image_hash = hashlib.md5(image_bytes).hexdigest()
+
+    if not image_bytes:
+        return jsonify({"isForgeryDetected": True, "forgeryReason": "Empty image payload received."}), 400
+
+    # Check 1: Cryptographic Sieve (SHA-256 Hashing)
+    image_hash = hashlib.sha256(image_bytes).hexdigest()
     if image_hash in KNOWN_FRAUD_HASHES:
         return jsonify({
             "isForgeryDetected": True,
-            "forgeryReason": f"MD5 Hash Match: Image ({image_hash}) is in the known fraudulent database."
+            "forgeryReason": f"SHA-256 Hash Match: Image ({image_hash[:16]}...) is in the known fraudulent database."
         })
 
     # Check 2: Inappropriate / NSFW Content Detection
     if nsfw_detector:
         try:
-            # Convert raw bytes into a PIL Image for the Hugging Face model
             img_pil = Image.open(io.BytesIO(image_bytes))
-            
-            # The model returns a list of dictionaries, e.g., [{'label': 'nsfw', 'score': 0.98}, ...]
             nsfw_result = nsfw_detector(img_pil)
             top_prediction = nsfw_result[0]
             
-            # If the AI is over 80% confident the image is explicit, block it immediately
             if top_prediction['label'] == 'nsfw' and top_prediction['score'] > 0.80:
                 return jsonify({
                     "isForgeryDetected": True,
@@ -115,16 +150,18 @@ def scan_image():
         except Exception as e:
             print(f"NSFW Scan Error: {e}")
 
-    # Check 3: Pixel-Level Analysis using OpenCV (ELA)
+    # Check 3: Pixel-Level Analysis using OpenCV (ELA) — fully in-memory, no temp files
     np_arr = np.frombuffer(image_bytes, np.uint8)
     original = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
     
     if original is None:
         return jsonify({"isForgeryDetected": True, "forgeryReason": "Corrupted image file."})
 
-    temp_path = "temp_scan.jpg"
-    cv2.imwrite(temp_path, original, [cv2.IMWRITE_JPEG_QUALITY, 90])
-    compressed = cv2.imread(temp_path)
+    # Compress to JPEG in memory and decode back (no disk I/O race condition)
+    encode_result, compressed_buf = cv2.imencode('.jpg', original, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    if not encode_result:
+        return jsonify({"isForgeryDetected": True, "forgeryReason": "Image compression failed during ELA analysis."})
+    compressed = cv2.imdecode(compressed_buf, cv2.IMREAD_COLOR)
     
     diff = cv2.absdiff(original, compressed)
     features = np.array([[np.mean(diff), np.var(diff), np.max(diff)]])
@@ -142,5 +179,49 @@ def scan_image():
         "forgeryReason": "Image passed cryptographic, NSFW, and OpenCV forensic scans."
     })
 
+# ==========================================
+# 5. Chat Message NLP Spam/Phishing Endpoint
+# ==========================================
+@app.route('/api/ai/scan-chat', methods=['POST'])
+def scan_chat():
+    data = request.get_json()
+
+    if not data or 'message' not in data:
+        return jsonify({"error": "Missing 'message' field in JSON payload."}), 400
+
+    message = data['message']
+
+    if not message or not message.strip():
+        return jsonify({"isMalicious": False, "reason": "Empty message."})
+
+    if chat_clf and chat_vectorizer:
+        try:
+            message_vector = chat_vectorizer.transform([message])
+            prediction = chat_clf.predict(message_vector)[0]
+            probability = chat_clf.predict_proba(message_vector)[0]
+
+            is_malicious = bool(prediction == 1)
+            confidence = float(max(probability))
+
+            reason = (
+                f"Message flagged as spam/phishing (Confidence: {confidence * 100:.1f}%)"
+                if is_malicious
+                else f"Message classified as safe (Confidence: {confidence * 100:.1f}%)"
+            )
+
+            return jsonify({
+                "isMalicious": is_malicious,
+                "reason": reason
+            })
+        except Exception as e:
+            print(f"Chat NLP Error: {e}")
+            return jsonify({"isMalicious": False, "reason": f"NLP scan error: {e}"}), 500
+    else:
+        # Model not loaded — fail open (allow message through)
+        return jsonify({
+            "isMalicious": False,
+            "reason": "Chat NLP model not available — message allowed by default."
+        })
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)

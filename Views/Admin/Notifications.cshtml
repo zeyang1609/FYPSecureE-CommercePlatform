@@ -1,6 +1,7 @@
 @model IEnumerable<FYP.Models.Entities.Notification>
+@inject FYP.Data.ApplicationDbContext _context
 @{
-    ViewData["Title"] = "My Notifications";
+    ViewData["Title"] = "Admin Notifications";
     Layout = null;
 }
 
@@ -12,31 +13,46 @@
     <title>@ViewData["Title"] - SecurePlatform</title>
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard.css" />
     <link rel="stylesheet" href="~/css/site.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 </head>
 <body style="background-color: #F8F9FA;">
 
-    <header class="auth-navbar">
-        <div class="nav-container">
-            <div style="display: flex; align-items: center;">
-                <a asp-controller="Seller" asp-action="Dashboard" class="brand-group">
-                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
-                    <span class="brand-text">SecurePlatform</span>
-                </a>
-                <span class="page-label">Notifications</span>
-            </div>
-            <div>
-                <a asp-controller="Seller" asp-action="Dashboard" class="help-link" style="font-weight: 600;">← Back to Dashboard</a>
-            </div>
+    <header class="admin-navbar">
+        <div style="display: flex; align-items: center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#EE4D2D" style="margin-right: 10px;">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+            </svg>
+            <span style="color: white; font-weight: 700; font-size: 1.2rem; letter-spacing: 0.5px;">ADMIN<span style="color: #EE4D2D;">OS</span></span>
+        </div>
+        <div class="admin-nav-links">
+            <a asp-action="Dashboard">🛡️ Security Dashboard</a>
+            <a asp-action="Users">👥 User Management</a>
+            <a asp-action="Categories">📁 Categories</a>
+            <a asp-action="Disputes">⚖️ Disputes</a>
+            <a asp-action="TrustedDevices">📱 Trusted Devices</a>
+            <a asp-action="Announcements">📢 Announcements</a>
+            @{
+                var unreadAdminNotifications = 0;
+                var adminId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (adminId != null) { unreadAdminNotifications = _context.Notifications.Count(n => n.UserID == adminId && !n.IsRead); }
+            }
+            <a asp-action="Notifications" class="active" style="position: relative; display: inline-flex; align-items: center;">
+                🔔 Notifications
+                @if (unreadAdminNotifications > 0)
+                {
+                    <span style="position: absolute; top: -2px; right: -8px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid #20232a;"></span>
+                }
+            </a>
+            <a asp-controller="Auth" asp-action="Logout" asp-route-returnUrl="/Admin/Login">Log Out</a>
         </div>
     </header>
 
-    <main class="dashboard-container">
-        <div class="dashboard-header">
+    <main class="dashboard-container" style="max-width: 1000px; margin: 40px auto; padding: 20px;">
+        <div class="dashboard-header" style="border-left: 4px solid #EE4D2D;">
             <div>
-                <h1>Notifications</h1>
-                <p>Stay updated with the latest alerts and activities on your account.</p>
+                <h1>Admin Notifications</h1>
+                <p>System alerts, fraud alerts, and announcements.</p>
             </div>
         </div>
 
@@ -164,15 +180,7 @@
     }
 </style>
 
-        @if (TempData["SuccessMessage"] != null)
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert" style="border-radius: 12px; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
-
-        <div class="notification-container" style="margin-top: 20px;">
+        <div class="notification-container" style="margin-top: 24px;">
             @if (Model != null && Model.Any())
             {
                 <div class="notification-list">

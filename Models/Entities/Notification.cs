@@ -1,4 +1,4 @@
-﻿using FYP.Models.Entities;
+using FYP.Models.Entities;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -21,6 +21,10 @@ namespace FYP.Models.Entities
         [Required]
         [MaxLength(255)]
         public string Content { get; set; }
+
+        public bool IsRead { get; set; } = false;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [ForeignKey("UserID")]
         public virtual User User { get; set; }

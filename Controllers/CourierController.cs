@@ -144,6 +144,28 @@ namespace FYP.Controllers
             if (order != null && !string.IsNullOrEmpty(order.BuyerID))
             {
                 await _orderHubContext.Clients.Group(order.BuyerID).SendAsync("OrderStatusUpdated", order.OrderID, "Delivered", $"Your order {order.OrderID} has been delivered.");
+                
+                _context.Notifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = order.BuyerID,
+                    Type = "Delivery Update",
+                    Content = $"Your order {order.OrderID} has been delivered!"
+                });
+
+                // Completed transaction for Seller
+                var sellerIds = _context.OrderItems.Where(oi => oi.OrderID == order.OrderID).Select(oi => oi.Product.SellerID).Distinct().ToList();
+                foreach (var sId in sellerIds)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = sId,
+                        Type = "Sales Activity",
+                        Content = $"Your order {order.OrderID} has been successfully delivered to the buyer."
+                    });
+                }
+                await _context.SaveChangesAsync();
             }
 
             TempData["SuccessMessage"] = $"Tracking {delivery.TrackingNumber} successfully marked as Delivered!";
@@ -171,6 +193,15 @@ namespace FYP.Controllers
                 if (delivery.Order != null && !string.IsNullOrEmpty(delivery.Order.BuyerID))
                 {
                     await _orderHubContext.Clients.Group(delivery.Order.BuyerID).SendAsync("OrderStatusUpdated", delivery.OrderID, "Shipped", $"Your parcel for order {delivery.OrderID} has been picked up by the courier.");
+
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = delivery.Order.BuyerID,
+                        Type = "Delivery Update",
+                        Content = $"Your order {delivery.OrderID} has been picked up by the courier and is now in transit."
+                    });
+                    await _context.SaveChangesAsync();
                 }
 
                 TempData["SuccessMessage"] = $"Tracking {delivery.TrackingNumber} marked as Picked Up and is now in transit.";
@@ -244,6 +275,27 @@ namespace FYP.Controllers
                 return Json(new { success = true, message = TempData["SuccessMessage"] });
                 
             return RedirectToAction(nameof(Dashboard));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Notifications()
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+            var notifications = await _context.Notifications
+                .Where(n => n.UserID == userId)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToListAsync();
+
+            var unreadNotifications = notifications.Where(n => !n.IsRead).ToList();
+            if (unreadNotifications.Any())
+            {
+                foreach (var n in unreadNotifications) { n.IsRead = true; }
+                await _context.SaveChangesAsync();
+            }
+
+            return View(notifications);
         }
     }
 }

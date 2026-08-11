@@ -7,3 +7,6 @@ joblib
 Pillow
 transformers
 torch
+scikit-learn
+imbalanced-learn
+pandas

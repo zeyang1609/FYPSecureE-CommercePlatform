@@ -27,6 +27,20 @@
             <a asp-action="Categories">📁 Categories</a>
             <a asp-action="Disputes">⚖️ Disputes</a>
             <a asp-action="TrustedDevices">📱 Trusted Devices</a>
+            <a asp-action="Announcements">📢 Announcements</a>
+            @{
+                var _context = Context.RequestServices.GetService(typeof(FYP.Data.ApplicationDbContext)) as FYP.Data.ApplicationDbContext;
+                var unreadAdminNotifications = 0;
+                var adminId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (adminId != null && _context != null) { unreadAdminNotifications = _context.Notifications.Count(n => n.UserID == adminId && !n.IsRead); }
+            }
+            <a asp-action="Notifications" style="position: relative; display: inline-flex; align-items: center;">
+                🔔 Notifications
+                @if (unreadAdminNotifications > 0)
+                {
+                    <span style="position: absolute; top: -2px; right: -8px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid #20232a;"></span>
+                }
+            </a>
             <a asp-controller="Auth" asp-action="Logout" asp-route-returnUrl="/Admin/Login">Log Out</a>
         </div>
     </header>

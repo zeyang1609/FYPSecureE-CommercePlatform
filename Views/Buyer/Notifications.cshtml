@@ -1,0 +1,192 @@
+@model IEnumerable<FYP.Models.Entities.Notification>
+@{
+    ViewData["Title"] = "My Notifications";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link rel="stylesheet" href="~/css/user-profile.css" />
+
+<div class="profile-container">
+    @await Html.PartialAsync("_BuyerSidebarPartial")
+
+    <div class="profile-content">
+        <div class="content-header">
+            <h2>Notifications</h2>
+            <p>Manage your notifications</p>
+        </div>
+        <div class="content-body">
+
+<style>
+    .notification-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .notification-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 20px 24px;
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        border: 1px solid rgba(229, 231, 235, 0.5);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .notification-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        border-color: rgba(238, 77, 45, 0.2);
+    }
+
+    /* Left accent border */
+    .notification-card::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: transparent;
+        transition: background 0.3s ease;
+    }
+
+    /* Status specific styles */
+    .notification-card.type-order::before { background: #10B981; }
+    .notification-card.type-refund::before { background: #EF4444; }
+    .notification-card.type-inventory::before { background: #F59E0B; }
+    .notification-card.type-system::before { background: #3B82F6; }
+    .notification-card.type-security::before { background: #dc2626; }
+    .notification-card.type-default::before { background: #6B7280; }
+
+    .notification-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 1.5rem;
+    }
+
+    .type-order .notification-icon-wrapper { background: rgba(16, 185, 129, 0.1); color: #10B981; }
+    .type-refund .notification-icon-wrapper { background: rgba(239, 68, 68, 0.1); color: #EF4444; }
+    .type-inventory .notification-icon-wrapper { background: rgba(245, 158, 11, 0.1); color: #F59E0B; }
+    .type-system .notification-icon-wrapper { background: rgba(59, 130, 246, 0.1); color: #3B82F6; }
+    .type-security .notification-icon-wrapper { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+    .type-default .notification-icon-wrapper { background: rgba(107, 114, 128, 0.1); color: #6B7280; }
+
+    .notification-content-wrapper {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .notification-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .notification-title {
+        font-weight: 700;
+        color: #111827;
+        font-size: 1.1rem;
+        margin: 0;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .notification-time {
+        font-size: 0.85rem;
+        color: #6B7280;
+        font-weight: 500;
+    }
+
+    .notification-body {
+        color: #4B5563;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px dashed #D1D5DB;
+    }
+
+    .empty-state i {
+        font-size: 3.5rem;
+        color: #9CA3AF;
+        margin-bottom: 16px;
+    }
+
+    .empty-state h3 {
+        color: #374151;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .empty-state p {
+        color: #6B7280;
+    }
+</style>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert" style="border-radius: 12px; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="notification-container">
+        @if (Model != null && Model.Any())
+        {
+            <div class="notification-list">
+                @foreach (var notification in Model)
+                {
+                    var typeClass = "type-default";
+                    var iconClass = "fa-bell";
+                    
+                    if (notification.Type.Contains("Order")) { typeClass = "type-order"; iconClass = "fa-box-open"; }
+                    else if (notification.Type.Contains("Refund")) { typeClass = "type-refund"; iconClass = "fa-undo"; }
+                    else if (notification.Type.Contains("Inventory") || notification.Type.Contains("Stock")) { typeClass = "type-inventory"; iconClass = "fa-exclamation-triangle"; }
+                    else if (notification.Type.Contains("System") || notification.Type.Contains("Announcement")) { typeClass = "type-system"; iconClass = "fa-bullhorn"; }
+                    else if (notification.Type.Contains("Security") || notification.Type.Contains("Fraud")) { typeClass = "type-security"; iconClass = "fa-shield-alt"; }
+                    
+                    <div class="notification-card @typeClass">
+                        <div class="notification-icon-wrapper">
+                            <i class="fas @iconClass"></i>
+                        </div>
+                        <div class="notification-content-wrapper">
+                            <div class="notification-header-row">
+                                <h6 class="notification-title">@notification.Type</h6>
+                                <span class="notification-time">@notification.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                            </div>
+                            <p class="notification-body">@notification.Content</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-bell-slash"></i>
+                <h3>No notifications yet</h3>
+                <p>You're all caught up! New alerts and messages will appear here.</p>
+            </div>
+        }
+    </div>
+        </div>
+    </div>
+</div>

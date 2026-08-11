@@ -1,6 +1,6 @@
 @model IEnumerable<FYP.Models.Entities.Notification>
 @{
-    ViewData["Title"] = "My Notifications";
+    ViewData["Title"] = "Courier Notifications";
     Layout = null;
 }
 
@@ -9,25 +9,30 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - SecurePlatform</title>
+    <title>@ViewData["Title"] - SecurePlatform Courier</title>
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .courier-header {
+            background: linear-gradient(-180deg, #1e3c72, #2a5298);
+        }
+    </style>
 </head>
 <body style="background-color: #F8F9FA;">
 
-    <header class="auth-navbar">
+    <header class="auth-navbar courier-header">
         <div class="nav-container">
             <div style="display: flex; align-items: center;">
-                <a asp-controller="Seller" asp-action="Dashboard" class="brand-group">
-                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
-                    <span class="brand-text">SecurePlatform</span>
+                <a asp-controller="Courier" asp-action="Dashboard" class="brand-group">
+                    <svg viewBox="0 0 24 24" style="fill: white; width: 32px; height: 32px; margin-right: 8px;"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" /></svg>
+                    <span class="brand-text" style="color: white;">SPCourier</span>
                 </a>
-                <span class="page-label">Notifications</span>
+                <span class="page-label" style="color: rgba(255,255,255,0.8);">Delivery Operations</span>
             </div>
             <div>
-                <a asp-controller="Seller" asp-action="Dashboard" class="help-link" style="font-weight: 600;">← Back to Dashboard</a>
+                <a asp-controller="Courier" asp-action="Dashboard" class="help-link" style="color: white; font-weight: 600; margin-right: 20px;">Return to Dashboard</a>
+                <a asp-controller="Auth" asp-action="Logout" asp-route-returnUrl="/Courier/Login" class="help-link" style="color: white; font-weight: 600;">Log Out</a>
             </div>
         </div>
     </header>
@@ -36,9 +41,16 @@
         <div class="dashboard-header">
             <div>
                 <h1>Notifications</h1>
-                <p>Stay updated with the latest alerts and activities on your account.</p>
+                <p>System announcements and delivery alerts.</p>
             </div>
         </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
 
 <style>
     .notification-list {
@@ -164,15 +176,7 @@
     }
 </style>
 
-        @if (TempData["SuccessMessage"] != null)
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert" style="border-radius: 12px; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
-
-        <div class="notification-container" style="margin-top: 20px;">
+        <div class="notification-container" style="margin-top: 24px;">
             @if (Model != null && Model.Any())
             {
                 <div class="notification-list">
@@ -185,7 +189,7 @@
                         else if (notification.Type.Contains("Refund")) { typeClass = "type-refund"; iconClass = "fa-undo"; }
                         else if (notification.Type.Contains("Inventory") || notification.Type.Contains("Stock")) { typeClass = "type-inventory"; iconClass = "fa-exclamation-triangle"; }
                         else if (notification.Type.Contains("System") || notification.Type.Contains("Announcement")) { typeClass = "type-system"; iconClass = "fa-bullhorn"; }
-                        else if (notification.Type.Contains("Security") || notification.Type.Contains("Fraud")) { typeClass = "type-security"; iconClass = "fa-shield-alt"; }
+                        else if (notification.Type.Contains("Delivery")) { typeClass = "type-order"; iconClass = "fa-truck"; }
                         
                         <div class="notification-card @typeClass">
                             <div class="notification-icon-wrapper">
@@ -207,7 +211,7 @@
                 <div class="empty-state">
                     <i class="fas fa-bell-slash"></i>
                     <h3>No notifications yet</h3>
-                    <p>You're all caught up! New alerts and messages will appear here.</p>
+                    <p>When there are system announcements or new delivery alerts, they will appear here.</p>
                 </div>
             }
         </div>

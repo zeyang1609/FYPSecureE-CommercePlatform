@@ -39,10 +39,12 @@ print(f"SMOTE Training Data Shape: {X_train_smote.shape}. Fraud cases: {sum(y_tr
 
 print("\n3. Training the XGBoost Model...")
 # XGBoost builds trees sequentially to optimize residual errors
+# Define feature names for SHAP interpretability
+FEATURE_NAMES = ["transactionAmount", "accountAgeDays", "failedLoginAttempts", "distanceFromShippingAddress"]
+
 xgb_model = xgb.XGBClassifier(
     objective='binary:logistic',
-    eval_metric='aucpr', # Prioritize Area Under the Precision-Recall Curve[cite: 1]
-    use_label_encoder=False,
+    eval_metric='aucpr', # Prioritize Area Under the Precision-Recall Curve
     random_state=42
 )
 
@@ -64,4 +66,10 @@ print("\n5. Saving Model for Production...")
 # Save the model to a JSON file so the Flask microservice can load it
 model_filename = "fraud_model.json"
 xgb_model.save_model(model_filename)
+
+# Save feature names for SHAP explainability in the Flask app
+import json
+with open("fraud_feature_names.json", "w") as f:
+    json.dump(FEATURE_NAMES, f)
+
 print(f"Success! Model securely saved as '{model_filename}'. Your Flask app will now use this for real-time predictions.")

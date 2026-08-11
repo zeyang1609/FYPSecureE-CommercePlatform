@@ -107,7 +107,7 @@ namespace FYP.Controllers
             var product = new Product
             {
                 ProductID = productId,
-                SellerID = "USR-SELLER-DEMO", // In production, retrieve from authenticated user session
+                SellerID = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
                 CategoryID = categoryId,
                 Title = model.Title,
                 Price = model.Price,
@@ -136,10 +136,34 @@ namespace FYP.Controllers
 
             _context.Products.Add(product);
             _context.AuditLogs.Add(auditLog);
+
+            // Notify past buyers about the new product launch
+            var pastBuyerIds = await _context.Orders
+                .Where(o => o.OrderItems.Any(oi => oi.Product.SellerID == product.SellerID))
+                .Select(o => o.BuyerID)
+                .Distinct()
+                .ToListAsync();
+
+            var newNotifications = new List<Notification>();
+            foreach (var buyerId in pastBuyerIds)
+            {
+                newNotifications.Add(new Notification
+                {
+                    NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = buyerId,
+                    Type = "Live Alert",
+                    Content = $"New Product Launch! Your favorite seller just added: {product.Title}."
+                });
+            }
+            if (newNotifications.Any())
+            {
+                _context.Notifications.AddRange(newNotifications);
+            }
+
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = "Product verified by AI vision forensic scan and listed successfully!";
-            return RedirectToAction("Index", "Home");
+            return RedirectToAction("MyProducts", "Seller");
         }
     }
 }

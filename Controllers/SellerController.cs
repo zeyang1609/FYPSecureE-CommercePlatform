@@ -255,6 +255,14 @@ namespace FYP.Controllers
                         Timestamp = DateTime.UtcNow
                     });
 
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = user.UserID,
+                        Type = "Security Alert",
+                        Content = "Security Alert: Your password has been successfully changed."
+                    });
+
                     await _context.SaveChangesAsync();
 
                     TempData["SuccessMessage"] = "Your password has been changed successfully.";
@@ -473,6 +481,15 @@ namespace FYP.Controllers
                 if (!string.IsNullOrEmpty(order.BuyerID))
                 {
                     await _orderHubContext.Clients.Group(order.BuyerID).SendAsync("OrderStatusUpdated", order.OrderID, "Shipped", $"Your order {order.OrderID} has been shipped out.");
+                    
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = order.BuyerID,
+                        Type = "Delivery Update",
+                        Content = $"Your order {orderId} has been prepared and is pending pickup!"
+                    });
+                    await _context.SaveChangesAsync();
                 }
 
                 // Broadcast real-time update to couriers
@@ -723,8 +740,15 @@ namespace FYP.Controllers
             var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var notifications = await _context.Notifications
                 .Where(n => n.UserID == userId)
-                .OrderByDescending(n => n.NotificationID)
+                .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
+
+            var unreadNotifications = notifications.Where(n => !n.IsRead).ToList();
+            if (unreadNotifications.Any())
+            {
+                foreach (var n in unreadNotifications) { n.IsRead = true; }
+                await _context.SaveChangesAsync();
+            }
 
             return View(notifications);
         }

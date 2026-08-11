@@ -135,6 +135,21 @@ namespace FYP.Controllers
                 _context.Orders.Add(blockedOrder);
                 _context.FraudAlerts.Add(fraudAlert);
                 _context.AuditLogs.Add(auditLog);
+
+                var admins = _context.Users.Where(u => u.Role == "Admin").ToList();
+                foreach (var admin in admins)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = admin.UserID,
+                        Type = "Security Alert",
+                        Content = $"High-Risk Checkout Blocked! Score: {aiVerdict.RiskScore:P1}. Order: {orderId}",
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false
+                    });
+                }
+
                 await _context.SaveChangesAsync();
 
                 return Json(new

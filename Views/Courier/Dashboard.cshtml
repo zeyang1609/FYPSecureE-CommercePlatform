@@ -46,9 +46,27 @@
         }
 
         <div class="dashboard-header">
-            <div>
-                <h1>Pending Deliveries</h1>
-                <p>Tracking parcels currently assigned to Courier ID: <strong>@User.Identity.Name</strong></p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <div>
+                    <h1>Courier Command Center</h1>
+                    <p>Live manifest and return pickup coordination for ID: <strong>@ViewBag.CourierID</strong></p>
+                </div>
+                @{
+                    var unreadCourierNotifications = 0;
+                    if (User.Identity.IsAuthenticated)
+                    {
+                        var cId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                        var _cContext = Context.RequestServices.GetService(typeof(FYP.Data.ApplicationDbContext)) as FYP.Data.ApplicationDbContext;
+                        if (cId != null && _cContext != null) { unreadCourierNotifications = _cContext.Notifications.Count(n => n.UserID == cId && !n.IsRead); }
+                    }
+                }
+                <a asp-controller="Courier" asp-action="Notifications" style="text-decoration: none; position: relative; display: inline-flex; align-items: center; gap: 8px; background: white; border: 1px solid #d1d5db; padding: 10px 16px; border-radius: 8px; font-weight: 600; color: #4b5563; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    🔔 <span style="margin-left: 4px;">Notifications</span>
+                    @if (unreadCourierNotifications > 0)
+                    {
+                        <span style="position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; background-color: #ef4444; border-radius: 50%; border: 2px solid white;"></span>
+                    }
+                </a>
             </div>
             <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px;">🚚 Active Deliveries</span>
         </div>
