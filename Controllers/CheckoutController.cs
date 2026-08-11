@@ -22,13 +22,15 @@ namespace FYP.Controllers
         private readonly ApplicationDbContext _context;
         private readonly PythonAiClient _aiClient;
         private readonly IShippingService _shippingService;
+        private readonly IPaymentEncryptionService _paymentEncryptionService;
         private const string CartSessionKey = "USER_SHOPPING_CART";
 
-        public CheckoutController(ApplicationDbContext context, PythonAiClient aiClient, IShippingService shippingService)
+        public CheckoutController(ApplicationDbContext context, PythonAiClient aiClient, IShippingService shippingService, IPaymentEncryptionService paymentEncryptionService)
         {
             _context = context;
             _aiClient = aiClient;
             _shippingService = shippingService;
+            _paymentEncryptionService = paymentEncryptionService;
         }
 
         // GET: /Checkout/Index
@@ -181,10 +183,10 @@ namespace FYP.Controllers
                 OrderID = orderId,
                 Amount = amount,
                 PaymentMethod = paymentMethod,
-                PaymentToken = paymentToken,
-                IdempotencyKey = idempotencyKey,
+                PaymentToken = _paymentEncryptionService.Encrypt(paymentToken),
+                IdempotencyKey = _paymentEncryptionService.Encrypt(idempotencyKey),
                 Status = "Authorized",
-                TransactionHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(orderId + paymentToken))).ToLower(),
+                TransactionHash = _paymentEncryptionService.Encrypt(Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(orderId + paymentToken))).ToLower()),
                 CreatedAt = DateTime.UtcNow
             };
 

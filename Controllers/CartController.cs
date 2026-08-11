@@ -27,6 +27,9 @@ namespace FYP.Controllers
         private readonly IHubContext<OrderHub> _orderHubContext;
         private readonly FYP.Services.IOtpService _otpService;
         private readonly FYP.Services.TotpService _totpService;
+        private readonly FYP.Services.IPaymentSecurityService _paymentSecurityService;
+        private readonly ICheckoutLockService _checkoutLockService;
+        private readonly IPaymentEncryptionService _paymentEncryptionService;
 
         public CartController(
             ApplicationDbContext context,
@@ -35,7 +38,10 @@ namespace FYP.Controllers
             IShippingService shippingService,
             IHubContext<OrderHub> orderHubContext,
             FYP.Services.IOtpService otpService,
-            FYP.Services.TotpService totpService)
+            FYP.Services.TotpService totpService,
+            FYP.Services.IPaymentSecurityService paymentSecurityService,
+            ICheckoutLockService checkoutLockService,
+            IPaymentEncryptionService paymentEncryptionService)
         {
             _context = context;
             _aiClient = aiClient;
@@ -44,6 +50,9 @@ namespace FYP.Controllers
             _orderHubContext = orderHubContext;
             _otpService = otpService;
             _totpService = totpService;
+            _paymentSecurityService = paymentSecurityService;
+            _checkoutLockService = checkoutLockService;
+            _paymentEncryptionService = paymentEncryptionService;
         }
 
         private string GetUserId()
@@ -126,6 +135,20 @@ namespace FYP.Controllers
         public async Task<IActionResult> Index()
         {
             var cart = await GetOrCreateCartForUserAsync();
+            bool selectionsCleared = false;
+            foreach (var item in cart.Items)
+            {
+                if (item.IsSelected)
+                {
+                    item.IsSelected = false;
+                    selectionsCleared = true;
+                }
+            }
+            if (selectionsCleared)
+            {
+                cart.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
             var viewModel = await MapCartToViewModelAsync(cart);
             return View(viewModel);
         }
@@ -301,7 +324,40 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> BuyNow(string productId, int quantity = 1)
         {
-            await AddToCart(productId, quantity);
+            if (quantity < 1) quantity = 1;
+
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductID == productId);
+            if (product == null || product.StockLevel <= 0)
+            {
+                TempData["ErrorMessage"] = "Product is out of stock or unavailable.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var cart = await GetOrCreateCartForUserAsync();
+            var existingItem = cart.Items.FirstOrDefault(i => i.ProductID == productId);
+
+            if (existingItem != null)
+            {
+                existingItem.Quantity = Math.Min(quantity, product.StockLevel);
+            }
+            else
+            {
+                cart.Items.Add(new CartItem
+                {
+                    ProductID = product.ProductID,
+                    Quantity = Math.Min(quantity, product.StockLevel)
+                });
+            }
+
+            // Deselect all other items, select only this one
+            foreach (var item in cart.Items)
+            {
+                item.IsSelected = (item.ProductID == productId);
+            }
+
+            cart.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
             return RedirectToAction("Checkout");
         }
 
@@ -346,7 +402,8 @@ namespace FYP.Controllers
                 CartItems = cartViewModel.Items.Where(i => i.IsSelected).ToList(),
                 AvailableAddresses = userAddresses,
                 SelectedAddressID = defaultAddress?.AddressID ?? 0,
-                SavedCards = savedCards
+                SavedCards = savedCards,
+                SecurityToken = _paymentSecurityService.GeneratePaymentToken(GetUserId())
             };
 
             if (defaultAddress != null)
@@ -365,11 +422,53 @@ namespace FYP.Controllers
             return View(viewModel);
         }
 
+        [HttpGet]
+        public IActionResult GeneratePaymentToken()
+        {
+            var token = _paymentSecurityService.GeneratePaymentToken(GetUserId());
+            return Json(new { token = token });
+        }
+
         // POST: /Cart/ProcessCheckout (XGBoost Fraud Integration)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ProcessCheckout(CheckoutViewModel model)
         {
+            var userId = GetUserId();
+            if (!await _checkoutLockService.AcquireLockAsync(userId, TimeSpan.Zero))
+            {
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = userId,
+                    Action = "DUPLICATE TRANSACTION BLOCKED: Concurrent checkout request rejected by per-user lock (ProcessCheckout)",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+
+                TempData["ErrorMessage"] = "A checkout is already processing. Please wait.";
+                return RedirectToAction("Checkout");
+            }
+
+            try
+            {
+                if (!_paymentSecurityService.ValidatePaymentToken(model.SecurityToken ?? "", GetUserId(), out string validatedNonce))
+                {
+                    _context.AuditLogs.Add(new AuditLog
+                    {
+                        LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = userId,
+                        Action = "REPLAY ATTACK BLOCKED: Reused or expired security token rejected during form checkout (ProcessCheckout)",
+                        IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                        Timestamp = DateTime.UtcNow
+                    });
+                    await _context.SaveChangesAsync();
+
+                    TempData["ErrorMessage"] = "Session expired or invalid. Please try checking out again.";
+                    return RedirectToAction("Checkout");
+                }
+
             var cart = await GetOrCreateCartForUserAsync();
             var cartViewModel = await MapCartToViewModelAsync(cart);
             
@@ -462,7 +561,6 @@ namespace FYP.Controllers
             if (simulatedRiskScore > 0.50 && simulatedRiskScore <= 0.80)
             {
                 // Medium Risk: Enforce MFA
-                var userId = GetUserId();
                 var user = await _context.Users.FindAsync(userId);
                 
                 // Save model to TempData
@@ -532,8 +630,8 @@ namespace FYP.Controllers
             {
                 PaymentID = paymentId,
                 OrderID = orderId,
-                PaymentToken = "TOK-SESSION-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
-                IdempotencyKey = Guid.NewGuid().ToString("N").ToUpper(),
+                PaymentToken = _paymentEncryptionService.Encrypt("TOK-SESSION-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()),
+                IdempotencyKey = _paymentEncryptionService.Encrypt(Guid.NewGuid().ToString("N").ToUpper()),
                 Status = "Authorized"
             };
 
@@ -554,6 +652,7 @@ namespace FYP.Controllers
             }
 
             decimal finalTotalAmount = model.TotalAmount + finalShippingFee;
+            payment.Amount = finalTotalAmount;
 
             var order = new Order
             {
@@ -642,14 +741,51 @@ namespace FYP.Controllers
 
             TempData["SuccessMessage"] = $"Order {orderId} placed successfully! Cleared by XGBoost AI Security.";
             return RedirectToAction("OrderDetails", "Buyer", new { orderId = orderId });
+            }
+            finally
+            {
+                _checkoutLockService.ReleaseLock(userId);
+            }
         }
 
         // POST: /Cart/CreatePaymentIntent
         [HttpPost]
         public async Task<IActionResult> CreatePaymentIntent([FromBody] System.Text.Json.JsonElement requestData)
         {
+            var userId = GetUserId();
+            if (!await _checkoutLockService.AcquireLockAsync(userId, TimeSpan.Zero))
+            {
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = userId,
+                    Action = "DUPLICATE TRANSACTION BLOCKED: Concurrent Stripe payment request rejected by per-user lock (CreatePaymentIntent)",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+
+                return BadRequest(new { error = "A checkout is already processing. Please wait." });
+            }
+
             try
             {
+                string securityToken = requestData.TryGetProperty("securityToken", out var tokenProp) ? tokenProp.GetString() ?? "" : "";
+                if (!_paymentSecurityService.ValidatePaymentToken(securityToken, GetUserId(), out string validatedNonce))
+                {
+                    _context.AuditLogs.Add(new AuditLog
+                    {
+                        LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = userId,
+                        Action = "REPLAY ATTACK BLOCKED: Reused or expired security token rejected during Stripe payment (CreatePaymentIntent)",
+                        IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                        Timestamp = DateTime.UtcNow
+                    });
+                    await _context.SaveChangesAsync();
+
+                    return BadRequest(new { error = "Session expired or invalid. Please refresh the page and try again." });
+                }
+
                 var cart = await GetOrCreateCartForUserAsync();
                 var cartViewModel = await MapCartToViewModelAsync(cart);
                 
@@ -658,7 +794,7 @@ namespace FYP.Controllers
                     return BadRequest(new { error = "Cart is empty or no items selected." });
                 }
 
-                string bankCode = requestData.TryGetProperty("bank", out var bankProp) ? bankProp.GetString() : "";
+                string bankCode = requestData.TryGetProperty("bank", out var bankProp) ? bankProp.GetString() ?? "" : "";
                 int addressId = 0;
                 if (requestData.TryGetProperty("addressId", out var addrProp))
                 {
@@ -699,8 +835,9 @@ namespace FYP.Controllers
                     PaymentMethodTypes = new List<string> { "fpx" },
                 };
 
+                var requestOptions = new RequestOptions { IdempotencyKey = validatedNonce };
                 var service = new PaymentIntentService();
-                var paymentIntent = await service.CreateAsync(options);
+                var paymentIntent = await service.CreateAsync(options, requestOptions);
 
                 string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
                 string serviceType = string.IsNullOrEmpty(bankCode) ? "FPX Online Banking" : $"FPX|{bankCode}";
@@ -758,14 +895,50 @@ namespace FYP.Controllers
                 string msg = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
                 return BadRequest(new { error = "DB Error: " + msg });
             }
+            finally
+            {
+                _checkoutLockService.ReleaseLock(userId);
+            }
         }
 
         // POST: /Cart/RetryPaymentIntent
         [HttpPost]
         public async Task<IActionResult> RetryPaymentIntent([FromBody] System.Text.Json.JsonElement requestData)
         {
+            var userId = GetUserId();
+            if (!await _checkoutLockService.AcquireLockAsync(userId, TimeSpan.Zero))
+            {
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = userId,
+                    Action = "DUPLICATE TRANSACTION BLOCKED: Concurrent retry payment request rejected by per-user lock (RetryPaymentIntent)",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+
+                return BadRequest(new { error = "A checkout is already processing. Please wait." });
+            }
+
             try
             {
+                string securityToken = requestData.TryGetProperty("securityToken", out var tokenProp) ? tokenProp.GetString() ?? "" : "";
+                if (!_paymentSecurityService.ValidatePaymentToken(securityToken, GetUserId(), out string validatedNonce))
+                {
+                    _context.AuditLogs.Add(new AuditLog
+                    {
+                        LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = userId,
+                        Action = "REPLAY ATTACK BLOCKED: Reused or expired security token rejected during retry payment (RetryPaymentIntent)",
+                        IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                        Timestamp = DateTime.UtcNow
+                    });
+                    await _context.SaveChangesAsync();
+
+                    return BadRequest(new { error = "Session expired or invalid. Please refresh the page and try again." });
+                }
+
                 string orderId = requestData.GetProperty("orderId").GetString();
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == GetUserId());
                 if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
@@ -782,8 +955,9 @@ namespace FYP.Controllers
                     PaymentMethodTypes = new List<string> { "fpx" },
                 };
 
+                var requestOptions = new RequestOptions { IdempotencyKey = validatedNonce };
                 var service = new PaymentIntentService();
-                var paymentIntent = await service.CreateAsync(options);
+                var paymentIntent = await service.CreateAsync(options, requestOptions);
 
                 return Json(new { 
                     clientSecret = paymentIntent.ClientSecret,
@@ -793,6 +967,10 @@ namespace FYP.Controllers
             catch (Exception ex)
             {
                 return BadRequest(new { error = ex.Message });
+            }
+            finally
+            {
+                _checkoutLockService.ReleaseLock(userId);
             }
         }
 
@@ -830,9 +1008,10 @@ namespace FYP.Controllers
                         {
                             PaymentID = paymentId,
                             OrderID = orderId,
-                            PaymentToken = paymentIntent.Id,
+                            Amount = order.TotalAmount,
+                            PaymentToken = _paymentEncryptionService.Encrypt(paymentIntent.Id),
                             PaymentMethod = detectedMethod,
-                            IdempotencyKey = Guid.NewGuid().ToString("N").ToUpper(),
+                            IdempotencyKey = _paymentEncryptionService.Encrypt(Guid.NewGuid().ToString("N").ToUpper()),
                             Status = "Authorized"
                         };
                         _context.Payments.Add(payment);
@@ -871,8 +1050,14 @@ namespace FYP.Controllers
         {
             try
             {
+                string securityToken = requestData.TryGetProperty("securityToken", out var tokenProp) ? tokenProp.GetString() ?? "" : "";
+                if (!_paymentSecurityService.ValidatePaymentToken(securityToken, GetUserId(), out string validatedNonce))
+                {
+                    return BadRequest(new { error = "Session expired or invalid. Please refresh the page and try again." });
+                }
+
                 string orderId = requestData.GetProperty("orderId").GetString();
-                string paymentMethod = requestData.TryGetProperty("paymentMethod", out var pmProp) ? pmProp.GetString() : "Credit Card";
+                string paymentMethod = requestData.TryGetProperty("paymentMethod", out var pmProp) ? pmProp.GetString() ?? "Credit Card" : "Credit Card";
 
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == GetUserId());
                 if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
@@ -888,9 +1073,10 @@ namespace FYP.Controllers
                 {
                     PaymentID = paymentId,
                     OrderID = orderId,
-                    PaymentToken = "TOK-SESSION-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
+                    Amount = order.TotalAmount,
+                    PaymentToken = _paymentEncryptionService.Encrypt("TOK-SESSION-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()),
                     PaymentMethod = paymentMethod,
-                    IdempotencyKey = Guid.NewGuid().ToString("N").ToUpper(),
+                    IdempotencyKey = _paymentEncryptionService.Encrypt(Guid.NewGuid().ToString("N").ToUpper()),
                     Status = "Authorized"
                 };
 

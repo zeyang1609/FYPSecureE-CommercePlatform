@@ -58,6 +58,11 @@ namespace FYP.Models.Entities
         [MaxLength(1000)]
         public string AdminResolution { get; set; }
 
+        [MaxLength(100)]
+        public string? StripeRefundId { get; set; }
+
+        public DateTime? RefundedAt { get; set; }
+
         [ForeignKey("OrderID")]
         public virtual Order Order { get; set; }
     }

@@ -16,6 +16,8 @@ using FYP.Services;
 using FYP.Security;
 using Microsoft.AspNetCore.SignalR;
 using FYP.Hubs;
+using Stripe;
+using Microsoft.Extensions.Configuration;
 
 namespace FYP.Controllers
 {
@@ -25,12 +27,16 @@ namespace FYP.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IOtpService _otpService;
         private readonly IHubContext<OrderHub> _orderHubContext;
+        private readonly IConfiguration _configuration;
+        private readonly IPaymentEncryptionService _paymentEncryptionService;
 
-        public SellerController(ApplicationDbContext context, IOtpService otpService, IHubContext<OrderHub> orderHubContext)
+        public SellerController(ApplicationDbContext context, IOtpService otpService, IHubContext<OrderHub> orderHubContext, IConfiguration configuration, IPaymentEncryptionService paymentEncryptionService)
         {
             _context = context;
             _otpService = otpService;
             _orderHubContext = orderHubContext;
+            _configuration = configuration;
+            _paymentEncryptionService = paymentEncryptionService;
         }
 
         // GET: /Seller/Onboard
@@ -448,8 +454,8 @@ namespace FYP.Controllers
                 delivery.Status = "Pending Pickup";
                 delivery.EstimatedDeliveryDate = DateTime.UtcNow.AddDays(3);
                 
-                // Update Order Status
-                order.Status = "Shipped";
+                // Update Order Status to Pending Pickup until courier actually collects it
+                order.Status = "Pending Pickup";
 
                 var auditLog = new AuditLog
                 {
@@ -578,11 +584,49 @@ namespace FYP.Controllers
                 .FirstOrDefaultAsync(r => r.RefundID == refundId && r.Order.OrderItems.Any(oi => oi.Product.SellerID == sellerId));
             if (refund != null && refund.Status == "RETURN_RECEIVED")
             {
+                var payment = await _context.Payments.FirstOrDefaultAsync(p => p.OrderID == refund.OrderID);
+                if (payment != null && !string.IsNullOrEmpty(payment.PaymentToken))
+                {
+                    var decryptedToken = _paymentEncryptionService.DecryptSafe(payment.PaymentToken);
+                    if (decryptedToken.StartsWith("pi_"))
+                    {
+                    try
+                    {
+                        StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
+                        var options = new Stripe.RefundCreateOptions
+                        {
+                            PaymentIntent = decryptedToken,
+                            Amount = Convert.ToInt64(Math.Round(refund.RefundAmount * 100m))
+                        };
+                        var requestOptions = new Stripe.RequestOptions
+                        {
+                            IdempotencyKey = $"refund_{refund.RefundID}"
+                        };
+
+                        var refundService = new Stripe.RefundService();
+                        var stripeRefund = await refundService.CreateAsync(options, requestOptions);
+
+                        refund.StripeRefundId = stripeRefund.Id;
+                        refund.RefundedAt = DateTime.UtcNow;
+                    }
+                    catch (StripeException ex)
+                    {
+                        TempData["ErrorMessage"] = $"Stripe Refund Failed: {ex.Message}";
+                        return RedirectToAction(nameof(Refunds));
+                    }
+                    }
+                }
+                else
+                {
+                    refund.RefundedAt = DateTime.UtcNow;
+                }
+
                 refund.Status = "REFUND_COMPLETED";
                 
                 // Also update the Order status if needed
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == refund.OrderID);
-                if(order != null) {
+                if (order != null)
+                {
                     order.Status = "Refunded";
                 }
 
@@ -590,7 +634,7 @@ namespace FYP.Controllers
                 
                 await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
                 
-                TempData["SuccessMessage"] = "Parcel received. Refund issued to buyer.";
+                TempData["SuccessMessage"] = "Parcel received. Refund issued successfully to buyer.";
             }
             return RedirectToAction(nameof(Refunds));
         }

@@ -933,10 +933,12 @@
                     if (selectedMethod === 'Online Banking') {
                         if (!window.cpSelectedBank) throw new Error("Please select a bank to proceed with FPX.");
                         
+                        const tokenRes = await fetch('/Cart/GeneratePaymentToken');
+                        const tokenData = await tokenRes.json();
                         const response = await fetch('/Cart/RetryPaymentIntent', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ orderId: orderId })
+                            body: JSON.stringify({ orderId: orderId, securityToken: tokenData.token })
                         });
                         
                         const data = await response.json();
@@ -979,10 +981,12 @@
                         }
                         
                         // Proceed with payment endpoint
+                        const tokenRes = await fetch('/Cart/GeneratePaymentToken');
+                        const tokenData = await tokenRes.json();
                         const payRes = await fetch('/Cart/PayExistingOrder', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ orderId: orderId, paymentMethod: 'Credit Card' })
+                            body: JSON.stringify({ orderId: orderId, paymentMethod: 'Credit Card', securityToken: tokenData.token })
                         });
                         
                         const payData = await payRes.json();
@@ -1228,10 +1232,12 @@
                 this.textContent = 'Redirecting...';
                 
                 try {
+                    const tokenRes = await fetch('/Cart/GeneratePaymentToken');
+                    const tokenData = await tokenRes.json();
                     const response = await fetch('/Cart/RetryPaymentIntent', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ orderId: orderId })
+                        body: JSON.stringify({ orderId: orderId, securityToken: tokenData.token })
                     });
                     
                     const data = await response.json();

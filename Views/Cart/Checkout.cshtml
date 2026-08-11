@@ -74,10 +74,18 @@
             </div>
         }
 
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div style="background: #FFF0F0; color: #D63031; padding: 15px; border-radius: 6px; border: 1px solid #FFCDCD; margin-bottom: 20px; font-size: 0.9rem; font-weight: bold;">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
         <form id="checkout-form" asp-controller="Cart" asp-action="ProcessCheckout" method="post">
             @Html.AntiForgeryToken()
             <input type="hidden" asp-for="BuyerID" />
             <input type="hidden" asp-for="TotalAmount" />
+            <input type="hidden" asp-for="SecurityToken" />
             
             <!-- Block 1: Delivery Address -->
             <div class="checkout-block" style="padding: 0;">
@@ -748,10 +756,11 @@
                         }
                         
                         const addressId = document.querySelector('input[name="SelectedAddressID"]')?.value || 0;
+                        const securityToken = document.querySelector('input[name="SecurityToken"]')?.value || '';
                         const response = await fetch('/Cart/CreatePaymentIntent', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ bank: selectedFpxBank, addressId: addressId })
+                            body: JSON.stringify({ bank: selectedFpxBank, addressId: addressId, securityToken: securityToken })
                         });
                         
                         const data = await response.json();
