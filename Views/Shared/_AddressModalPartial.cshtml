@@ -420,6 +420,37 @@
 
         if (!isValid) return;
 
-        form.submit();
+        const formData = new FormData(form);
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (response.redirected) {
+                // If it followed a redirect because it wasn't intercepted as JSON, fallback
+                window.location.href = response.url;
+                return null;
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.success) {
+                document.getElementById('addAddressModal').style.display = 'none';
+                
+                const event = new CustomEvent('addressSaved', { detail: data.address });
+                document.dispatchEvent(event);
+                
+                if (!window.addressSavedHandled) {
+                    window.location.reload();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            form.submit();
+        });
     }
 </script>

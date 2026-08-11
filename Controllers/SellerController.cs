@@ -14,6 +14,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using FYP.Services;
 using FYP.Security;
+using Microsoft.AspNetCore.SignalR;
+using FYP.Hubs;
 
 namespace FYP.Controllers
 {
@@ -22,11 +24,13 @@ namespace FYP.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IOtpService _otpService;
+        private readonly IHubContext<OrderHub> _orderHubContext;
 
-        public SellerController(ApplicationDbContext context, IOtpService otpService)
+        public SellerController(ApplicationDbContext context, IOtpService otpService, IHubContext<OrderHub> orderHubContext)
         {
             _context = context;
             _otpService = otpService;
+            _orderHubContext = orderHubContext;
         }
 
         // GET: /Seller/Onboard
@@ -475,6 +479,15 @@ namespace FYP.Controllers
                 _context.AuditLogs.Add(auditLog);
                 await _context.SaveChangesAsync();
 
+                // Broadcast real-time update to the buyer
+                if (!string.IsNullOrEmpty(order.BuyerID))
+                {
+                    await _orderHubContext.Clients.Group(order.BuyerID).SendAsync("OrderStatusUpdated", order.OrderID, "Shipped", $"Your order {order.OrderID} has been shipped out.");
+                }
+
+                // Broadcast real-time update to couriers
+                await _orderHubContext.Clients.Group("Couriers").SendAsync("NewPickupReady", delivery.DeliveryID, $"New parcel ready for pickup: {delivery.TrackingNumber}");
+
                 TempData["SuccessMessage"] = $"Order {orderId} has been shipped! Tracking: {delivery.TrackingNumber}";
             }
             
@@ -503,6 +516,8 @@ namespace FYP.Controllers
                 .Include(r => r.Order)
                     .ThenInclude(o => o.OrderItems)
                         .ThenInclude(oi => oi.Product)
+                .Include(r => r.Order)
+                    .ThenInclude(o => o.Buyer)
                 .Where(r => orderIds.Contains(r.OrderID))
                 .OrderByDescending(r => r.RequestedAt)
                 .ToListAsync();
@@ -526,8 +541,16 @@ namespace FYP.Controllers
             {
                 refund.Status = "RETURN_APPROVED";
                 refund.ReturnTrackingNumber = "RET-" + Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper();
-                refund.ReturnCourier = "J&T Express (Return)";
+                if (refund.ReturnMethod == "Pick-Up" || refund.ReturnMethod == "Pickup") {
+                    refund.ReturnCourier = "J&T Express";
+                } else {
+                    refund.ReturnCourier = "";
+                }
                 await _context.SaveChangesAsync();
+                
+                await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
+                await _orderHubContext.Clients.Group("Couriers").SendAsync("ReceiveReturnUpdate");
+                
                 TempData["SuccessMessage"] = "Refund approved. Return label generated.";
             }
             return RedirectToAction(nameof(Refunds));
@@ -549,6 +572,10 @@ namespace FYP.Controllers
                 refund.Status = "DISPUTED";
                 refund.SellerNotes = reason;
                 await _context.SaveChangesAsync();
+
+                await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
+                await _orderHubContext.Clients.Group("Admins").SendAsync("ReceiveReturnUpdate");
+
                 TempData["SuccessMessage"] = "Refund rejected. Sent to Admin for dispute resolution.";
             }
             return RedirectToAction(nameof(Refunds));
@@ -576,6 +603,9 @@ namespace FYP.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+                
+                await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
+                
                 TempData["SuccessMessage"] = "Parcel received. Refund issued to buyer.";
             }
             return RedirectToAction(nameof(Refunds));
@@ -597,6 +627,10 @@ namespace FYP.Controllers
                 refund.Status = "DISPUTED";
                 refund.SellerNotes = issue;
                 await _context.SaveChangesAsync();
+                
+                await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
+                await _orderHubContext.Clients.Group("Admins").SendAsync("ReceiveReturnUpdate");
+                
                 TempData["SuccessMessage"] = "Issue reported. Sent to Admin for arbitration.";
             }
             return RedirectToAction(nameof(Refunds));

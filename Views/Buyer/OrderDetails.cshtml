@@ -153,12 +153,26 @@
             </div>
             
             <div class="action-panel">
-                @if (step5_received)
+                @if (step6_rated)
                 {
-                    if (!step6_rated)
-                    {
-                        <button type="button" class="btn-action-panel primary">Rate</button>
-                    }
+                    <button type="button" class="btn-action-panel primary" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
+                    <button type="button" class="btn-action-panel" onclick="window.location.href='/Home/ShopProfile/@(firstItem?.Product?.SellerID)?tab=reviews'">View Shop Rating</button>
+                }
+                else if (Model.Status == "Cancelled")
+                {
+                    <button type="button" class="btn-action-panel primary" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
+                }
+                else if (step5_received)
+                {
+                    <button type="button" class="btn-action-panel primary" onclick="window.location.href='/Buyer/Orders'">Rate</button>
+                }
+                else if (step4_delivered)
+                {
+                    <form asp-controller="Buyer" asp-action="MarkOrderReceived" method="post" style="margin:0; width:100%;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="orderId" value="@Model.OrderID" />
+                        <button type="submit" class="btn-action-panel primary" style="width:100%;">Order Received</button>
+                    </form>
                 }
                 
                 @if (hasRefund || !step4_delivered)
@@ -170,11 +184,17 @@
                     <button type="button" class="btn-action-panel" onclick="document.getElementById('issueTypeModal').style.display='flex';">Request For Return/Refund</button>
                 }
                 
-                <button type="button" class="btn-action-panel">Contact Seller</button>
+                <button type="button" class="btn-action-panel" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(firstItem?.Product?.Seller?.Name ?? "Seller")')">Contact Seller</button>
                 
-                <button type="button" class="btn-action-panel" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
+                @if (!step6_rated && Model.Status != "Cancelled")
+                {
+                    <button type="button" class="btn-action-panel" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
+                }
                 
-                <button type="button" class="btn-action-panel">View Receipt</button>
+                @if (Model.Status != "Cancelled")
+                {
+                    <button type="button" class="btn-action-panel">View Receipt</button>
+                }
             </div>
         </div>
 
@@ -187,7 +207,7 @@
                 <div class="order-card-header" style="border-bottom: 1px solid #eee; padding: 15px 20px;">
                     <div class="seller-info" style="display: flex; align-items: center; gap: 15px;">
                         <span class="seller-name" style="font-weight: 600; font-size: 1.05rem; color: #333;">@(firstItem?.Product?.Seller?.Name ?? "Seller")</span>
-                        <button class="btn-chat" style="padding: 4px 12px; border: 1px solid #ee4d2d; color: #ee4d2d; background: white; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem;">
+                        <button type="button" class="btn-chat" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(firstItem?.Product?.Seller?.Name ?? "Seller")')" style="padding: 4px 12px; border: 1px solid #ee4d2d; color: #ee4d2d; background: white; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem;">
                             Chat
                         </button>
                         <a href="/Home/ShopProfile/@(firstItem?.Product?.SellerID)" class="btn-view-shop" style="padding: 4px 12px; border: 1px solid #ccc; color: #555; background: white; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem; text-decoration: none;">
@@ -296,5 +316,79 @@
     </script>
 
     @await Html.PartialAsync("_ChatPartial")
+    <script>
+        (async function() {
+            const buyerId = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
+            const currentOrderId = '@Model.OrderID';
+            if (!buyerId) return;
+
+            const orderConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/orderHub")
+                .withAutomaticReconnect()
+                .build();
+
+            orderConnection.on("OrderStatusUpdated", (orderId, newStatus, message) => {
+                if (orderId === currentOrderId) {
+                    const statusText = document.querySelector('.status-text');
+                    if (statusText) statusText.textContent = 'ORDER ' + newStatus.toUpperCase();
+
+                    const toast = document.createElement('div');
+                    toast.style.position = 'fixed';
+                    toast.style.top = '20px';
+                    toast.style.left = '50%';
+                    toast.style.transform = 'translateX(-50%)';
+                    toast.style.background = '#EE4D2D';
+                    toast.style.color = 'white';
+                    toast.style.padding = '12px 24px';
+                    toast.style.borderRadius = '4px';
+                    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                    toast.style.zIndex = '9999';
+                    toast.style.fontWeight = 'bold';
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.2s';
+                    toast.innerHTML = `📦 ${message}`;
+                    document.body.appendChild(toast);
+                    
+                    setTimeout(() => toast.style.opacity = '1', 10);
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        setTimeout(() => toast.remove(), 200);
+                    }, 4000);
+
+                    const steps = document.querySelectorAll('.step');
+                    if (steps.length >= 5) {
+                        const now = new Date();
+                        const timeStr = now.getDate().toString().padStart(2, '0') + '-' + (now.getMonth()+1).toString().padStart(2, '0') + '-' + now.getFullYear() + ' ' + now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                        
+                        if (newStatus === "Shipped") {
+                            steps[2].classList.remove('inactive');
+                            steps[2].classList.add('active');
+                            steps[1].classList.remove('inactive-line');
+                            const timeEl = steps[2].querySelector('.step-time');
+                            if (timeEl && !timeEl.textContent.trim()) timeEl.textContent = timeStr;
+                        } else if (newStatus === "Delivered") {
+                            steps[2].classList.remove('inactive');
+                            steps[2].classList.add('active');
+                            steps[1].classList.remove('inactive-line');
+                            
+                            steps[3].classList.remove('inactive');
+                            steps[3].classList.add('active');
+                            steps[2].classList.remove('inactive-line');
+                            
+                            const timeEl = steps[3].querySelector('.step-time');
+                            if (timeEl && !timeEl.textContent.trim()) timeEl.textContent = timeStr;
+                        }
+                    }
+                }
+            });
+
+            try {
+                await orderConnection.start();
+                await orderConnection.invoke("JoinGroup", buyerId);
+            } catch (err) {
+                console.error(err);
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -95,6 +95,19 @@ body {
     color: #10b981;
     font-weight: 600;
 }
+.step.rejected::after {
+    background-color: #dc2626 !important;
+}
+.step.rejected .step-icon {
+    background-color: #dc2626;
+}
+.step.rejected .step-label {
+    color: #dc2626;
+    font-weight: 600;
+}
+.step.line-rejected::after {
+    background-color: #dc2626 !important;
+}
 
 /* Tracking Content Container */
 .tracking-content {

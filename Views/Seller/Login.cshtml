@@ -77,16 +77,20 @@
             <h3 style="margin: 0 0 5px 0; color: #2D3748; font-size: 1.4rem;">Merchant Log In</h3>
             <p style="color: #718096; font-size: 0.9rem; margin-bottom: 25px;">Enter your seller account credentials.</p>
 
-            @if (!ViewData.ModelState.IsValid)
+            @if (!ViewData.ModelState.IsValid && ViewData.ModelState.ContainsKey(string.Empty) && ViewData.ModelState[string.Empty].Errors.Count > 0)
             {
-                <div style="background: #FFF5F5; color: #C53030; padding: 12px; border-radius: 4px; border: 1px solid #FEB2B2; margin-bottom: 20px; font-size: 0.85rem;">
-                    @Html.ValidationSummary(true, "", new { @style = "list-style: none; padding: 0; margin: 0;" })
+                <div style="background: #FFF5F5; color: #C53030; padding: 12px; border-radius: 4px; border: 1px solid #FEB2B2; margin-bottom: 20px; font-size: 0.85rem; text-align: center;">
+                    @foreach (var error in ViewData.ModelState[string.Empty].Errors)
+                    {
+                        <div>@error.ErrorMessage</div>
+                    }
                 </div>
             }
 
             <!-- POSTs exactly to your central authentication engine -->
             <form asp-controller="Auth" asp-action="Login" method="post">
                 @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Role" value="Seller" />
 
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: #4A5568; margin-bottom: 6px; display: block;">Email Address</label>
@@ -116,5 +120,6 @@
 
     </div>
 
+    <script src="~/js/password-toggle.js"></script>
 </body>
 </html>

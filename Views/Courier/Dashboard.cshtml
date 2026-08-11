@@ -204,7 +204,7 @@
                                     }
                                 </td>
                                 <td style="max-width: 250px; font-size: 0.85rem;">
-                                    @if(item.ReturnMethod == "Pick-Up" && address != null)
+                                    @if((item.ReturnMethod == "Pick-Up" || item.ReturnMethod == "Pickup") && address != null)
                                     {
                                         <strong>@address.FullName | @address.PhoneNumber</strong><br/>
                                         @address.HouseBuildingStreet<span>, </span>@address.StateArea<br/>
@@ -216,18 +216,18 @@
                                     }
                                 </td>
                                 <td>
-                                    <span class="badge" style="background: @(item.Status == "RETURN_APPROVED" ? "#e8a317" : "#0284c7"); color: white;">
-                                        @(item.Status == "RETURN_APPROVED" ? "Pending Pick Up" : "In Transit to Seller")
+                                    <span class="badge" style="background: @((item.Status == "RETURN_APPROVED" || item.Status == "RETURN_REQUESTED" || item.Status == "Requested") ? "#e8a317" : "#0284c7"); color: white;">
+                                        @((item.Status == "RETURN_APPROVED" || item.Status == "RETURN_REQUESTED" || item.Status == "Requested") ? (item.ReturnMethod == "Drop-Off" ? "Pending Drop-off Collection" : "Pending Pick Up") : "In Transit to Seller")
                                     </span>
                                 </td>
                                 <td>
-                                    @if (item.Status == "RETURN_APPROVED")
+                                    @if (item.Status == "RETURN_APPROVED" || item.Status == "RETURN_REQUESTED" || item.Status == "Requested")
                                     {
                                         <form asp-controller="Courier" asp-action="PickupReturn" method="post" style="margin:0;">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="refundId" value="@item.RefundID" />
                                             <button type="submit" class="btn-submit-primary" style="padding: 6px 16px; font-size: 0.85rem; background: #e8a317; border: none; color: white; border-radius: 4px; cursor: pointer;">
-                                                Accept Pick Up
+                                                @(item.ReturnMethod == "Drop-Off" ? "Collect from Branch" : "Accept Pick Up")
                                             </button>
                                         </form>
                                     }
@@ -476,6 +476,68 @@
                 setTimeout(() => toast.remove(), 400);
             }, 3000);
         }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script>
+        (async function() {
+            const orderConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/orderHub")
+                .withAutomaticReconnect()
+                .build();
+
+            orderConnection.on("NewPickupReady", async (deliveryId, message) => {
+                showToast(message, 'success');
+                
+                // Dynamically fetch latest table data without full page reload
+                setTimeout(async () => {
+                    try {
+                        const res = await fetch(window.location.href, { cache: 'no-store' });
+                        const html = await res.text();
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        
+                        // Replace all table cards just in case
+                        const currentCards = document.querySelectorAll('.table-card');
+                        const newCards = doc.querySelectorAll('.table-card');
+                        
+                        for (let i = 0; i < currentCards.length; i++) {
+                            if (newCards[i]) {
+                                currentCards[i].innerHTML = newCards[i].innerHTML;
+                            }
+                        }
+                    } catch(e) {
+                        console.error("Failed to update tables dynamically", e);
+                    }
+                }, 1500); // Wait a bit for user to read the toast
+            });
+
+            orderConnection.on("ReceiveReturnUpdate", async () => {
+                console.log('New return request or status update received!');
+                setTimeout(async () => {
+                    try {
+                        const res = await fetch(window.location.href, { cache: 'no-store' });
+                        const html = await res.text();
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const currentCards = document.querySelectorAll('.table-card');
+                        const newCards = doc.querySelectorAll('.table-card');
+                        for (let i = 0; i < currentCards.length; i++) {
+                            if (newCards[i]) {
+                                currentCards[i].innerHTML = newCards[i].innerHTML;
+                            }
+                        }
+                    } catch(e) {
+                        console.error("Failed to update tables dynamically", e);
+                    }
+                }, 1500);
+            });
+
+            try {
+                await orderConnection.start();
+                await orderConnection.invoke("JoinGroup", "Couriers");
+                console.log("Connected to OrderHub as Courier.");
+            } catch (err) {
+                console.error("OrderHub connection failed: ", err);
+            }
+        })();
     </script>
 </body>
 </html>

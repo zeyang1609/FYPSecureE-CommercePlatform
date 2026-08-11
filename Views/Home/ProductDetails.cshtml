@@ -183,7 +183,17 @@
                     <div style="padding-bottom: 20px; border-bottom: 1px solid #eee; display: flex; gap: 15px;">
                         @{
                             bool isAnon = !string.IsNullOrEmpty(r.Comment) && r.Comment.StartsWith("[Anonymous Review]");
-                            string displayUser = isAnon ? "Anonymous" : (r.Buyer?.Name ?? r.BuyerID);
+                            string displayUser = r.Buyer?.Name ?? r.BuyerID;
+                            if (isAnon)
+                            {
+                                if (displayUser.Length == 1) {
+                                    displayUser = displayUser + "***" + displayUser;
+                                } else if (displayUser.Length > 1) {
+                                    displayUser = displayUser.Substring(0, 1) + "***" + displayUser.Substring(displayUser.Length - 1);
+                                } else {
+                                    displayUser = "a***z";
+                                }
+                            }
                             string displayComment = r.Comment;
                             if (isAnon && displayComment != null)
                             {
@@ -193,7 +203,7 @@
                         <div style="width: 40px; height: 40px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999; font-size: 20px; flex-shrink: 0; overflow: hidden; position: relative;">
                             @if (!isAnon)
                             {
-                                <img src="/uploads/profiles/@(r.BuyerID).jpg" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; document.getElementById('review-avatar-fallback-@r.ReviewID').style.display='flex';" />
+                                <img src="/uploads/profiles/@(r.BuyerID).jpg?v=@DateTime.Now.Ticks" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; document.getElementById('review-avatar-fallback-@r.ReviewID').style.display='flex';" />
                                 <div id="review-avatar-fallback-@r.ReviewID" style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; background: #f0f0f0; color: #EE4D2D; font-weight: bold; font-size: 16px;">
                                     @(displayUser.Substring(0, 1).ToUpper())
                                 </div>
@@ -221,15 +231,15 @@
                             @if (!string.IsNullOrEmpty(r.MediaUrl))
                             {
                                 <div style="display: flex; gap: 8px;">
-                                    @foreach(var url in r.MediaUrl.Split('|', StringSplitOptions.RemoveEmptyEntries))
+                                    @foreach(var url in r.MediaUrl.Split(';', StringSplitOptions.RemoveEmptyEntries))
                                     {
                                         if (url.EndsWith(".mp4"))
                                         {
-                                            <video src="@url" style="width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;" controls></video>
+                                            <video src="@url" style="width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid #eee; cursor: pointer;" onclick="openReviewMediaModal('@url', 'video')"></video>
                                         }
                                         else
                                         {
-                                            <img src="@url" style="width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;" />
+                                            <img src="@url" style="width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid #eee; cursor: pointer;" onclick="openReviewMediaModal('@url', 'image')" />
                                         }
                                     }
                                 </div>
@@ -353,5 +363,33 @@
                 }
             }, 300);
         }, 1500);
+    }
+</script>
+
+<!-- Review Media Modal -->
+<div id="reviewMediaModal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); align-items: center; justify-content: center;">
+    <span onclick="closeReviewMediaModal()" style="position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; font-weight: bold; cursor: pointer;">&times;</span>
+    <div id="reviewMediaContentContainer" style="max-width: 90%; max-height: 90%;">
+    </div>
+</div>
+
+<script>
+    function openReviewMediaModal(url, type) {
+        var container = document.getElementById('reviewMediaContentContainer');
+        var modal = document.getElementById('reviewMediaModal');
+        container.innerHTML = '';
+        if (type === 'image') {
+            container.innerHTML = `<img src="${url}" style="max-width: 100%; max-height: 85vh; object-fit: contain; border-radius: 4px;" />`;
+        } else if (type === 'video') {
+            container.innerHTML = `<video src="${url}" style="max-width: 100%; max-height: 85vh; object-fit: contain; border-radius: 4px;" controls autoplay></video>`;
+        }
+        modal.style.display = 'flex';
+    }
+
+    function closeReviewMediaModal() {
+        var modal = document.getElementById('reviewMediaModal');
+        var container = document.getElementById('reviewMediaContentContainer');
+        modal.style.display = 'none';
+        container.innerHTML = ''; // Stop video playback
     }
 </script>

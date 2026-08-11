@@ -90,6 +90,7 @@
                         var latestRefund = order.Refunds?.OrderByDescending(r => r.RequestedAt).FirstOrDefault();
                         var hasRefund = latestRefund != null;
                         var isCompletelyRefunded = latestRefund != null && latestRefund.Status == "REFUND_COMPLETED";
+                        var isReturnRejected = latestRefund != null && latestRefund.Status == "RETURN_REJECTED";
                         var isRated = order.IsRated;
                         
                         // Build search index string
@@ -99,12 +100,12 @@
                             searchIndex += $"{item.Product.Title} ";
                         }
 
-                        <div class="order-card" data-status="@(hasRefund ? "Return" : order.Status)" data-search="@searchIndex">
+                        <div class="order-card" data-order-id="@order.OrderID" data-status="@(hasRefund ? "Return" : order.Status)" data-search="@searchIndex">
                             <!-- Card Header -->
                             <div class="order-card-header">
                                 <div class="seller-info">
                                     <span class="seller-name">@sellerName</span>
-                                    <button class="btn-chat">Chat</button>
+                                    <button type="button" class="btn-chat" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))')">Chat</button>
                                     <a href="/Home/ShopProfile/@(firstItem?.Product?.SellerID)" class="btn-view-shop" style="text-decoration:none;">View Shop</a>
                                 </div>
                                 <div class="order-status">
@@ -146,9 +147,9 @@
                                 {
                                     <div class="order-item">
                                         <div class="item-image" style="position: relative;">
-                                            <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product.Title" style="max-width: 100%; max-height: 100%; object-fit: contain;" class="@(isCompletelyRefunded ? "return-overlay" : "")" onerror="this.src='/images/default-product.jpg';" />
+                                            <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product.Title" style="max-width: 100%; max-height: 100%; object-fit: contain;" class="@(isReturnRejected ? "return-overlay" : "")" onerror="this.src='/images/default-product.jpg';" />
                                         </div>
-                                        <div class="item-details @(isCompletelyRefunded ? "return-overlay" : "")">
+                                        <div class="item-details @(isReturnRejected ? "return-overlay" : "")">
                                             <div class="item-title">
                                                 @if(hasRefund)
                                                 {
@@ -170,7 +171,7 @@
                                             <div class="item-variation">Variation, color, model</div>
                                             <div class="item-qty">x@(item.Quantity)</div>
                                         </div>
-                                        <div class="item-price @(isCompletelyRefunded ? "return-overlay" : "")">
+                                        <div class="item-price @(isReturnRejected ? "return-overlay" : "")">
                                             RM @item.UnitPrice.ToString("0.00")
                                         </div>
                                     </div>
@@ -233,13 +234,13 @@
                                             @if (hasRefund)
                                             {
                                                 <button type="button" class="btn-action primary" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
-                                                <button type="button" class="btn-action secondary">Contact Seller</button>
+                                                <button type="button" class="btn-action secondary" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))')">Contact Seller</button>
                                             }
                                             else if (order.Status == "Pending" || order.Status == "Pending Payment")
                                             {
                                                 var savedBank = order.ServiceType.Contains("|") ? order.ServiceType.Split('|')[1] : "hong_leong_bank";
                                                 <button type="button" class="btn-action primary btn-pay-now" data-order-id="@order.OrderID" data-fpx-bank="@savedBank" style="background-color: #ee4d2d; color: white; border-color: #ee4d2d;">Pay Now</button>
-                                                <button type="button" class="btn-action secondary">Contact Seller</button>
+                                                <button type="button" class="btn-action secondary" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))')">Contact Seller</button>
                                                 <div class="action-container" style="display: inline-block;">
                                                     <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
                                                     <div class="dropdown-menu">
@@ -269,7 +270,7 @@
                                                 <div class="action-container" style="display: inline-block;">
                                                     <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
                                                     <div class="dropdown-menu">
-                                                        <a href="#">Contact Seller</a>
+                                                        <a href="#" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))'); return false;">Contact Seller</a>
                                                     </div>
                                                 </div>
                                             }
@@ -282,7 +283,7 @@
                                                     <div class="action-container" style="display: inline-block;">
                                                         <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
                                                         <div class="dropdown-menu">
-                                                            <a href="#">Contact Seller</a>
+                                                            <a href="#" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))'); return false;">Contact Seller</a>
                                                             <a href="/Home/ProductDetails/@(firstItem?.ProductID)">Buy Again</a>
                                                         </div>
                                                     </div>
@@ -294,7 +295,7 @@
                                                     <div class="action-container" style="display: inline-block;">
                                                         <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
                                                         <div class="dropdown-menu">
-                                                            <a href="#">Contact Seller</a>
+                                                            <a href="#" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))'); return false;">Contact Seller</a>
                                                              <a href="#" class="btn-view-rating" data-order-id="@order.OrderID" data-rating="@order.Reviews?.FirstOrDefault()?.Rating" data-comment="@order.Reviews?.FirstOrDefault()?.Comment" data-media="@order.Reviews?.FirstOrDefault()?.MediaUrl" data-product-title="@firstItem?.Product.Title" data-product-image="/uploads/@(firstItem?.ProductID).jpg" data-username="@(User.Identity?.Name ?? "User")" data-timestamp="@(order.Reviews?.FirstOrDefault()?.CreatedAt.ToString("yyyy-MM-dd HH:mm") ?? "")">View Shop Rating</a>
                                                         </div>
                                                     </div>
@@ -303,14 +304,14 @@
                                             else if (order.Status == "Cancelled")
                                             {
                                                 <button type="button" class="btn-action primary" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
-                                                <button type="button" class="btn-action secondary">Contact Seller</button>
+                                                <button type="button" class="btn-action secondary" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))')">Contact Seller</button>
                                             }
                                             else
                                             {
                                                 <div class="action-container" style="display: inline-block;">
                                                     <button type="button" class="btn-action secondary dropdown-more btn-more">More ▾</button>
                                                     <div class="dropdown-menu">
-                                                        <a href="#">Contact Seller</a>
+                                                        <a href="#" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))'); return false;">Contact Seller</a>
                                                     </div>
                                                 </div>
                                             }
@@ -635,7 +636,7 @@
 
                 <!-- Anonymous Checkbox -->
                 <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px;">
-                    <input type="checkbox" name="isAnonymous" id="isAnonymous" style="margin-top: 4px;" />
+                    <input type="checkbox" name="isAnonymous" id="isAnonymous" value="true" style="margin-top: 4px;" />
                     <div>
                         <div style="font-size: 14px; font-weight: 500; color: #333;">Leave your review anonymously</div>
                         @{
@@ -1109,13 +1110,27 @@
                 });
             }
 
+            // Restore active tab from sessionStorage if available
+            const savedTab = sessionStorage.getItem("buyerOrdersTab");
+            if (savedTab) {
+                const tabToActivate = document.querySelector(`.order-tab[data-tab="${savedTab}"]`);
+                if (tabToActivate) {
+                    tabs.forEach(t => t.classList.remove("active"));
+                    tabToActivate.classList.add("active");
+                }
+            }
+
             tabs.forEach(tab => {
                 tab.addEventListener("click", function() {
                     tabs.forEach(t => t.classList.remove("active"));
                     this.classList.add("active");
+                    sessionStorage.setItem("buyerOrdersTab", this.getAttribute("data-tab"));
                     filterOrders();
                 });
             });
+
+            // Initial filter run to apply the active tab
+            filterOrders();
 
             searchInput.addEventListener("input", filterOrders);
 
@@ -1245,5 +1260,70 @@
         });
     </script>
     @await Html.PartialAsync("_ChatPartial")
+    <script>
+        (async function() {
+            const buyerId = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
+            if (!buyerId) return;
+
+            const orderConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/orderHub")
+                .withAutomaticReconnect()
+                .build();
+
+            orderConnection.on("OrderStatusUpdated", (orderId, newStatus, message) => {
+                const orderCard = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+                if (orderCard) {
+                    const statusElement = orderCard.querySelector('.order-status span:last-child');
+                    if (statusElement) {
+                        statusElement.textContent = newStatus.toUpperCase();
+                    }
+                    orderCard.setAttribute('data-status', newStatus);
+
+                    const toast = document.createElement('div');
+                    toast.style.position = 'fixed';
+                    toast.style.top = '20px';
+                    toast.style.left = '50%';
+                    toast.style.transform = 'translateX(-50%)';
+                    toast.style.background = '#EE4D2D';
+                    toast.style.color = 'white';
+                    toast.style.padding = '12px 24px';
+                    toast.style.borderRadius = '4px';
+                    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                    toast.style.zIndex = '9999';
+                    toast.style.fontWeight = 'bold';
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.2s';
+                    toast.innerHTML = `📦 ${message}`;
+                    document.body.appendChild(toast);
+                    
+                    // Fade in
+                    setTimeout(() => toast.style.opacity = '1', 10);
+                    // Fade out & remove
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        setTimeout(() => toast.remove(), 200);
+                    }, 4000);
+                }
+            });
+
+            orderConnection.on("ReceiveReturnUpdate", function () {
+                fetch(window.location.href, { cache: 'no-store' })
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        document.body.innerHTML = doc.body.innerHTML;
+                    });
+            });
+
+            try {
+                await orderConnection.start();
+                await orderConnection.invoke("JoinGroup", buyerId);
+                console.log("Connected to OrderHub for live updates.");
+            } catch (err) {
+                console.error("OrderHub connection failed: ", err);
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -51,7 +51,7 @@
             @if (!ViewData.ModelState.IsValid)
             {
                 <div class="validation-summary">
-                    @Html.ValidationSummary(true)
+                    @Html.ValidationSummary(false)
                 </div>
             }
 
@@ -68,7 +68,6 @@
                     <input type="text" maxlength="1" class="otp-input-box" inputmode="numeric" />
                 </div>
 
-                <span asp-validation-for="OtpCode" class="field-error"></span>
 
                 <button type="submit" class="courier-primary-btn" id="btnVerify">
                     VERIFY & PROCEED

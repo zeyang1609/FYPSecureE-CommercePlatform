@@ -8,16 +8,21 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
+using Microsoft.AspNetCore.SignalR;
+using FYP.Hubs;
+
 namespace FYP.Controllers
 {
     [Authorize(Roles = "Admin")] 
     public class AdminController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IHubContext<OrderHub> _orderHubContext;
 
-        public AdminController(ApplicationDbContext context)
+        public AdminController(ApplicationDbContext context, IHubContext<OrderHub> orderHubContext)
         {
             _context = context;
+            _orderHubContext = orderHubContext;
         }
 
         // GET: /Admin/Login
@@ -164,7 +169,12 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ForceRefund(string refundId, string adminNote)
         {
-            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            var refund = await _context.Refunds
+                .Include(r => r.Order)
+                .ThenInclude(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(r => r.RefundID == refundId);
+                
             if (refund != null && refund.Status == "DISPUTED")
             {
                 refund.Status = "REFUND_COMPLETED";
@@ -183,6 +193,14 @@ namespace FYP.Controllers
                 });
 
                 await _context.SaveChangesAsync();
+                
+                if (refund.Order != null)
+                {
+                    await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
+                    var sellerId = refund.Order.OrderItems.FirstOrDefault()?.Product?.SellerID;
+                    if (sellerId != null) await _orderHubContext.Clients.Group(sellerId).SendAsync("ReceiveReturnUpdate");
+                }
+                
                 TempData["SuccessMessage"] = "Dispute resolved in favor of Buyer (Refund Issued).";
             }
             return RedirectToAction(nameof(Disputes));
@@ -192,7 +210,12 @@ namespace FYP.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RejectReturn(string refundId, string adminNote)
         {
-            var refund = await _context.Refunds.FirstOrDefaultAsync(r => r.RefundID == refundId);
+            var refund = await _context.Refunds
+                .Include(r => r.Order)
+                .ThenInclude(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(r => r.RefundID == refundId);
+                
             if (refund != null && refund.Status == "DISPUTED")
             {
                 // Rejecting the return implies the order stays complete, refund is cancelled.
@@ -209,6 +232,14 @@ namespace FYP.Controllers
                 });
 
                 await _context.SaveChangesAsync();
+                
+                if (refund.Order != null)
+                {
+                    await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
+                    var sellerId = refund.Order.OrderItems.FirstOrDefault()?.Product?.SellerID;
+                    if (sellerId != null) await _orderHubContext.Clients.Group(sellerId).SendAsync("ReceiveReturnUpdate");
+                }
+                
                 TempData["SuccessMessage"] = "Dispute resolved in favor of Seller (Return Rejected).";
             }
             return RedirectToAction(nameof(Disputes));
