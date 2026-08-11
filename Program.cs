@@ -44,6 +44,9 @@ builder.Services.AddScoped<IOtpService, OtpService>();
 // Register TOTP Authenticator Service
 builder.Services.AddScoped<FYP.Services.TotpService>();
 builder.Services.AddScoped<IShippingService, ShippingService>();
+builder.Services.AddScoped<IPaymentSecurityService, PaymentSecurityService>();
+builder.Services.AddSingleton<ICheckoutLockService, CheckoutLockService>();
+builder.Services.AddSingleton<IPaymentEncryptionService, PaymentEncryptionService>();
 
 // 3. Add Session Support (Required for Cart functionality)
 builder.Services.AddSession(options =>

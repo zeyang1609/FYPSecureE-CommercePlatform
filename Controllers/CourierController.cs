@@ -61,6 +61,19 @@ namespace FYP.Controllers
             
             var historyOrderIds = deliveryHistory.Select(d => d.OrderID).ToList();
             
+            // Backfill legacy missing tracking numbers for approved/completed returns
+            var legacyRefunds = await _context.Refunds
+                .Where(r => string.IsNullOrEmpty(r.ReturnTrackingNumber) && r.Status != "RETURN_REQUESTED" && r.Status != "Requested")
+                .ToListAsync();
+            if (legacyRefunds.Any())
+            {
+                foreach (var r in legacyRefunds)
+                {
+                    r.ReturnTrackingNumber = "RET-" + Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper();
+                }
+                await _context.SaveChangesAsync();
+            }
+            
             // Get return and refund deliveries
             var returnDeliveries = await _context.Refunds
                 .Where(r => ((r.Status == "RETURN_APPROVED" || r.Status == "RETURN_REQUESTED" || r.Status == "Requested") && (r.ReturnMethod == "Pick-Up" || r.ReturnMethod == "Pickup" || (r.ReturnMethod == "Drop-Off" && !string.IsNullOrEmpty(r.ReturnCourier)))) || r.Status == "RETURN_IN_TRANSIT")
@@ -150,6 +163,9 @@ namespace FYP.Controllers
             if (delivery != null && delivery.Status == "Pending Pickup")
             {
                 delivery.Status = "Shipped"; // This marks it as 'In Transit'
+                if (delivery.Order != null) {
+                    delivery.Order.Status = "Shipped";
+                }
                 await _context.SaveChangesAsync();
                 
                 if (delivery.Order != null && !string.IsNullOrEmpty(delivery.Order.BuyerID))
@@ -178,6 +194,10 @@ namespace FYP.Controllers
             if (refund != null && refund.Status == "RETURN_APPROVED")
             {
                 refund.Status = "RETURN_IN_TRANSIT";
+                if (refund.ReturnMethod == "Drop-Off")
+                {
+                    refund.PickupDate = DateTime.Now;
+                }
                 await _context.SaveChangesAsync();
                 
                 if (refund.Order != null)

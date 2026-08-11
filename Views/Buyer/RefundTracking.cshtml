@@ -107,12 +107,13 @@
                     <div style="font-size: 1.1rem; color: #333; margin-bottom: 8px; font-weight: 500;">Select Courier for Drop-off</div>
                     <div style="color: #666; margin-bottom: 20px;">Please select your preferred courier service before proceeding to drop off your parcel.</div>
                     
-                    <form asp-controller="Buyer" asp-action="UpdateReturnMethod" method="post" style="display:flex; gap:15px; margin:0;">
+                    <form id="courierSelectionForm" onsubmit="event.preventDefault(); submitCourierSelection();" style="display:flex; gap:15px; margin:0;">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="refundId" value="@Model.RefundID" />
                         <input type="hidden" name="returnMethod" value="Drop-Off" />
-                        <button type="submit" name="dropOffCourier" value="J&T Express" class="btn-primary-action" style="padding: 10px 24px; font-weight:500; border:none; cursor:pointer; font-size: 0.95rem;">J&T Express</button>
-                        <button type="submit" name="dropOffCourier" value="Pos Laju" class="btn-primary-action" style="padding: 10px 24px; font-weight:500; border:none; cursor:pointer; font-size: 0.95rem;">Pos Laju</button>
+                        <input type="hidden" name="dropOffCourier" id="selectedCourier" value="" />
+                        <button type="submit" class="btn-primary-action" style="padding: 10px 24px; font-weight:500; border:none; cursor:pointer; font-size: 0.95rem;" onclick="document.getElementById('selectedCourier').value = 'J&T Express'">J&T Express</button>
+                        <button type="submit" class="btn-primary-action" style="padding: 10px 24px; font-weight:500; border:none; cursor:pointer; font-size: 0.95rem;" onclick="document.getElementById('selectedCourier').value = 'Pos Laju'">Pos Laju</button>
                     </form>
                 </div>
             }
@@ -428,6 +429,19 @@
             document.getElementById('addressDisplayContent').innerHTML = '<strong>' + name + '</strong><br/><span>' + addr + '</span>';
             document.getElementById('addressSelectBox').style.display = 'none';
             document.getElementById('addressDisplayBox').style.display = 'flex';
+        }
+
+        function submitCourierSelection() {
+            var form = document.getElementById('courierSelectionForm');
+            var formData = new FormData(form);
+            fetch('@Url.Action("UpdateReturnMethod", "Buyer")', {
+                method: 'POST',
+                body: formData
+            }).then(res => {
+                if(res.ok) {
+                    window.location.reload(); 
+                }
+            });
         }
 
         function submitMethodChange() {

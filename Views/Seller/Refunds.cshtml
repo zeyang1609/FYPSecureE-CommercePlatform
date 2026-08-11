@@ -79,6 +79,7 @@
 
         <div style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 24px;">
             <button id="tab-pending" class="refund-tab active" onclick="switchTab('pending')" style="padding: 12px 24px; border: none; background: transparent; font-weight: 600; cursor: pointer; color: #ee4d2d; border-bottom: 3px solid #ee4d2d; font-size: 1rem;">Pending Actions</button>
+            <button id="tab-disputed" class="refund-tab" onclick="switchTab('disputed')" style="padding: 12px 24px; border: none; background: transparent; font-weight: 500; cursor: pointer; color: #666; border-bottom: 3px solid transparent; font-size: 1rem;">Dispute</button>
             <button id="tab-completed" class="refund-tab" onclick="switchTab('completed')" style="padding: 12px 24px; border: none; background: transparent; font-weight: 500; cursor: pointer; color: #666; border-bottom: 3px solid transparent; font-size: 1rem;">Completed</button>
         </div>
 
@@ -296,18 +297,22 @@
 
         function switchTab(tab) {
             currentTab = tab;
-            document.getElementById('tab-pending').classList.remove('active');
-            document.getElementById('tab-pending').style.color = '#666';
-            document.getElementById('tab-pending').style.borderBottomColor = 'transparent';
             
-            document.getElementById('tab-completed').classList.remove('active');
-            document.getElementById('tab-completed').style.color = '#666';
-            document.getElementById('tab-completed').style.borderBottomColor = 'transparent';
+            ['pending', 'disputed', 'completed'].forEach(function(t) {
+                var el = document.getElementById('tab-' + t);
+                if (el) {
+                    el.classList.remove('active');
+                    el.style.color = '#666';
+                    el.style.borderBottomColor = 'transparent';
+                }
+            });
 
             var activeTab = document.getElementById('tab-' + tab);
-            activeTab.classList.add('active');
-            activeTab.style.color = '#ee4d2d';
-            activeTab.style.borderBottomColor = '#ee4d2d';
+            if (activeTab) {
+                activeTab.classList.add('active');
+                activeTab.style.color = '#ee4d2d';
+                activeTab.style.borderBottomColor = '#ee4d2d';
+            }
 
             filterRefunds();
         }
@@ -321,9 +326,14 @@
                 var refundId = card.getAttribute('data-refundid').toLowerCase();
                 var orderId = card.getAttribute('data-orderid').toLowerCase();
                 
-                var isPendingStatus = (status === 'RETURN_REQUESTED' || status === 'Requested' || status === 'RETURN_APPROVED' || status === 'RETURN_IN_TRANSIT' || status === 'RETURN_RECEIVED' || status === 'DISPUTED');
+                var isPendingStatus = (status === 'RETURN_REQUESTED' || status === 'Requested' || status === 'RETURN_APPROVED' || status === 'RETURN_IN_TRANSIT' || status === 'RETURN_RECEIVED');
+                var isDisputedStatus = (status === 'DISPUTED');
                 
-                var tabMatch = (currentTab === 'pending' && isPendingStatus) || (currentTab === 'completed' && !isPendingStatus);
+                var tabMatch = false;
+                if (currentTab === 'pending') tabMatch = isPendingStatus;
+                else if (currentTab === 'disputed') tabMatch = isDisputedStatus;
+                else if (currentTab === 'completed') tabMatch = (!isPendingStatus && !isDisputedStatus);
+                
                 var searchMatch = searchStr === '' || refundId.includes(searchStr) || orderId.includes(searchStr);
 
                 if (tabMatch && searchMatch) {

@@ -86,6 +86,40 @@
                         <p style="font-size: 0.95rem; margin-bottom: 8px;"><strong>Issue:</strong> @dispute.IssueType</p>
                         <p style="font-size: 0.95rem; margin-bottom: 8px;"><strong>Reason:</strong> @dispute.Reason</p>
                         <p style="font-size: 0.9rem; color: #4b5563;">@dispute.Description</p>
+                        
+                        @{
+                            var mediaUrls = new List<string>();
+                            if (!string.IsNullOrEmpty(dispute.MediaUrl))
+                            {
+                                mediaUrls = dispute.MediaUrl.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList();
+                            }
+                        }
+                        
+                        @if (mediaUrls.Any())
+                        {
+                            <div style="margin-top: 15px; padding-top: 12px; border-top: 1px dashed #d1d5db;">
+                                <strong style="font-size: 0.9rem; color: #6b7280; text-transform: uppercase;">Attached Evidence:</strong><br/>
+                                <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
+                                    @foreach (var url in mediaUrls)
+                                    {
+                                        var isVideo = url.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) || url.EndsWith(".webm", StringComparison.OrdinalIgnoreCase) || url.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase);
+                                        if (isVideo)
+                                        {
+                                            <video controls style="max-width: 100%; max-height: 250px; border-radius: 6px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                                <source src="@Url.Content(url)">
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        }
+                                        else
+                                        {
+                                            <a href="@Url.Content(url)" target="_blank" title="Click to view full size">
+                                                <img src="@Url.Content(url)" alt="Evidence" style="max-width: 100%; max-height: 250px; border-radius: 6px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); object-fit: contain; background: white;" />
+                                            </a>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
 
                     <!-- Seller Defense -->

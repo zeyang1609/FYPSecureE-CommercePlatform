@@ -11,6 +11,9 @@ namespace FYP.Models.ViewModels
         [Required]
         public string BuyerID { get; set; } = "USR-BUYER-DEMO";
 
+        public string? SecurityToken { get; set; }
+
+
         [Required(ErrorMessage = "Full shipping address is required.")]
         [Display(Name = "Shipping Address")]
         public string ShippingAddress { get; set; } = string.Empty;

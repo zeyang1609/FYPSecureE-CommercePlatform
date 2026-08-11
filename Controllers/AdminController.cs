@@ -1,5 +1,6 @@
 using FYP.Data;
 using FYP.Models.Entities;
+using FYP.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -10,6 +11,8 @@ using System.Security.Claims;
 
 using Microsoft.AspNetCore.SignalR;
 using FYP.Hubs;
+using Stripe;
+using Microsoft.Extensions.Configuration;
 
 namespace FYP.Controllers
 {
@@ -18,11 +21,15 @@ namespace FYP.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IHubContext<OrderHub> _orderHubContext;
+        private readonly IConfiguration _configuration;
+        private readonly IPaymentEncryptionService _paymentEncryptionService;
 
-        public AdminController(ApplicationDbContext context, IHubContext<OrderHub> orderHubContext)
+        public AdminController(ApplicationDbContext context, IHubContext<OrderHub> orderHubContext, IConfiguration configuration, IPaymentEncryptionService paymentEncryptionService)
         {
             _context = context;
             _orderHubContext = orderHubContext;
+            _configuration = configuration;
+            _paymentEncryptionService = paymentEncryptionService;
         }
 
         // GET: /Admin/Login
@@ -177,17 +184,54 @@ namespace FYP.Controllers
                 
             if (refund != null && refund.Status == "DISPUTED")
             {
+                var payment = await _context.Payments.FirstOrDefaultAsync(p => p.OrderID == refund.OrderID);
+                if (payment != null && !string.IsNullOrEmpty(payment.PaymentToken))
+                {
+                    var decryptedToken = _paymentEncryptionService.DecryptSafe(payment.PaymentToken);
+                    if (decryptedToken.StartsWith("pi_"))
+                    {
+                    try
+                    {
+                        StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
+                        var options = new Stripe.RefundCreateOptions
+                        {
+                            PaymentIntent = decryptedToken,
+                            Amount = Convert.ToInt64(Math.Round(refund.RefundAmount * 100m))
+                        };
+                        var requestOptions = new Stripe.RequestOptions
+                        {
+                            IdempotencyKey = $"admin_refund_{refund.RefundID}"
+                        };
+
+                        var refundService = new Stripe.RefundService();
+                        var stripeRefund = await refundService.CreateAsync(options, requestOptions);
+
+                        refund.StripeRefundId = stripeRefund.Id;
+                        refund.RefundedAt = DateTime.UtcNow;
+                    }
+                    catch (StripeException ex)
+                    {
+                        TempData["ErrorMessage"] = $"Stripe Refund Failed: {ex.Message}";
+                        return RedirectToAction(nameof(Disputes));
+                    }
+                    }
+                }
+                else
+                {
+                    refund.RefundedAt = DateTime.UtcNow;
+                }
+
                 refund.Status = "REFUND_COMPLETED";
                 refund.AdminResolution = adminNote;
                 
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == refund.OrderID);
-                if(order != null) order.Status = "Refunded";
+                if (order != null) order.Status = "Refunded";
 
                 _context.AuditLogs.Add(new AuditLog
                 {
                     LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                     UserID = User.FindFirstValue(ClaimTypes.NameIdentifier),
-                    Action = $"Arbitration: Forced refund for {refundId}. Notes: {adminNote}",
+                    Action = $"Arbitration: Forced refund for {refundId} (StripeRef: {refund.StripeRefundId ?? "Local"}). Notes: {adminNote}",
                     IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
                     Timestamp = DateTime.UtcNow
                 });
