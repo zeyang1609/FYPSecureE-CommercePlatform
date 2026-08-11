@@ -463,7 +463,6 @@ namespace FYP.Controllers
                 _context.FraudAlerts.Add(fraudAlert);
 
                 _context.AuditLogs.Add(new AuditLog
-                _context.AuditLogs.Add(new AuditLog
                 {
                     LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                     UserID = buyerId,

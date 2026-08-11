@@ -448,7 +448,7 @@ namespace FYP.Controllers
                 else
                 {
                     if (user != null) {
-                        await _otpService.GenerateAndSendOtpAsync(user.Email);
+                        await _otpService.GenerateAndSendOtpAsync(user.Email, "Checkout");
                     }
                     return RedirectToAction("VerifyCheckoutOtp");
                 }
@@ -539,7 +539,6 @@ namespace FYP.Controllers
             };
 
             var orderItems = new List<OrderItem>();
-            var orderItems = new List<OrderItem>();
             var notifications = new List<Notification>();
             
             foreach (var item in checkoutItems)
@@ -564,7 +563,7 @@ namespace FYP.Controllers
                             NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                             UserID = item.Product.SellerID,
                             Type = "Inventory Alert",
-                            Content = $"Low Stock Warning! Product '{item.Product.Name}' has only {item.Product.StockLevel} left."
+                            Content = $"Low Stock Warning! Product '{item.Product.Title}' has only {item.Product.StockLevel} left."
                         });
                     }
                 }
@@ -937,7 +936,7 @@ namespace FYP.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return Unauthorized();
 
-            if (await _otpService.VerifyOtpAsync(user.Email, otp))
+            if (_otpService.ValidateOtp(user.Email, otp))
             {
                 var pendingJson = TempData["PendingCheckout"] as string;
                 if (!string.IsNullOrEmpty(pendingJson))
@@ -968,7 +967,7 @@ namespace FYP.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return Unauthorized();
 
-            if (_totpService.ValidateTotp(user.TotpSecret, code))
+            if (_totpService.VerifyCode(user.TotpSecret, code))
             {
                 var pendingJson = TempData["PendingCheckout"] as string;
                 if (!string.IsNullOrEmpty(pendingJson))
