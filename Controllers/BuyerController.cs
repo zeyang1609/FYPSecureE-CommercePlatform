@@ -34,39 +34,10 @@ namespace FYP.Controllers
 
         // GET: /Buyer/Dashboard
         [HttpGet]
-        public async Task<IActionResult> Dashboard()
+        public IActionResult Dashboard()
         {
-            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(buyerId)) return RedirectToAction("Login", "Auth");
-            // 1. Fetch recent orders for table display
-            var recentOrders = await _context.Orders
-                .Include(o => o.OrderItems)
-                    .ThenInclude(oi => oi.Product)
-                .Where(o => o.BuyerID == buyerId)
-                .OrderByDescending(o => o.CreatedAt)
-                .Take(5)
-                .ToListAsync();
-
-            // 2. Fetch user notifications
-            var notifications = await _context.Notifications
-                .Where(n => n.UserID == buyerId)
-                .OrderByDescending(n => n.NotificationID)
-                .Take(10)
-                .ToListAsync(); 
-
-            // 3. Calculate spending KPIs for dashboard metric cards
-            var allOrders = await _context.Orders.Where(o => o.BuyerID == buyerId).ToListAsync();
-            ViewBag.TotalOrders = allOrders.Count;
-            ViewBag.TotalSpent = allOrders.Sum(o => o.TotalAmount);
-            ViewBag.ActiveOrdersCount = allOrders.Count(o => o.Status == "Pending" || o.Status == "Processing" || o.Status == "Shipped");
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == buyerId);
-            ViewBag.MfaEnabled = user?.MFA_Enabled ?? true;
-            ViewBag.BuyerID = buyerId;
-            ViewBag.Email = user?.Email ?? "buyer.demo@secureplatform.com";
-            ViewBag.Notifications = notifications;
-
-            return View(recentOrders);
+            // Abandoned the old Buyer Dashboard. Redirecting to Profile as the main landing area.
+            return RedirectToAction("Profile");
         }
 
         // GET: /Buyer/Orders
@@ -1131,30 +1102,7 @@ namespace FYP.Controllers
 
             if (user == null) return RedirectToAction("Login", "Auth");
 
-            var currentDevice = HttpContext.Request.Headers["User-Agent"].ToString();
-            
-            // Auto-migrate current session if it doesn't exist in UserDevices
-            if (!string.IsNullOrEmpty(currentDevice) && !user.UserDevices.Any(ud => ud.DeviceHash == currentDevice))
-            {
-                string os = currentDevice.Contains("Windows") ? "Windows" : currentDevice.Contains("Mac OS") ? "Mac OS" : currentDevice.Contains("Linux") ? "Linux" : "Unknown OS";
-                string browser = currentDevice.Contains("Chrome") ? "Chrome" : currentDevice.Contains("Firefox") ? "Firefox" : currentDevice.Contains("Safari") ? "Safari" : "Unknown Browser";
-                string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
 
-                var newDevice = new UserDevice
-                {
-                    UserID = user.UserID,
-                    DeviceHash = currentDevice,
-                    OS = os,
-                    Browser = browser,
-                    IPAddress = currentIp,
-                    AddedAt = DateTime.UtcNow,
-                    LastUsedAt = DateTime.UtcNow
-                };
-                
-                _context.UserDevices.Add(newDevice);
-                user.UserDevices.Add(newDevice);
-                await _context.SaveChangesAsync();
-            }
 
             return View(user);
         }
@@ -1169,6 +1117,12 @@ namespace FYP.Controllers
             var device = await _context.UserDevices.FirstOrDefaultAsync(d => d.Id == deviceId && d.UserID == buyerId);
             if (device != null)
             {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == buyerId);
+                if (user != null && user.DeviceHash == device.DeviceHash)
+                {
+                    user.DeviceHash = "";
+                }
+
                 _context.UserDevices.Remove(device);
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = "Device successfully removed.";

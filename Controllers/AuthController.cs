@@ -224,13 +224,28 @@ namespace FYP.Controllers
                 }
                 else 
                 {
-                    // Update LastUsedAt if it was in UserDevices
+                    // Update LastUsedAt if it was in UserDevices, or add it if it was the primary DeviceHash / bypassed
                     var existingDevice = await _context.UserDevices.FirstOrDefaultAsync(ud => ud.UserID == user.UserID && ud.DeviceHash == currentDevice);
                     if (existingDevice != null)
                     {
                         existingDevice.LastUsedAt = DateTime.UtcNow;
-                        await _context.SaveChangesAsync();
                     }
+                    else
+                    {
+                        string os = currentDevice.Contains("Windows") ? "Windows" : currentDevice.Contains("Mac OS") ? "Mac OS" : currentDevice.Contains("Linux") ? "Linux" : "Unknown OS";
+                        string browser = currentDevice.Contains("Chrome") ? "Chrome" : currentDevice.Contains("Firefox") ? "Firefox" : currentDevice.Contains("Safari") ? "Safari" : "Unknown Browser";
+
+                        _context.UserDevices.Add(new UserDevice
+                        {
+                            UserID = user.UserID,
+                            DeviceHash = currentDevice,
+                            OS = os,
+                            Browser = browser,
+                            IPAddress = currentIp,
+                            LastUsedAt = DateTime.UtcNow
+                        });
+                    }
+                    await _context.SaveChangesAsync();
                 }
 
                 // Enforce MFA Step: Route to Authenticator App or Email OTP

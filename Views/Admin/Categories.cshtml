@@ -33,6 +33,7 @@
             <a asp-action="Users">👥 User Management</a>
             <a asp-action="Categories" class="active">📁 Categories</a>
             <a asp-action="Disputes">⚖️ Disputes</a>
+            <a asp-action="TrustedDevices">📱 Trusted Devices</a>
             <a asp-controller="Auth" asp-action="Logout" asp-route-returnUrl="/Admin/Login">Log Out</a>
         </div>
     </header>
@@ -58,7 +59,7 @@
                 <div class="table-header" style="margin-bottom: 20px;">
                     <h2>➕ Add New Category</h2>
                 </div>
-                <form asp-controller="Admin" asp-action="CreateCategory" method="post">
+                <form asp-controller="Admin" asp-action="CreateCategory" method="post" enctype="multipart/form-data">
                     <div style="margin-bottom: 15px;">
                         <label style="font-weight: bold; display: block; margin-bottom: 5px; color: #495057;">Category Name</label>
                         <input type="text" name="name" required class="form-control" style="width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px;" placeholder="e.g., Cyber Security Hardware" />
@@ -70,9 +71,9 @@
                     </div>
 
                     <div style="margin-bottom: 20px;">
-                        <label style="font-weight: bold; display: block; margin-bottom: 5px; color: #495057;">Icon (Raw SVG XML)</label>
-                        <textarea name="iconSvg" rows="4" style="width: 100%; padding: 10px; font-family: monospace; font-size: 0.85rem; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px;" placeholder="<svg>...</svg> (Leave blank for default grid icon)"></textarea>
-                        <small style="color: #6c757d;">Tip: Copy clean SVG vectors from lucide.dev or feathericons.com</small>
+                        <label style="font-weight: bold; display: block; margin-bottom: 5px; color: #495057;">Icon (Image File)</label>
+                        <input type="file" name="iconFile" accept="image/*" class="form-control" style="width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px;" />
+                        <small style="color: #6c757d;">Leave blank to use default icon</small>
                     </div>
 
                     <button type="submit" style="background: #EE4D2D; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; transition: background 0.2s;">Create Category</button>
@@ -99,7 +100,14 @@
                             <tr>
                                 <td style="width: 50px; text-align: center;">
                                     <div style="width: 32px; height: 32px; color: #333; margin: auto;">
-                                        @Html.Raw(cat.IconSvg)
+                                        @if (!string.IsNullOrEmpty(cat.IconSvg) && cat.IconSvg.TrimStart().StartsWith("<svg"))
+                                        {
+                                            @Html.Raw(cat.IconSvg)
+                                        }
+                                        else if (!string.IsNullOrEmpty(cat.IconSvg))
+                                        {
+                                            <img src="@cat.IconSvg" width="32" height="32" style="object-fit: cover; border-radius: 4px;" />
+                                        }
                                     </div>
                                 </td>
                                 <td>

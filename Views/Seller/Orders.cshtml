@@ -32,7 +32,18 @@
     </header>
 
     <main class="dashboard-container">
-
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background-color: #d1e7dd; color: #0f5132; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #badbcc;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div style="background-color: #f8d7da; color: #842029; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #f5c2c7;">
+                @TempData["ErrorMessage"]
+            </div>
+        }
         <div class="dashboard-header">
             <div>
                 <h1>Verified Customer Orders</h1>

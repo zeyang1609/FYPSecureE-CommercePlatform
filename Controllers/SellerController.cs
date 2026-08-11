@@ -112,29 +112,7 @@ namespace FYP.Controllers
 
             if (user == null) return RedirectToAction("Login", "Auth");
 
-            var currentDevice = HttpContext.Request.Headers["User-Agent"].ToString();
 
-            if (!string.IsNullOrEmpty(currentDevice) && !user.UserDevices.Any(ud => ud.DeviceHash == currentDevice))
-            {
-                string os = currentDevice.Contains("Windows") ? "Windows" : currentDevice.Contains("Mac OS") ? "Mac OS" : currentDevice.Contains("Linux") ? "Linux" : "Unknown OS";
-                string browser = currentDevice.Contains("Chrome") ? "Chrome" : currentDevice.Contains("Firefox") ? "Firefox" : currentDevice.Contains("Safari") ? "Safari" : "Unknown Browser";
-                string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-
-                var newDevice = new UserDevice
-                {
-                    UserID = user.UserID,
-                    DeviceHash = currentDevice,
-                    OS = os,
-                    Browser = browser,
-                    IPAddress = currentIp,
-                    AddedAt = DateTime.UtcNow,
-                    LastUsedAt = DateTime.UtcNow
-                };
-
-                _context.UserDevices.Add(newDevice);
-                user.UserDevices.Add(newDevice);
-                await _context.SaveChangesAsync();
-            }
 
             return View(user);
         }
@@ -149,6 +127,12 @@ namespace FYP.Controllers
             var device = await _context.UserDevices.FirstOrDefaultAsync(d => d.Id == deviceId && d.UserID == sellerId);
             if (device != null)
             {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == sellerId);
+                if (user != null && user.DeviceHash == device.DeviceHash)
+                {
+                    user.DeviceHash = "";
+                }
+
                 _context.UserDevices.Remove(device);
                 await _context.SaveChangesAsync();
                 TempData["SuccessMessage"] = "Device successfully removed.";

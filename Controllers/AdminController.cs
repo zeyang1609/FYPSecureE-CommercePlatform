@@ -115,7 +115,7 @@ namespace FYP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateCategory(string name, string description, string iconSvg)
+        public async Task<IActionResult> CreateCategory(string name, string description, IFormFile iconFile)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -123,9 +123,25 @@ namespace FYP.Controllers
                 return RedirectToAction(nameof(Categories));
             }
 
-            if (string.IsNullOrWhiteSpace(iconSvg))
+            string iconSvg = "<svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><line x1=\"3\" y1=\"9\" x2=\"21\" y2=\"9\"></line><line x1=\"9\" y1=\"21\" x2=\"9\" y2=\"9\"></line></svg>";
+
+            if (iconFile != null && iconFile.Length > 0)
             {
-                iconSvg = "<svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><line x1=\"3\" y1=\"9\" x2=\"21\" y2=\"9\"></line><line x1=\"9\" y1=\"21\" x2=\"9\" y2=\"9\"></line></svg>";
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "categories");
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+
+                var uniqueFileName = Guid.NewGuid().ToString() + "_" + iconFile.FileName;
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await iconFile.CopyToAsync(fileStream);
+                }
+                
+                iconSvg = "/images/categories/" + uniqueFileName;
             }
 
             string categoryId = "CAT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
@@ -373,6 +389,17 @@ namespace FYP.Controllers
                 return RedirectToAction(nameof(Users));
             }
 
+            // Manually remove Restricted dependent entities to allow user deletion
+            var chatMessages = await _context.ChatMessages
+                .Where(cm => cm.SenderID == userId || cm.ReceiverID == userId)
+                .ToListAsync();
+            _context.ChatMessages.RemoveRange(chatMessages);
+
+            var reviews = await _context.Reviews
+                .Where(r => r.BuyerID == userId)
+                .ToListAsync();
+            _context.Reviews.RemoveRange(reviews);
+
             _context.Users.Remove(user);
             
             _context.AuditLogs.Add(new AuditLog
@@ -431,5 +458,51 @@ namespace FYP.Controllers
             return RedirectToAction("Dashboard");
         }
 
-    }
+    
+        // ==========================================
+        // TRUSTED DEVICES MANAGEMENT
+        // ==========================================
+        [HttpGet]
+        public async Task<IActionResult> TrustedDevices()
+        {
+            var adminId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(adminId)) return RedirectToAction("Login", "Auth");
+
+            var user = await _context.Users
+                .Include(u => u.UserDevices)
+                .FirstOrDefaultAsync(u => u.UserID == adminId);
+
+            if (user == null) return RedirectToAction("Login", "Auth");
+
+            return View(user);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteDevice(int deviceId)
+        {
+            var adminId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(adminId)) return RedirectToAction("Login", "Auth");
+
+            var device = await _context.UserDevices.FirstOrDefaultAsync(d => d.Id == deviceId && d.UserID == adminId);
+            if (device != null)
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == adminId);
+                if (user != null && user.DeviceHash == device.DeviceHash)
+                {
+                    user.DeviceHash = "";
+                }
+
+                _context.UserDevices.Remove(device);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Device successfully removed.";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Device not found.";
+            }
+
+            return RedirectToAction("TrustedDevices");
+        }
+}
 }

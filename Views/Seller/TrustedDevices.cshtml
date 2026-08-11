@@ -42,8 +42,11 @@
 <div class="profile-container" style="margin-top: 20px; box-shadow: none;">
     <div class="profile-sidebar">
         <div class="user-brief">
-            <div class="avatar-circle">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="avatar-circle" style="background: transparent; overflow: hidden; border: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: center; position: relative;">
+                <img src="/uploads/profiles/@(Model.UserID).jpg?v=@(DateTime.Now.Ticks)" 
+                     style="width: 100%; height: 100%; object-fit: cover; display: block;" 
+                     onerror="this.style.display='none'; document.getElementById('sidebar-default-avatar').style.display='block';" />
+                <svg id="sidebar-default-avatar" style="display: none; width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                 </svg>
@@ -69,12 +72,6 @@
                     <li><a href="/Seller/ChangePasswordVerify">Change Password</a></li>
                     <li><a href="/Seller/TrustedDevices" class="active">Trusted Devices</a></li>
                 </ul>
-            </div>
-            <div class="nav-group">
-                <a href="/Seller/Orders" class="nav-group-link">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    <span>My Purchase</span>
-                </a>
             </div>
         </nav>
     </div>
