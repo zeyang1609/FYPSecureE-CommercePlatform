@@ -134,6 +134,17 @@ namespace FYP.Controllers
 
             ViewBag.Reviews = reviews;
 
+            // Calculate Seller Stats for the banner
+            var sellerProducts = await _context.Products
+                .Where(p => p.SellerID == product.SellerID && p.StockLevel > 0)
+                .ToListAsync();
+
+            ViewBag.SellerTotalProducts = sellerProducts.Count;
+            ViewBag.SellerTotalSales = sellerProducts.Sum(p => p.TotalSales);
+            ViewBag.SellerOverallRating = sellerProducts.Any(p => p.ReviewCount > 0)
+                ? sellerProducts.Where(p => p.ReviewCount > 0).Average(p => p.AverageRating)
+                : 0m;
+
             return View(product);
         }
 
