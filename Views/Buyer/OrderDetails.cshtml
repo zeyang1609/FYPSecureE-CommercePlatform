@@ -23,12 +23,12 @@
     else if (hasRefund) statusDisplay = "RETURN/REFUND REQUESTED";
 
     // Format timestamps
-    string dtPlaced = Model.CreatedAt.ToString("dd-MM-yyyy HH:mm");
-    string dtPaid = step2_paid ? (Model.Payment?.CreatedAt ?? Model.CreatedAt.AddMinutes(2)).ToString("dd-MM-yyyy HH:mm") : "";
-    string dtShipped = step3_shipped ? (Model.CreatedAt.AddDays(1)).ToString("dd-MM-yyyy HH:mm") : "";
-    string dtDelivered = step4_delivered ? (Model.CreatedAt.AddDays(3)).ToString("dd-MM-yyyy HH:mm") : "";
-    string dtReceived = step5_received ? (Model.CompletedAt?.ToString("dd-MM-yyyy HH:mm") ?? "") : "";
-    string dtRated = step6_rated ? (Model.Reviews?.FirstOrDefault()?.CreatedAt.ToString("dd-MM-yyyy HH:mm") ?? "") : "";
+    string dtPlaced = Model.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm");
+    string dtPaid = step2_paid ? (Model.Payment?.CreatedAt.ToLocalTime() ?? Model.CreatedAt.ToLocalTime().AddMinutes(2)).ToString("dd-MM-yyyy HH:mm") : "";
+    string dtShipped = step3_shipped ? (Model.CreatedAt.ToLocalTime().AddDays(1)).ToString("dd-MM-yyyy HH:mm") : "";
+    string dtDelivered = step4_delivered ? (Model.CreatedAt.ToLocalTime().AddDays(3)).ToString("dd-MM-yyyy HH:mm") : "";
+    string dtReceived = step5_received ? (Model.CompletedAt?.ToLocalTime().ToString("dd-MM-yyyy HH:mm") ?? "") : "";
+    string dtRated = step6_rated ? (Model.Reviews?.FirstOrDefault()?.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm") ?? "") : "";
     
     // Amount Paid text
     string amtPaid = step2_paid ? $"(RM{Model.TotalAmount.ToString("0.00")})" : "";

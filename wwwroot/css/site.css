@@ -138,9 +138,18 @@ body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+/* Prevent long messages from overflowing chat bubbles */
+.secure-messages > div {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
 }
 
 .secure-input-area {

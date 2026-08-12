@@ -41,7 +41,7 @@ try:
 except Exception as e:
     print(f"Warning: NSFW detector failed to load. ({e})")
 
-# --- Chat NLP Spam/Phishing Classifier (TF-IDF + Random Forest) ---
+# --- Chat NLP Spam/Phishing Classifier (TF-IDF + Random Forest for English) ---
 chat_vectorizer = None
 chat_clf = None
 try:
@@ -50,6 +50,10 @@ try:
     print("Chat NLP model and vectorizer loaded successfully.")
 except Exception as e:
     print(f"Warning: Chat NLP model not loaded. ({e})")
+
+# --- Multilingual Spam/Scam Classifier (XLM-RoBERTa Zero-Shot) ---
+# Disabled due to slow download speeds. Relying on local keywords and RF model instead.
+multilingual_clf = None
 
 # Known fraudulent image hashes (SHA-256)
 KNOWN_FRAUD_HASHES = [
@@ -68,7 +72,8 @@ def health_check():
             "fraud_xgboost": xgb_model is not None,
             "image_forgery": image_clf is not None,
             "nsfw_detector": nsfw_detector is not None,
-            "chat_nlp": chat_clf is not None
+            "chat_nlp": chat_clf is not None,
+            "multilingual_clf": multilingual_clf is not None
         }
     })
 
@@ -180,8 +185,24 @@ def scan_image():
     })
 
 # ==========================================
-# 5. Chat Message NLP Spam/Phishing Endpoint
+# 5. Chat Message Multilingual Spam/Phishing Endpoint
 # ==========================================
+
+# Spam keywords in multiple languages (English, Malay, Chinese)
+SPAM_KEYWORDS = [
+    # English
+    "free money", "you won", "click here now", "act now", "limited time offer",
+    "congratulations you have been selected", "claim your prize", "earn money fast",
+    "wire transfer", "nigerian prince", "lottery winner", "100% free",
+    # Malay
+    "wang percuma", "anda menang", "klik sini", "tawaran terhad", "hadiah percuma",
+    "tahniah anda dipilih", "tebus hadiah", "duit mudah", "pindahan wang",
+    # Chinese
+    "免费", "中奖", "点击这里", "限时优惠", "恭喜你被选中",
+    "领取奖品", "快速赚钱", "汇款", "彩票中奖", "赌博",
+    "刷单", "兼职日赚", "加微信", "代购优惠"
+]
+
 @app.route('/api/ai/scan-chat', methods=['POST'])
 def scan_chat():
     data = request.get_json()
@@ -192,36 +213,63 @@ def scan_chat():
     message = data['message']
 
     if not message or not message.strip():
-        return jsonify({"isMalicious": False, "reason": "Empty message."})
+        return jsonify({"isMalicious": False, "isBlocked": False, "reason": "Empty message."})
 
+    message_lower = message.lower().strip()
+    flags = []  # Collect all detection signals
+
+    # --- Layer 1: Multilingual Keyword Detection (Fast) ---
+    for keyword in SPAM_KEYWORDS:
+        if keyword in message_lower:
+            flags.append(f"Keyword match: '{keyword}'")
+            break  # One match is enough
+
+    # --- Layer 2: English TF-IDF + Random Forest Model ---
+    tfidf_malicious = False
     if chat_clf and chat_vectorizer:
         try:
             message_vector = chat_vectorizer.transform([message])
             prediction = chat_clf.predict(message_vector)[0]
             probability = chat_clf.predict_proba(message_vector)[0]
+            tfidf_confidence = float(max(probability))
 
-            is_malicious = bool(prediction == 1)
-            confidence = float(max(probability))
-
-            reason = (
-                f"Message flagged as spam/phishing (Confidence: {confidence * 100:.1f}%)"
-                if is_malicious
-                else f"Message classified as safe (Confidence: {confidence * 100:.1f}%)"
-            )
-
-            return jsonify({
-                "isMalicious": is_malicious,
-                "reason": reason
-            })
+            if prediction == 1 and tfidf_confidence > 0.70:
+                tfidf_malicious = True
+                flags.append(f"TF-IDF spam classifier (Confidence: {tfidf_confidence * 100:.1f}%)")
         except Exception as e:
-            print(f"Chat NLP Error: {e}")
-            return jsonify({"isMalicious": False, "reason": f"NLP scan error: {e}"}), 500
+            print(f"TF-IDF Error: {e}")
+
+    # --- Layer 3: Multilingual Zero-Shot Classification (XLM-RoBERTa) ---
+    if multilingual_clf:
+        try:
+            candidate_labels = ["spam or scam message", "normal conversation"]
+            result = multilingual_clf(message, candidate_labels)
+
+            spam_score = 0.0
+            for label, score in zip(result['labels'], result['scores']):
+                if label == "spam or scam message":
+                    spam_score = score
+                    break
+
+            if spam_score > 0.75:
+                flags.append(f"Multilingual AI classifier (Confidence: {spam_score * 100:.1f}%)")
+        except Exception as e:
+            print(f"Multilingual classifier error: {e}")
+
+    # --- Final Decision ---
+    is_malicious = len(flags) > 0
+    is_blocked = len(flags) >= 1  # Block if any layer flags it
+
+    if is_malicious:
+        reason = "Message blocked: " + "; ".join(flags)
     else:
-        # Model not loaded — fail open (allow message through)
-        return jsonify({
-            "isMalicious": False,
-            "reason": "Chat NLP model not available — message allowed by default."
-        })
+        reason = "Message classified as safe."
+
+    return jsonify({
+        "isMalicious": is_malicious,
+        "isBlocked": is_blocked,
+        "reason": reason
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

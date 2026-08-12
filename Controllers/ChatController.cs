@@ -61,7 +61,25 @@ namespace FYP.Controllers
                 return Json(new { success = false, message = "Message text or attachment cannot be empty." });
             }
 
-            string safePayload = string.IsNullOrWhiteSpace(payload) ? "" : payload;
+            // Spam/Flood Prevention: Limit to 5 consecutive messages without a reply
+            var lastMessages = await _context.ChatMessages
+                .Where(m => (m.SenderID == senderId && m.ReceiverID == receiverId) ||
+                            (m.SenderID == receiverId && m.ReceiverID == senderId))
+                .OrderByDescending(m => m.Timestamp)
+                .Take(5)
+                .ToListAsync();
+
+            if (lastMessages.Count == 5 && lastMessages.All(m => m.SenderID == senderId))
+            {
+                return Json(new { 
+                    success = false, 
+                    isBlocked = true, 
+                    message = "🚨 Flood protection: You have sent 5 consecutive messages. Please wait for a reply before sending more." 
+                });
+            }
+
+            // XSS Protection: HTML-encode the payload to prevent stored XSS attacks
+            string safePayload = string.IsNullOrWhiteSpace(payload) ? "" : System.Net.WebUtility.HtmlEncode(payload);
 
             // Handle file upload if present
             string? attachmentUrl = null;
@@ -113,16 +131,28 @@ namespace FYP.Controllers
             // 2. Save the message immediately (no AI delay)
             string chatId = "CHT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
 
-            // Phishing URL Detection
-            bool isPhishingUrl = System.Text.RegularExpressions.Regex.IsMatch(safePayload, @"(bit\.ly|tinyurl\.com|ngrok\.io|t\.co|wa\.me\/|t\.me\/)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            // FAST CHECK: Phishing URL Detection (instant — regex is negligible cost)
+            bool isPhishingUrl = System.Text.RegularExpressions.Regex.IsMatch(payload ?? "", @"(bit\.ly|tinyurl\.com|ngrok\.io|t\.co|wa\.me\/|t\.me\/)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
+            // Block immediately if phishing URL detected (no delay — this is regex only)
+            if (isPhishingUrl)
+            {
+                return Json(new
+                {
+                    success = false,
+                    isBlocked = true,
+                    message = "🚨 Message blocked: Suspicious phishing URL detected. Links to URL shorteners are not allowed for security reasons."
+                });
+            }
+
+            // Save and deliver instantly — zero delay for the user
             var chatMessage = new ChatMessage
             {
                 ChatID = chatId,
                 SenderID = senderId,
                 ReceiverID = receiverId,
                 Payload = safePayload,
-                NLP_Flag = isPhishingUrl, // Flag immediately if suspicious link detected
+                NLP_Flag = false,
                 IsRead = false,
                 Timestamp = DateTime.UtcNow,
                 AttachmentUrl = attachmentUrl,
@@ -132,24 +162,26 @@ namespace FYP.Controllers
             _context.ChatMessages.Add(chatMessage);
             await _context.SaveChangesAsync();
 
-            // 3. Deliver instantly via SignalR
+            // 3. Deliver instantly via SignalR (payload is already HTML-encoded)
             await _hubContext.Clients.User(receiverId).SendAsync("ReceiveMessage", senderId, safePayload, chatMessage.Timestamp.ToLocalTime().ToString("HH:mm"), attachmentUrl, attachmentType, chatMessage.ChatID);
             await _hubContext.Clients.User(receiverId).SendAsync("UpdateUnreadBadge");
 
-            // 4. Fire-and-forget background NLP scan (no delay for the user)
-            if (!string.IsNullOrWhiteSpace(safePayload))
+            // 4. Background AI NLP Scan — multilingual spam detection (no delay for the user)
+            //    If flagged: warns both users via SignalR + marks message in DB
+            if (!string.IsNullOrWhiteSpace(payload))
             {
                 var savedChatId = chatMessage.ChatID;
                 var scopeFactory = HttpContext.RequestServices.GetRequiredService<IServiceScopeFactory>();
                 var capturedSenderId = senderId;
+                var capturedReceiverId = receiverId;
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        bool isMalicious = await _aiClient.ScanChatMessageAsync(safePayload);
-                        if (isMalicious)
+                        var scanResult = await _aiClient.ScanChatMessageAsync(payload);
+                        if (scanResult.IsMalicious)
                         {
-                            // Use a new DbContext scope since we're on a background thread
+                            // Update DB flag
                             using var scope = scopeFactory.CreateScope();
                             var bgContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                             var msg = await bgContext.ChatMessages.FindAsync(savedChatId);
@@ -159,13 +191,13 @@ namespace FYP.Controllers
                                 await bgContext.SaveChangesAsync();
                             }
 
-                            // Notify sender that their message was flagged
+                            // Push warning to sender
                             await _hubContext.Clients.User(capturedSenderId).SendAsync("MessageFlagged", savedChatId,
-                                "⚠️ Your message was flagged by our NLP security system for potential phishing content.");
+                                $"⚠️ Your message was flagged: {scanResult.Reason}");
 
-                            // Notify receiver with a warning
-                            await _hubContext.Clients.User(receiverId).SendAsync("MessageFlagged", savedChatId,
-                                "⚠️ Warning: This message has been flagged for suspicious content.");
+                            // Push warning to receiver
+                            await _hubContext.Clients.User(capturedReceiverId).SendAsync("MessageFlagged", savedChatId,
+                                "⚠️ Warning: This message has been flagged as potential spam/phishing by our multilingual AI security system.");
                         }
                     }
                     catch (Exception ex)

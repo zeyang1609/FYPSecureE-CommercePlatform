@@ -64,9 +64,10 @@ namespace FYP.Services
         }
 
         /// <summary>
-        /// Sends chat message string to Python for TF-IDF + Random Forest NLP spam/phishing evaluation.
+        /// Sends chat message string to Python for multilingual NLP spam/phishing evaluation.
+        /// Returns full scan result with block status and reason.
         /// </summary>
-        public async Task<bool> ScanChatMessageAsync(string messagePayload)
+        public async Task<ChatScanResult> ScanChatMessageAsync(string messagePayload)
         {
             try
             {
@@ -75,8 +76,8 @@ namespace FYP.Services
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<ChatScanResult>();
-                    return result?.IsMalicious ?? false;
+                    return await response.Content.ReadFromJsonAsync<ChatScanResult>()
+                           ?? new ChatScanResult();
                 }
             }
             catch (Exception ex)
@@ -84,7 +85,7 @@ namespace FYP.Services
                 Console.WriteLine($"AI NLP Service Unreachable: {ex.Message}");
             }
 
-            return false;
+            return new ChatScanResult { IsMalicious = false, IsBlocked = false, Reason = "NLP service offline — message allowed." };
         }
     }
 
@@ -106,6 +107,7 @@ namespace FYP.Services
     public class ChatScanResult
     {
         public bool IsMalicious { get; set; }
+        public bool IsBlocked { get; set; }
         public string Reason { get; set; } = string.Empty;
     }
 }

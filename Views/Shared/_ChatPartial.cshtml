@@ -66,6 +66,14 @@
     <script>
         let currentChatUserId = "";
 
+        // XSS Protection: Escape HTML entities in user-generated content
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
         const connection = new signalR.HubConnectionBuilder()
             .withUrl("/chatHub")
             .withAutomaticReconnect()
@@ -87,7 +95,7 @@
                 box.innerHTML += `
                     <div id="msg-${chatId}" style="align-self: flex-start; background: white; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 80%;">
                         ${attachmentHtml}
-                        <div style="font-size: 14px; color: #2D3748;">${message}</div>
+                        <div style="font-size: 14px; color: #2D3748;">${escapeHtml(message)}</div>
                         <div style="font-size: 11px; color: #A0ABC0; margin-top: 4px; text-align: right;">${time}</div>
                     </div>`;
                 box.scrollTop = box.scrollHeight;
@@ -196,7 +204,7 @@
                         msgBox.innerHTML += `
                             <div id="msg-${msg.chatId}" style="align-self: flex-end; background: #EE4D2D; color: white; padding: 10px 15px; border-radius: 12px; border-bottom-right-radius: 0; box-shadow: 0 1px 3px rgba(238,77,45,0.2); max-width: 80%;">
                                 ${attachmentHtml}
-                                <div style="font-size: 14px;">${msg.payload}</div>
+                                <div style="font-size: 14px;">${escapeHtml(msg.payload)}</div>
                                 <div style="font-size: 10px; color: #FFD1C9; margin-top: 4px; text-align: right;">${msg.timestamp}</div>
                                 ${warningHtml}
                             </div>`;
@@ -204,7 +212,7 @@
                         msgBox.innerHTML += `
                             <div id="msg-${msg.chatId}" style="align-self: flex-start; background: white; padding: 10px 15px; border-radius: 12px; border-bottom-left-radius: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 80%;">
                                 ${attachmentHtml}
-                                <div style="font-size: 14px; color: #2D3748;">${msg.payload}</div>
+                                <div style="font-size: 14px; color: #2D3748;">${escapeHtml(msg.payload)}</div>
                                 <div style="font-size: 10px; color: #A0ABC0; margin-top: 4px; text-align: right;">${msg.timestamp}</div>
                                 ${warningHtml}
                             </div>`;
@@ -322,9 +330,9 @@
                     }
 
                     box.innerHTML += `
-                        <div style="align-self: flex-end; background: #EE4D2D; color: white; padding: 10px 15px; border-radius: 12px; border-bottom-right-radius: 0; box-shadow: 0 1px 3px rgba(238,77,45,0.2); max-width: 80%;">
+                        <div id="msg-${result.data.chatId}" style="align-self: flex-end; background: #EE4D2D; color: white; padding: 10px 15px; border-radius: 12px; border-bottom-right-radius: 0; box-shadow: 0 1px 3px rgba(238,77,45,0.2); max-width: 80%;">
                             ${attachmentHtml}
-                            <div style="font-size: 14px;">${msg}</div>
+                            <div style="font-size: 14px;">${escapeHtml(msg)}</div>
                         </div>`;
                     
                     // Clear file input and preview

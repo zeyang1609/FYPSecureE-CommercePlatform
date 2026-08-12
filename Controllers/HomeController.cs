@@ -99,6 +99,7 @@ namespace FYP.Controllers
         {
             var product = await _context.Products
                 .Include(p => p.Seller)
+                .Include(p => p.Category)
                 .FirstOrDefaultAsync(p => p.ProductID == id);
 
             if (product == null)
