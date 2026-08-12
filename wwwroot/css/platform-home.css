@@ -166,15 +166,47 @@ body {
 }
 
 .banner-main {
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: var(--white);
-    border-radius: 6px;
-    padding: 40px;
+    border-radius: 12px;
+    padding: 40px 48px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-height: 220px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    min-height: 260px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.banner-main::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -10%;
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(238,77,45,0.15) 0%, rgba(238,77,45,0) 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.banner-main::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: 15%;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, rgba(59,130,246,0) 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+@keyframes pulse-dot {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(238, 77, 45, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(238, 77, 45, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(238, 77, 45, 0); }
 }
 
 .banner-side {
@@ -183,17 +215,54 @@ body {
     gap: 15px;
 }
 
-.side-card {
+.value-prop-card {
     background: var(--white);
     border-radius: 6px;
-    padding: 20px;
+    padding: 20px 16px;
     flex: 1;
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    color: var(--brand-primary);
+    gap: 16px;
     border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.value-prop-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.prop-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #fff2f0;
+    color: var(--brand-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.prop-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.prop-text h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #222;
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+}
+
+.prop-text p {
+    font-size: 0.8rem;
+    color: #666;
+    margin: 0;
+    line-height: 1.3;
 }
 
 /* --- Categories Section --- */

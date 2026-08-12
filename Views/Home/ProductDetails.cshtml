@@ -80,7 +80,7 @@
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="productId" value="@Model.ProductID" />
                     
-                    <div class="action-row">
+                    <div class="action-row" style="margin-bottom: 8px;">
                         <div class="action-label">Quantity</div>
                         <div class="quantity-selector">
                             <button type="button" class="qty-btn" onclick="decreaseQty()">−</button>
@@ -88,6 +88,9 @@
                             <button type="button" class="qty-btn" onclick="increaseQty()">+</button>
                         </div>
                         <div class="stock-info">@Model.StockLevel piece(s) available</div>
+                    </div>
+                    <div id="qtyErrorMsg" style="color: #ff4d4f; font-size: 0.9rem; margin-bottom: 17px; display: none; margin-left: 110px;">
+                        You have reached the maximum quantity available for this item
                     </div>
 
                     <div class="button-group">
@@ -264,11 +267,13 @@
 <script>
     var maxStock = parseInt('@Model.StockLevel');
     var qtyInput = document.getElementById('qtyInput');
+    var qtyErrorMsg = document.getElementById('qtyErrorMsg');
 
     function decreaseQty() {
         var current = parseInt(qtyInput.value);
         if (current > 1) {
             qtyInput.value = current - 1;
+            qtyErrorMsg.style.display = 'none';
         }
     }
 
@@ -276,22 +281,73 @@
         var current = parseInt(qtyInput.value);
         if (current < maxStock) {
             qtyInput.value = current + 1;
+            qtyErrorMsg.style.display = 'none';
+        } else {
+            qtyErrorMsg.style.display = 'block';
         }
     }
 
-    qtyInput.addEventListener('change', function() {
-        var val = parseInt(this.value);
-        if (isNaN(val) || val < 1) this.value = 1;
-        if (val > maxStock) this.value = maxStock;
+    qtyInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            return false;
+        }
+        // Allow control keys
+        if (['Backspace', 'Delete', 'Tab', 'Escape', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            return;
+        }
+        // Prevent non-numeric characters
+        if (e.key < '0' || e.key > '9') {
+            e.preventDefault();
+        }
     });
 
+    qtyInput.addEventListener('input', function(e) {
+        // Remove non-digits
+        this.value = this.value.replace(/\D/g, '');
+        
+        // Remove leading zeros
+        if (this.value.length > 0 && this.value.startsWith('0')) {
+            this.value = this.value.replace(/^0+/, '');
+        }
+        
+        if (this.value !== '') {
+            var val = parseInt(this.value);
+            if (val > maxStock) {
+                qtyErrorMsg.style.display = 'block';
+                this.value = maxStock;
+            } else {
+                qtyErrorMsg.style.display = 'none';
+            }
+        } else {
+            qtyErrorMsg.style.display = 'none';
+        }
+    });
+
+    qtyInput.addEventListener('change', function() {
+        if (this.value === '' || parseInt(this.value) < 1) {
+            this.value = 1;
+        }
+    });
+
+    var isAuthenticated = @(User.Identity?.IsAuthenticated == true ? "true" : "false");
+
     function buyNow() {
+        if (!isAuthenticated) {
+            window.location.href = '/Auth/Login';
+            return;
+        }
         var form = document.getElementById('addToCartForm');
         form.action = '/Cart/BuyNow';
         form.submit();
     }
 
     async function addToCartAjax() {
+        if (!isAuthenticated) {
+            window.location.href = '/Auth/Login';
+            return;
+        }
+        
         var form = document.getElementById('addToCartForm');
         var formData = new FormData(form);
         

@@ -236,10 +236,7 @@ namespace FYP.Controllers
             return PartialView("_ShopProductGrid", vm);
         }
 
-        public IActionResult Privacy()
-        {
-            return View();
-        }
+
 
         [HttpGet]
         public async Task<IActionResult> SeedSeller([FromServices] FYP.Data.ApplicationDbContext context)

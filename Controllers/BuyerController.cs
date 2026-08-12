@@ -1462,6 +1462,43 @@ namespace FYP.Controllers
 
             return View(notifications);
         }
+        [HttpGet]
+        public async Task<IActionResult> DownloadReceipt(string orderId, [FromServices] IPdfReceiptService pdfReceiptService)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Challenge();
+            }
+
+            var order = await _context.Orders
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                        .ThenInclude(p => p.Seller)
+                .Include(o => o.Buyer)
+                    .ThenInclude(b => b.Addresses)
+                .Include(o => o.Payment)
+                .FirstOrDefaultAsync(o => o.OrderID == orderId);
+
+            if (order == null)
+            {
+                return NotFound("Order not found.");
+            }
+
+            if (order.BuyerID != userId)
+            {
+                // IDOR Prevention: Ensure the authenticated user owns this order
+                return Forbid();
+            }
+
+            // Generate Unique Receipt Number
+            var receiptNumber = $"REC-{order.CreatedAt:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 5).ToUpper()}";
+
+            // Generate PDF
+            var pdfBytes = await pdfReceiptService.GenerateReceiptAsync(order, receiptNumber);
+
+            return File(pdfBytes, "application/pdf", $"{receiptNumber}.pdf");
+        }
     }
 
     public class SyncCardRequest

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SecurePlatform</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/FYP.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/help-center.css" />
+    <style>
+        .page-label {
+            font-size: 1.25rem;
+            color: #333;
+            margin-left: 15px;
+            padding-left: 15px;
+            border-left: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh; background-color: #f5f5f5;">
+
+    <header class="auth-navbar" style="background: white; padding: 15px 0; border-bottom: 1px solid #eaeaea;">
+        <div class="nav-container" style="max-width: 1200px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center;">
+                <a asp-controller="Home" asp-action="Index" class="brand-group" style="text-decoration: none; display: flex; align-items: center; color: #EE4D2D;">
+                    <span class="brand-text" style="font-size: 1.5rem; font-weight: 700;">SecurePlatform</span>
+                </a>
+                <span class="page-label">Help Center</span>
+            </div>
+            <div>
+                <a asp-controller="Home" asp-action="Index" class="help-link" style="color: #EE4D2D; text-decoration: none; font-weight: 600;">&larr; Back to Home</a>
+            </div>
+        </div>
+    </header>
+
+    <main role="main" style="flex: 1;">
+        @RenderBody()
+    </main>
+
+    <footer style="background-color: white; border-top: 1px solid #eaeaea; padding: 40px 0; margin-top: auto;">
+        <div style="max-width: 1200px; margin: 0 auto; text-align: center; color: #888;">
+            <p>&copy; @DateTime.Now.Year SecurePlatform. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
