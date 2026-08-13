@@ -121,7 +121,7 @@
                                     {
                                         <span>Refund Status <span class="status-divider">|</span> @(latestRefund.Status.Replace("_", " "))</span>
                                     }
-                                    else if (order.Status == "Completed" || order.Status == "Delivered")
+                                    else if (order.Status == "Completed")
                                     {
                                         if (isRated)
                                         {
@@ -131,6 +131,10 @@
                                         {
                                             <span>Parcel has been delivered <span class="status-divider">|</span> COMPLETED</span>
                                         }
+                                    }
+                                    else if (order.Status == "Delivered")
+                                    {
+                                        <span>Parcel has been delivered <span class="status-divider">|</span> DELIVERED</span>
                                     }
                                     else
                                     {
@@ -274,7 +278,7 @@
                                                     </div>
                                                 </div>
                                             }
-                                            else if (order.Status == "Completed" || order.Status == "Delivered")
+                                            else if (order.Status == "Completed")
                                             {
                                                 @if (!isRated)
                                                 {
@@ -1096,7 +1100,7 @@
                     } else if (activeTab === "toreceive") {
                         tabMatch = status.includes("shipped") || status.includes("delivered");
                     } else if (activeTab === "completed") {
-                        tabMatch = status.includes("completed") || status.includes("delivered");
+                        tabMatch = status.includes("completed");
                     } else if (activeTab === "cancelled") {
                         tabMatch = status.includes("cancelled") || status.includes("declined");
                     } else if (activeTab === "return") {

@@ -6,6 +6,7 @@
     var firstItem = Model.OrderItems.FirstOrDefault();
     var sellerName = firstItem?.Product?.Seller?.Name ?? "Various Sellers";
     ViewData["ReturnUrl"] = $"/Buyer/RequestRefundForm?orderId={Model.OrderID}&issueType={issueType}";
+    var delivery = ViewBag.Delivery as FYP.Models.Entities.Delivery;
 }
 
 <!DOCTYPE html>
@@ -174,14 +175,26 @@
                 
                 <div class="form-group" style="display: flex; align-items: center;">
                     <label class="form-label" style="width: 200px; margin-bottom: 0;">Reason:</label>
-                    <select name="reason" id="reasonSelect" class="form-control" required style="flex: 1; max-width: 400px;">
-                        <option value="">Select a reason</option>
-                        <option value="Damaged Item">Damaged Item</option>
-                        <option value="Wrong Item Sent">Wrong Item Sent</option>
-                        <option value="Missing Parts">Missing Parts</option>
-                        <option value="Item not as described">Item not as described</option>
-                        <option value="Change of Mind">Change of Mind</option>
-                    </select>
+                    <div style="flex: 1; max-width: 400px; position: relative;">
+                        <select name="reason" id="reasonSelect" class="form-control" style="width: 100%;">
+                            <option value="" selected disabled>Select a reason</option>
+                            @if (issueType == "Did Not Receive Some/All of the Item(s)")
+                            {
+                                <option value="Parcel Not delivered">Parcel Not delivered</option>
+                                <option value="Missing part of the order">Missing part of the order</option>
+                                <option value="Empty/Tampered Parcel">Empty/Tampered Parcel</option>
+                            }
+                            else
+                            {
+                                <option value="Damaged Item">Damaged Item</option>
+                                <option value="Wrong Item Sent">Wrong Item Sent</option>
+                                <option value="Missing Parts">Missing Parts</option>
+                                <option value="Item not as described">Item not as described</option>
+                                <option value="Change of Mind">Change of Mind</option>
+                            }
+                        </select>
+                        <div id="reasonErrorMsg" style="color: #ee4d2d; font-size: 12px; margin-top: 4px; display: none;">Please provide a reason</div>
+                    </div>
                 </div>
 
                 <div class="form-group" style="display: flex; align-items: flex-start; margin-top: 20px;">
@@ -197,7 +210,7 @@
                     
                     <div style="flex: 1; max-width: 500px;">
 
-                        <ol style="font-size: 13px; color: #666; margin: 0 0 16px 20px; padding-top: 10px;">
+                        <ol id="proofInstructionsList" style="font-size: 13px; color: #666; margin: 0 0 16px 20px; padding-top: 10px;">
                             <li>Content of the parcel received</li>
                             <li>Packaging from all angles</li>
                         </ol>
@@ -231,6 +244,32 @@
                         </div>
 
                         <script>
+                            document.getElementById('reasonSelect').addEventListener('change', function() {
+                                const reason = this.value;
+                                const list = document.getElementById('proofInstructionsList');
+                                
+                                if (reason === 'Damaged Item') {
+                                    list.innerHTML = '<li>Damaged conditions of the product</li><li>Packaging from all angles</li>';
+                                } else if (reason === 'Wrong Item Sent') {
+                                    list.innerHTML = '<li>Wrong product received</li><li>Packaging from all angles with clear Airway Bill</li>';
+                                } else if (reason === 'Change of Mind') {
+                                    list.innerHTML = '<li>Product is still in sealed and unused condition</li>';
+                                } else if (reason === 'Missing part of the order') {
+                                    list.innerHTML = '<li>Content of the parcel received</li><li>Packaging from all angles</li>';
+                                } else if (reason === 'Empty/Tampered Parcel') {
+                                    list.innerHTML = '<li>Parcel received that is empty</li><li>Packaging with clear Airway Bill</li>';
+                                } else {
+                                    list.innerHTML = '<li>Content of the parcel received</li><li>Packaging from all angles</li>';
+                                }
+
+                                if (reason === 'Parcel Not delivered') {
+                                    document.getElementById('parcelNotDeliveredModal').style.display = 'flex';
+                                }
+
+                                this.style.borderColor = '#e5e5e5';
+                                document.getElementById('reasonErrorMsg').style.display = 'none';
+                            });
+
                             let refundImageDT = new DataTransfer();
                             let refundVideoDT = new DataTransfer();
 
@@ -560,8 +599,15 @@
         let tempReturnDesc = 'Drop off your parcel at the nearest courier branch.';
 
         function validateRefundForm() {
+            const reasonSelect = document.getElementById('reasonSelect');
+            if (!reasonSelect.value) {
+                reasonSelect.style.borderColor = '#ee4d2d';
+                document.getElementById('reasonErrorMsg').style.display = 'block';
+                return false;
+            }
+
             confirmReturnMethod(); // Ensure any unconfirmed selection is applied before submit
-            if (refundImageDT.files.length === 0 && refundVideoDT.files.length === 0) {
+            if (reasonSelect.value !== 'Parcel Not delivered' && refundImageDT.files.length === 0 && refundVideoDT.files.length === 0) {
                 alert("Please upload at least one image or video as proof.");
                 return false;
             }
@@ -690,5 +736,25 @@
     </script>
     @await Html.PartialAsync("_ChatPartial")
     @await Html.PartialAsync("_AddressModalPartial")
+
+    <div id="parcelNotDeliveredModal" class="modal" style="display:none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 8px; max-width: 400px; text-align: center;">
+            <h3 style="margin-top: 0; color: #333;">Check Proof of Delivery</h3>
+            <p style="color: #666; margin-bottom: 10px;">Tracking Number: <strong>@(delivery?.TrackingNumber ?? "N/A")</strong></p>
+            <p style="color: #666; margin-bottom: 20px;">Delivered on <strong>@(delivery?.ActualDeliveryDate?.ToString("dd MMM yyyy, HH:mm") ?? "N/A")</strong></p>
+            <p style="color: #333; margin-bottom: 25px; font-weight: 500;">Please check your whatsapp for driver's delivery proof.</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button type="button" onclick="cancelParcelModal()" class="btn-action secondary" style="flex: 1;">Cancel</button>
+                <button type="button" onclick="document.getElementById('parcelNotDeliveredModal').style.display='none'" class="btn-action primary" style="flex: 1;">Continue</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        function cancelParcelModal() {
+            document.getElementById('parcelNotDeliveredModal').style.display = 'none';
+            document.getElementById('reasonSelect').value = '';
+            document.getElementById('proofInstructionsList').innerHTML = '<li>Content of the parcel received</li><li>Packaging from all angles</li>';
+        }
+    </script>
 </body>
 </html>

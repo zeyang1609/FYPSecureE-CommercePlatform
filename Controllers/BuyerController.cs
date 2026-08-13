@@ -330,6 +330,9 @@ namespace FYP.Controllers
                 .FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId);
             
             if (order == null) return NotFound("Order not found or access denied.");
+
+            var delivery = await _context.Deliveries.FirstOrDefaultAsync(d => d.OrderID == orderId);
+            ViewBag.Delivery = delivery;
             
             var buyer = await _context.Users.Include(b => b.Addresses).FirstOrDefaultAsync(b => b.UserID == buyerId);
             ViewBag.AvailableAddresses = buyer?.Addresses?.ToList() ?? new List<Address>();
