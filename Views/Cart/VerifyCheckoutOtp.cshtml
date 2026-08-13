@@ -29,9 +29,11 @@
                            placeholder="Enter 6-digit OTP" required style="letter-spacing: 2px; font-size: 1.5rem;" />
                 </div>
                 <div class="d-grid gap-2">
-                    <div id="expireTimer" class="text-danger text-center mb-2 fw-bold" style="font-size: 0.9rem;">Code expires in: 60s</div>
                     <button type="submit" id="btnVerify" class="btn btn-warning btn-lg fw-bold" style="background-color: #ff9800; border: none;">
                         Verify & Complete Checkout <i class="fas fa-arrow-right ms-2"></i>
+                    </button>
+                    <button type="button" id="btnResend" class="btn btn-outline-primary mt-2">
+                        Resend Verification Code
                     </button>
                     <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-secondary mt-2">
                         Cancel Checkout
@@ -44,24 +46,59 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        let timeLeft = 60;
-        const expireTimer = document.getElementById("expireTimer");
-        const btnVerify = document.getElementById("btnVerify");
+        const btnResend = document.getElementById("btnResend");
+        let resendTimer = null;
 
-        const timerInterval = setInterval(() => {
-            timeLeft--;
-            if (expireTimer) expireTimer.textContent = `Code expires in: ${timeLeft}s`;
-
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                if (expireTimer) expireTimer.textContent = "Code Expired";
-                if (btnVerify) {
-                    btnVerify.disabled = true;
-                    btnVerify.style.backgroundColor = "#ccc";
-                    btnVerify.style.cursor = "not-allowed";
-                    btnVerify.innerHTML = "CODE EXPIRED";
+        function startResendTimer() {
+            let timeLeft = 60;
+            btnResend.disabled = true;
+            btnResend.textContent = `Resend (${timeLeft}s)`;
+            
+            resendTimer = setInterval(() => {
+                timeLeft--;
+                btnResend.textContent = `Resend (${timeLeft}s)`;
+                if (timeLeft <= 0) {
+                    clearInterval(resendTimer);
+                    btnResend.disabled = false;
+                    btnResend.textContent = "Resend Verification Code";
                 }
-            }
-        }, 1000);
+            }, 1000);
+        }
+
+        if (btnResend) {
+            startResendTimer();
+            
+            btnResend.addEventListener("click", async function(e) {
+                e.preventDefault();
+                if (this.disabled) return;
+                
+                this.disabled = true;
+                this.textContent = "Sending...";
+
+                try {
+                    const response = await fetch('@Url.Action("ResendCheckoutOtp", "Cart")', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                        }
+                    });
+
+                    if (response.ok) {
+                        alert("A new 6-digit security code has been dispatched to your email address.");
+                        startResendTimer();
+                    } else {
+                        alert("Failed to resend code. Please try again.");
+                        this.disabled = false;
+                        this.textContent = "Resend Verification Code";
+                    }
+                } catch (error) {
+                    console.error(error);
+                    alert("An error occurred while resending the code.");
+                    this.disabled = false;
+                    this.textContent = "Resend Verification Code";
+                }
+            });
+        }
     });
 </script>

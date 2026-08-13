@@ -791,5 +791,29 @@ namespace FYP.Controllers
                 }
             }
         }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResendOtp([FromBody] ResendOtpRequest request)
+        {
+            if (string.IsNullOrEmpty(request?.Email) || string.IsNullOrEmpty(request?.Purpose))
+            {
+                return BadRequest(new { success = false, message = "Invalid request." });
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+            if (user == null)
+            {
+                return BadRequest(new { success = false, message = "User not found." });
+            }
+
+            await _otpService.GenerateAndSendOtpAsync(request.Email, request.Purpose);
+            return Ok(new { success = true });
+        }
+    }
+
+    public class ResendOtpRequest
+    {
+        public string Email { get; set; }
+        public string Purpose { get; set; }
     }
 }

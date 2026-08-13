@@ -260,11 +260,11 @@
                 <div class="filter-grid">
                     <div class="filter-group">
                         <label>Start Date</label>
-                        <input type="date" name="startDate" value="@ViewData["StartDateFilter"]" />
+                        <input type="date" name="startDate" id="startDate" value="@ViewData["StartDateFilter"]" max="@DateTime.Now.ToString("yyyy-MM-dd")" />
                     </div>
                     <div class="filter-group">
                         <label>End Date</label>
-                        <input type="date" name="endDate" value="@ViewData["EndDateFilter"]" />
+                        <input type="date" name="endDate" id="endDate" value="@ViewData["EndDateFilter"]" max="@DateTime.Now.ToString("yyyy-MM-dd")" />
                     </div>
                     <div class="filter-group">
                         <label>User Name / Email</label>
@@ -355,5 +355,36 @@
             </table>
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            const today = new Date().toISOString().split('T')[0];
+
+            startDateInput.addEventListener('change', function () {
+                if (startDateInput.value) {
+                    endDateInput.min = startDateInput.value;
+                } else {
+                    endDateInput.min = "";
+                }
+            });
+
+            endDateInput.addEventListener('change', function () {
+                if (endDateInput.value) {
+                    startDateInput.max = endDateInput.value;
+                } else {
+                    startDateInput.max = today;
+                }
+            });
+            
+            if (startDateInput.value) {
+                endDateInput.min = startDateInput.value;
+            }
+            if (endDateInput.value) {
+                startDateInput.max = endDateInput.value;
+            }
+        });
+    </script>
 </body>
 </html>

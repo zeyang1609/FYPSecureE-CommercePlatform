@@ -1232,6 +1232,18 @@ namespace FYP.Controllers
             return View();
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResendCheckoutOtp()
+        {
+            var userId = GetUserId();
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return Unauthorized(new { success = false, message = "User not found." });
+
+            await _otpService.GenerateAndSendOtpAsync(user.Email, "Checkout Verification");
+            return Ok(new { success = true });
+        }
+
         [HttpGet]
         public async Task<IActionResult> FinalizeCheckoutMfaPassed()
         {

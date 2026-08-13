@@ -69,7 +69,6 @@
                 </div>
 
 
-                <div id="expireTimer" style="color: #EE4D2D; font-size: 0.85rem; margin-bottom: 15px; font-weight: 500; text-align: center;">Code expires in: 60s</div>
                 <button type="submit" class="courier-primary-btn" id="btnVerify">
                     VERIFY & PROCEED
                 </button>
@@ -77,7 +76,7 @@
 
             <div class="form-footer" style="margin-top: 25px;">
                 Did not receive the code? <br />
-                <a href="#" id="resendLink" class="form-footer-link" style="display:inline-block; margin-top:5px;">Resend Code <span id="timerSpan">(60s)</span></a>
+                <a href="#" id="resendLink" class="form-footer-link active" style="display:inline-block; margin-top:5px;">Resend Verification Code</a>
             </div>
 
             <div class="form-footer" style="margin-top: 15px;">
@@ -164,47 +163,64 @@
                     }
                 });
 
-                let timeLeft = 60;
-                const timerInterval = setInterval(() => {
-                    timeLeft--;
-                    timerSpan.textContent = `(${timeLeft}s)`;
-                    if (expireTimer) expireTimer.textContent = `Code expires in: ${timeLeft}s`;
-
-                    if (timeLeft <= 0) {
-                        clearInterval(timerInterval);
-                        timerSpan.textContent = "";
-                        if (expireTimer) expireTimer.textContent = "Code Expired";
-                        resendLink.classList.add("active");
-                        resendLink.textContent = "Resend Verification Code";
-                    }
-                }, 1000);
-
-                resendLink.addEventListener("click", function(e) {
-                    e.preventDefault();
-                    if (!this.classList.contains("active")) return;
-
-                    alert("A new 6-digit security code has been dispatched to your email address.");
-
-                    this.classList.remove("active");
-                    timeLeft = 60;
-                    timerSpan.textContent = `(${timeLeft}s)`;
-                    if (expireTimer) expireTimer.textContent = `Code expires in: ${timeLeft}s`;
-                    this.innerHTML = `Resend Code <span id="timerSpan">(${timeLeft}s)</span>`;
-
-                    const newInterval = setInterval(() => {
+                let resendTimer = null;
+                function startResendTimer() {
+                    let timeLeft = 60;
+                    resendLink.classList.remove("active");
+                    resendLink.style.pointerEvents = "none";
+                    resendLink.style.color = "#999";
+                    resendLink.innerHTML = `Resend Code <span id="timerSpan">(${timeLeft}s)</span>`;
+                    
+                    resendTimer = setInterval(() => {
                         timeLeft--;
-                        const span = document.getElementById("timerSpan");
-                        if (span) span.textContent = `(${timeLeft}s)`;
-                        if (expireTimer) expireTimer.textContent = `Code expires in: ${timeLeft}s`;
-
+                        resendLink.innerHTML = `Resend Code <span id="timerSpan">(${timeLeft}s)</span>`;
+                        
                         if (timeLeft <= 0) {
-                            clearInterval(newInterval);
-                            if (span) span.textContent = "";
-                            if (expireTimer) expireTimer.textContent = "Code Expired";
+                            clearInterval(resendTimer);
                             resendLink.classList.add("active");
+                            resendLink.style.pointerEvents = "auto";
+                            resendLink.style.color = "#EE4D2D";
                             resendLink.textContent = "Resend Verification Code";
                         }
                     }, 1000);
+                }
+                
+                startResendTimer();
+
+                resendLink.addEventListener("click", async function(e) {
+                    e.preventDefault();
+                    if (!this.classList.contains("active")) return;
+                    
+                    this.classList.remove("active");
+                    this.style.pointerEvents = "none";
+                    this.textContent = "Sending...";
+
+                    try {
+                        const response = await fetch('@Url.Action("ResendOtp", "Auth")', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                            },
+                            body: JSON.stringify({ email: '@Model.Email', purpose: 'Login Multi-Factor Authentication' })
+                        });
+
+                        if (response.ok) {
+                            alert("A new 6-digit security code has been dispatched to your email address.");
+                            startResendTimer();
+                        } else {
+                            alert("Failed to resend code. Please try again.");
+                            this.classList.add("active");
+                            this.style.pointerEvents = "auto";
+                            this.textContent = "Resend Verification Code";
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        alert("An error occurred while resending the code.");
+                        this.classList.add("active");
+                        this.style.pointerEvents = "auto";
+                        this.textContent = "Resend Verification Code";
+                    }
                 });
             });
     </script>
