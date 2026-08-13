@@ -70,6 +70,48 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 Window = TimeSpan.FromMinutes(1)
             }));
+
+    options.OnRejected = async (context, token) =>
+    {
+        var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (!string.IsNullOrEmpty(ip))
+        {
+            // Auto-blacklist the IP using a scoped DbContext
+            using (var scope = context.HttpContext.RequestServices.CreateScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                
+                // Only add if it doesn't already exist
+                if (!await dbContext.IpFilters.AnyAsync(f => f.IpAddress == ip))
+                {
+                    dbContext.IpFilters.Add(new FYP.Models.Entities.IpFilter
+                    {
+                        IpAddress = ip,
+                        FilterAction = "Block",
+                        Reason = "Auto-blacklisted due to rate limit violation",
+                        AddedAt = DateTime.UtcNow
+                    });
+
+                    // Log the security event
+                    dbContext.AuditLogs.Add(new FYP.Models.Entities.AuditLog
+                    {
+                        Action = "System Auto-Blacklist (Rate Limit Exceeded)",
+                        IP_Address = ip,
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    await dbContext.SaveChangesAsync();
+
+                    // Invalidate the blacklist cache so the middleware picks it up instantly
+                    var cache = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+                    cache.Remove("IpFilters_Blacklist");
+                }
+            }
+        }
+
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsync("Too many requests. Your IP has been temporarily flagged for security review.", token);
+    };
 });
 
 builder.Services.AddSignalR();

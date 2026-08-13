@@ -4,16 +4,19 @@ using FYP.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace FYP.Migrations
+namespace FYP.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812164301_AddImageBlacklist")]
+    partial class AddImageBlacklist
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -510,43 +513,6 @@ namespace FYP.Migrations
                         .IsUnique();
 
                     b.ToTable("FraudAlerts");
-                });
-
-            modelBuilder.Entity("FYP.Models.Entities.IpFilter", b =>
-                {
-                    b.Property<int>("FilterID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("FilterID"));
-
-                    b.Property<DateTime>("AddedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("AddedByAdminID")
-                        .IsRequired()
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("FilterAction")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("varchar(10)");
-
-                    b.Property<string>("IpAddress")
-                        .IsRequired()
-                        .HasMaxLength(45)
-                        .HasColumnType("varchar(45)");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.HasKey("FilterID");
-
-                    b.HasIndex("AddedByAdminID");
-
-                    b.ToTable("IpFilters");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Notification", b =>
@@ -1122,7 +1088,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "seller_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 12, 17, 5, 1, 482, DateTimeKind.Utc).AddTicks(5492),
+                            CreatedAt = new DateTime(2026, 8, 12, 16, 43, 0, 560, DateTimeKind.Utc).AddTicks(1301),
                             DeviceHash = "SEED",
                             Email = "demo_seller@secureplatform.com",
                             IsDisabled = false,
@@ -1135,7 +1101,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "admin_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 12, 17, 5, 1, 485, DateTimeKind.Utc).AddTicks(173),
+                            CreatedAt = new DateTime(2026, 8, 12, 16, 43, 0, 560, DateTimeKind.Utc).AddTicks(9300),
                             DeviceHash = "SEED",
                             Email = "demo_admin@secureplatform.com",
                             IsDisabled = false,
@@ -1148,7 +1114,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "SYSTEM",
-                            CreatedAt = new DateTime(2026, 8, 12, 17, 5, 1, 485, DateTimeKind.Utc).AddTicks(182),
+                            CreatedAt = new DateTime(2026, 8, 12, 16, 43, 0, 560, DateTimeKind.Utc).AddTicks(9305),
                             DeviceHash = "SEED",
                             Email = "system@secureplatform.com",
                             IsDisabled = false,
@@ -1324,17 +1290,6 @@ namespace FYP.Migrations
                         .IsRequired();
 
                     b.Navigation("Order");
-                });
-
-            modelBuilder.Entity("FYP.Models.Entities.IpFilter", b =>
-                {
-                    b.HasOne("FYP.Models.Entities.User", "AddedByAdmin")
-                        .WithMany()
-                        .HasForeignKey("AddedByAdminID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AddedByAdmin");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Notification", b =>

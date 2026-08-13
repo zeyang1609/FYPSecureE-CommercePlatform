@@ -1,0 +1,116 @@
+@model IEnumerable<FYP.Models.Entities.BlacklistedImageHash>
+@{
+    ViewData["Title"] = "AdminOS - Image Blacklist";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AdminOS</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    @await Html.PartialAsync("_AdminNavigationBar")
+
+    <main class="dashboard-container" style="max-width: 1400px;">
+        <div class="dashboard-header" style="border-left: 4px solid #EE4D2D;">
+            <div style="flex: 1;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h1 style="margin:0;">Global Image Hash Blacklist</h1>
+                    <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px; background: #FFF5F3; color: #D63031;">● Zero-Trust Verification</span>
+                </div>
+                <p>Manage cryptographic SHA-256 signatures for known fraudulent or illegal product imagery.</p>
+            </div>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background: #E8F5E9; color: #2E7D32; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #C8E6C9;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div style="background: #FFEBEE; color: #C62828; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #FFCDD2;">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
+        <div class="stats-grid" style="grid-template-columns: 1fr;">
+            <div class="stat-card">
+                <h3>Add New Fraudulent Hash</h3>
+                <form asp-action="AddBlacklistHash" method="post" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+                    <div>
+                        <label style="font-weight: 600; display: block; margin-bottom: 5px;">SHA-256 Hash</label>
+                        <input type="text" name="sha256Hash" class="mvc-input" placeholder="e.g. e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" required minlength="64" maxlength="64" style="width: 100%; font-family: monospace;" />
+                        <span style="font-size: 0.8rem; color: #666;">Must be exactly 64 characters.</span>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; display: block; margin-bottom: 5px;">Reason / Notes (Optional)</label>
+                        <input type="text" name="reason" class="mvc-input" placeholder="e.g. Known scammer template" style="width: 100%;" />
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-submit-primary" style="width: auto; background-color: #D63031; padding: 10px 20px;">Block Hash Platform-Wide</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="data-card" style="margin-top: 25px;">
+            <h3>Currently Blacklisted Hashes (@Model.Count())</h3>
+            <div style="overflow-x: auto; margin-top: 15px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Added At</th>
+                            <th>SHA-256 Hash</th>
+                            <th>Reason</th>
+                            <th>Added By</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var hash in Model)
+                        {
+                            <tr>
+                                <td style="white-space: nowrap;">@hash.AddedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                <td style="font-family: monospace; font-size: 0.9em;">@hash.SHA256Hash</td>
+                                <td>@hash.Reason</td>
+                                <td>
+                                    @if(hash.AddedByAdmin != null)
+                                    {
+                                        <span class="status-badge" style="background: #E3F2FD; color: #1565C0;">@hash.AddedByAdmin.Email</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge" style="background: #F5F5F5; color: #616161;">Unknown</span>
+                                    }
+                                </td>
+                                <td style="text-align: right;">
+                                    <form asp-action="RemoveBlacklistHash" method="post" onsubmit="return confirm('Are you sure you want to remove this hash from the blacklist?');">
+                                        <input type="hidden" name="id" value="@hash.HashID" />
+                                        <button type="submit" style="background: none; border: 1px solid #ddd; padding: 5px 10px; border-radius: 4px; cursor: pointer; color: #666;">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.Any())
+                        {
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 30px; color: #888;">No blacklisted hashes found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

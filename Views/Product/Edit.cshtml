@@ -1,6 +1,6 @@
-@model FYP.Models.ViewModels.ProductUploadViewModel
+@model FYP.Models.ViewModels.ProductEditViewModel
 @{
-    ViewData["Title"] = "AI Inventory Studio - List New Product";
+    ViewData["Title"] = "AI Inventory Studio - Edit Product";
     Layout = null;
 }
 
@@ -40,7 +40,7 @@
 
         <div class="studio-header">
             <div>
-                <h1>Add New Inventory</h1>
+                <h1>Edit Inventory</h1>
                 <p>Configure product specifications and submit imagery for automated security verification.</p>
             </div>
         </div>
@@ -54,8 +54,9 @@
                 </div>
             }
 
-            <form asp-controller="Product" asp-action="Create" method="post" enctype="multipart/form-data">
+            <form asp-controller="Product" asp-action="Edit" method="post" enctype="multipart/form-data">
                 @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="ProductID" />
 
                 <div class="studio-grid">
 
@@ -119,7 +120,7 @@
                                     {
                                         @foreach (var cat in (IEnumerable<FYP.Models.Entities.Category>)ViewBag.Categories)
                                         {
-                                            <option value="@cat.CategoryID">@cat.Name</option>
+                                            <option value="@cat.CategoryID" selected="@(ViewBag.CurrentCategory == cat.CategoryID ? "selected" : null)">@cat.Name</option>
                                         }
                                     }
                                 </select>
@@ -139,14 +140,14 @@
 
                         <div class="vision-canvas-box">
                             <div>
-                                <label class="field-label" style="margin-bottom: 10px;">Upload Product Image (Forensic Scan Required):</label>
+                                <label class="field-label" style="margin-bottom: 10px;">Update Product Image (Optional - Forensic Scan Required):</label>
 
                                 <div class="file-drop-area" onclick="document.getElementById('imageFile').click()">
                                     <!-- Live Image Thumbnail Preview -->
-                                    <img id="imagePreview" alt="Image Preview" />
+                                    <img id="imagePreview" alt="Image Preview" src="/uploads/@(Model.ProductID).jpg" style="display: block;" />
 
                                     <!-- Upload Icon & Instructions (Hidden automatically when preview loads) -->
-                                    <div id="uploadInstructions">
+                                    <div id="uploadInstructions" style="display: none;">
                                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#EE4D2D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px;">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                             <polyline points="17 8 12 3 7 8"></polyline>
@@ -156,7 +157,7 @@
                                         <span style="font-size: 0.75rem; color: var(--text-muted);">Supports High-Resolution JPG or PNG</span>
                                     </div>
 
-                                    <input asp-for="ImageFile" id="imageFile" type="file" accept="image/jpeg, image/png" class="file-input" required onchange="handleFileSelect(this)" />
+                                    <input asp-for="ImageFile" id="imageFile" type="file" accept="image/jpeg, image/png" class="file-input" onchange="handleFileSelect(this)" />
                                 </div>
                                 <span asp-validation-for="ImageFile" class="field-validation-error"></span>
                             </div>
@@ -180,7 +181,7 @@
                     </div>
                     <div>
                         <button type="submit" class="btn-submit-primary" style="width: auto; padding: 12px 30px; font-size: 0.95rem; margin: 0;">
-                            RUN AI VISION SCAN & LIST PRODUCT ?
+                            SAVE CHANGES & RUN AI SCAN
                         </button>
                     </div>
                 </div>
@@ -227,6 +228,7 @@
             }
         });
         
+        quill.root.innerHTML = document.querySelector('#DescriptionInput').value;
         var form = document.querySelector('form');
         form.addEventListener('submit', function() {
             var descInput = document.querySelector('#DescriptionInput');

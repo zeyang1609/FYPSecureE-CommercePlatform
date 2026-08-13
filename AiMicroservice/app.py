@@ -51,15 +51,9 @@ try:
 except Exception as e:
     print(f"Warning: Chat NLP model not loaded. ({e})")
 
-# --- Multilingual Spam/Scam Classifier (XLM-RoBERTa Zero-Shot) ---
-# Disabled due to slow download speeds. Relying on local keywords and RF model instead.
+
 multilingual_clf = None
 
-# Known fraudulent image hashes (SHA-256)
-KNOWN_FRAUD_HASHES = [
-    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"
-]
 
 # ==========================================
 # 2. Health Check Endpoint
@@ -131,14 +125,6 @@ def scan_image():
 
     if not image_bytes:
         return jsonify({"isForgeryDetected": True, "forgeryReason": "Empty image payload received."}), 400
-
-    # Check 1: Cryptographic Sieve (SHA-256 Hashing)
-    image_hash = hashlib.sha256(image_bytes).hexdigest()
-    if image_hash in KNOWN_FRAUD_HASHES:
-        return jsonify({
-            "isForgeryDetected": True,
-            "forgeryReason": f"SHA-256 Hash Match: Image ({image_hash[:16]}...) is in the known fraudulent database."
-        })
 
     # Check 2: Inappropriate / NSFW Content Detection
     if nsfw_detector:

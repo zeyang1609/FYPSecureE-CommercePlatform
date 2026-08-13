@@ -1,0 +1,134 @@
+@model IEnumerable<FYP.Models.Entities.IpFilter>
+@{
+    ViewData["Title"] = "AdminOS - IP Filtering";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AdminOS</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    @await Html.PartialAsync("_AdminNavigationBar")
+
+    <main class="dashboard-container" style="max-width: 1400px;">
+        <div class="dashboard-header" style="border-left: 4px solid #EE4D2D;">
+            <div style="flex: 1;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h1 style="margin:0;">Network IP Filtering</h1>
+                </div>
+                <p>Manage real-time access controls for IPv4 and IPv6 addresses. Block malicious traffic globally.</p>
+            </div>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background: #E8F5E9; color: #2E7D32; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #C8E6C9;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div style="background: #FFEBEE; color: #C62828; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #FFCDD2;">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
+        <div class="stats-grid" style="grid-template-columns: 1fr;">
+            <div class="stat-card">
+                <h3>Add New IP Rule</h3>
+                <form asp-action="AddIpFilter" method="post" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div style="flex: 2; min-width: 250px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px;">IP Address</label>
+                            <input type="text" name="ipAddress" class="mvc-input" placeholder="e.g. 192.168.1.100 or ::1" required maxlength="45" style="width: 100%; font-family: monospace;" />
+                        </div>
+                        <div style="flex: 1; min-width: 150px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px;">Action</label>
+                            <select name="filterAction" class="mvc-input" required style="width: 100%;">
+                                <option value="Block">Block (Deny Access)</option>
+                                <option value="Allow">Allow (Whitelist)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; display: block; margin-bottom: 5px;">Reason / Notes (Optional)</label>
+                        <input type="text" name="reason" class="mvc-input" placeholder="e.g. DDOS attempt, Known crawler" maxlength="255" style="width: 100%;" />
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-submit-primary" style="width: auto; background-color: #20232a; padding: 10px 20px;">Deploy Firewall Rule</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="data-card" style="margin-top: 25px;">
+            <h3>Active Network Rules (@Model.Count())</h3>
+            <div style="overflow-x: auto; margin-top: 15px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Added At</th>
+                            <th>IP Address</th>
+                            <th>Action</th>
+                            <th>Reason</th>
+                            <th>Added By</th>
+                            <th style="text-align: right;">Options</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var filter in Model)
+                        {
+                            <tr>
+                                <td style="white-space: nowrap;">@filter.AddedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                <td style="font-family: monospace; font-size: 0.9em; font-weight: bold;">@filter.IpAddress</td>
+                                <td>
+                                    @if(filter.FilterAction == "Block")
+                                    {
+                                        <span class="status-badge" style="background: #FFEBEE; color: #C62828;">Block</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge" style="background: #E8F5E9; color: #2E7D32;">Allow</span>
+                                    }
+                                </td>
+                                <td>@filter.Reason</td>
+                                <td>
+                                    @if(filter.AddedByAdmin != null)
+                                    {
+                                        <span class="status-badge" style="background: #E3F2FD; color: #1565C0;">@filter.AddedByAdmin.Email</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge" style="background: #F5F5F5; color: #616161;">Unknown</span>
+                                    }
+                                </td>
+                                <td style="text-align: right;">
+                                    <form asp-action="RemoveIpFilter" method="post" onsubmit="return confirm('Are you sure you want to remove this IP rule? The IP will revert to default access.');">
+                                        <input type="hidden" name="id" value="@filter.FilterID" />
+                                        <button type="submit" style="background: none; border: 1px solid #ddd; padding: 5px 10px; border-radius: 4px; cursor: pointer; color: #666;">Revoke</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.Any())
+                        {
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 30px; color: #888;">No IP filter rules found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

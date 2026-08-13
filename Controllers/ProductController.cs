@@ -84,11 +84,19 @@ namespace FYP.Controllers
                 imageHash = Convert.ToHexString(hashBytes).ToLower();
             }
 
-            // 3. Check database if this exact image hash was previously flagged for fraud
-            bool isBlacklisted = await _context.Products.AnyAsync(p => p.ImageHash == imageHash);
+            // 3. Check database if this exact image hash was previously flagged for fraud (Duplicate Check)
+            bool isDuplicate = await _context.Products.AnyAsync(p => p.ImageHash == imageHash);
+            if (isDuplicate)
+            {
+                ModelState.AddModelError("ImageFile", "Security Block: This image matches a previously uploaded product listing.");
+                return View(model);
+            }
+
+            // 3b. Check Global Image Blacklist
+            bool isBlacklisted = await _context.BlacklistedImageHashes.AnyAsync(b => b.SHA256Hash == imageHash);
             if (isBlacklisted)
             {
-                ModelState.AddModelError("ImageFile", "Security Block: This image matches a previously flagged counterfeit listing.");
+                ModelState.AddModelError("ImageFile", "Security Block: This image is globally blacklisted for fraud/illegal content.");
                 return View(model);
             }
 
@@ -163,6 +171,132 @@ namespace FYP.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = "Product verified by AI vision forensic scan and listed successfully!";
+            return RedirectToAction("MyProducts", "Seller");
+        }
+
+        // GET: /Product/Edit/{id}
+        [HttpGet]
+        public async Task<IActionResult> Edit(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductID == id);
+            if (product == null) return NotFound();
+
+            string currentUserId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (product.SellerID != currentUserId)
+            {
+                return Forbid();
+            }
+
+            ViewBag.Categories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+
+            var model = new ProductEditViewModel
+            {
+                ProductID = product.ProductID,
+                Title = product.Title,
+                Price = product.Price,
+                StockLevel = product.StockLevel,
+                WeightKg = product.WeightKg,
+                Description = product.Description
+            };
+            ViewBag.CurrentCategory = product.CategoryID;
+
+            return View(model);
+        }
+
+        // POST: /Product/Edit/{id}
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(ProductEditViewModel model, string categoryId)
+        {
+            ViewBag.Categories = await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+            ViewBag.CurrentCategory = categoryId;
+
+            if (string.IsNullOrWhiteSpace(categoryId))
+            {
+                ModelState.AddModelError("", "Please select a storefront category.");
+                return View(model);
+            }
+
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductID == model.ProductID);
+            if (product == null) return NotFound();
+
+            string currentUserId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (product.SellerID != currentUserId)
+            {
+                return Forbid();
+            }
+
+            // If a new image is provided, run AI scan
+            if (model.ImageFile != null && model.ImageFile.Length > 0)
+            {
+                byte[] imageBytes;
+                using (var memoryStream = new MemoryStream())
+                {
+                    await model.ImageFile.CopyToAsync(memoryStream);
+                    imageBytes = memoryStream.ToArray();
+                }
+
+                string imageHash;
+                using (var sha256 = SHA256.Create())
+                {
+                    byte[] hashBytes = sha256.ComputeHash(imageBytes);
+                    imageHash = Convert.ToHexString(hashBytes).ToLower();
+                }
+
+                // 3. Check database if this exact image hash was previously flagged for fraud (Duplicate Check)
+                bool isDuplicate = await _context.Products.AnyAsync(p => p.ImageHash == imageHash && p.ProductID != product.ProductID);
+                if (isDuplicate)
+                {
+                    ModelState.AddModelError("ImageFile", "Security Block: This image matches a previously uploaded product listing.");
+                    return View(model);
+                }
+
+                // 3b. Check Global Image Blacklist
+                bool isBlacklisted = await _context.BlacklistedImageHashes.AnyAsync(b => b.SHA256Hash == imageHash);
+                if (isBlacklisted)
+                {
+                    ModelState.AddModelError("ImageFile", "Security Block: This image is globally blacklisted for fraud/illegal content.");
+                    return View(model);
+                }
+
+                ImageScanResult scanResult = await _aiClient.ScanImageForForgeryAsync(imageBytes);
+                if (scanResult.IsForgeryDetected)
+                {
+                    ModelState.AddModelError("ImageFile", $"AI Security Block: {scanResult.ForgeryReason}");
+                    return View(model);
+                }
+
+                // AI Passed, update hash and save file
+                product.ImageHash = imageHash;
+                string fileName = $"{product.ProductID}.jpg";
+                string uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads", fileName);
+                Directory.CreateDirectory(Path.GetDirectoryName(uploadPath)!);
+                await System.IO.File.WriteAllBytesAsync(uploadPath, imageBytes);
+            }
+
+            // Update details
+            product.Title = model.Title;
+            product.Price = model.Price;
+            product.StockLevel = model.StockLevel;
+            product.WeightKg = model.WeightKg;
+            product.Description = model.Description;
+            product.CategoryID = categoryId;
+
+            var auditLog = new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = product.SellerID,
+                Action = $"Edited product {product.Title} ({product.ProductID})",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Product details updated successfully!";
             return RedirectToAction("MyProducts", "Seller");
         }
     }

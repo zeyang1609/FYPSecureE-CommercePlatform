@@ -1,0 +1,96 @@
+/* --- Admin Control Center Layout --- */
+.admin-navbar {
+    background: #0B1120; /* Deep authoritative navy */
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.2);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.admin-nav-links {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.nav-section {
+    color: #4A5568;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    padding-left: 15px;
+}
+
+.admin-nav-links a {
+    color: #A0ABC0;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    transition: all 0.2s;
+    display: block;
+}
+
+.admin-nav-links a:hover, .admin-nav-links a.active {
+    color: #FFFFFF;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Adjust main container when sidebar is present */
+.admin-navbar ~ .dashboard-container {
+    margin-left: 290px !important; /* 260px sidebar + 30px gap */
+    margin-right: 30px !important;
+    max-width: calc(100% - 320px) !important;
+}
+
+/* XAI SHAP Bar Chart Styles */
+.shap-bar-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.shap-label {
+    width: 200px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.shap-track {
+    flex: 1;
+    background: #E2E8F0;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 0 15px;
+    position: relative;
+}
+
+.shap-fill.risk-high {
+    background: #E53E3E;
+}
+
+.shap-fill.risk-low {
+    background: #38A169;
+}
+
+.shap-value {
+    width: 50px;
+    font-size: 0.85rem;
+    font-family: monospace;
+    font-weight: bold;
+    text-align: right;
+}

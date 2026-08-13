@@ -13,41 +13,12 @@
     <title>@ViewData["Title"] - SecurePlatform</title>
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/seller-dashboard.css" />
-    <link rel="stylesheet" href="~/css/admin-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" />
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body style="background-color: #F8F9FA;">
 
-    <header class="admin-navbar">
-        <div style="display: flex; align-items: center;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="#EE4D2D" style="margin-right: 10px;">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
-            </svg>
-            <span style="color: white; font-weight: 700; font-size: 1.2rem; letter-spacing: 0.5px;">ADMIN<span style="color: #EE4D2D;">OS</span></span>
-        </div>
-        <div class="admin-nav-links">
-            <a asp-action="Dashboard" class="active">🛡️ Security Dashboard</a>
-            <a asp-action="Users">👥 User Management</a>
-            <a asp-action="Categories">📁 Categories</a>
-            <a asp-action="Disputes">⚖️ Disputes</a>
-            <a asp-action="TrustedDevices">📱 Trusted Devices</a>
-            <a asp-action="Announcements">📢 Announcements</a>
-            @{
-                var _context = Context.RequestServices.GetService(typeof(FYP.Data.ApplicationDbContext)) as FYP.Data.ApplicationDbContext;
-                var unreadAdminNotifications = 0;
-                var adminId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (adminId != null && _context != null) { unreadAdminNotifications = _context.Notifications.Count(n => n.UserID == adminId && !n.IsRead); }
-            }
-            <a asp-action="Notifications" style="position: relative; display: inline-flex; align-items: center;">
-                🔔 Notifications
-                @if (unreadAdminNotifications > 0)
-                {
-                    <span style="position: absolute; top: -2px; right: -8px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid #20232a;"></span>
-                }
-            </a>
-            <a asp-controller="Auth" asp-action="Logout" asp-route-returnUrl="/Admin/Login">Log Out</a>
-        </div>
-    </header>
+    @await Html.PartialAsync("_AdminNavigationBar")
 
     <main class="dashboard-container" style="max-width: 1400px;">
 

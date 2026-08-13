@@ -651,5 +651,199 @@ namespace FYP.Controllers
 
             return View(notifications);
         }
-}
+
+
+        // GET: /Admin/ManageImageBlacklist
+        [HttpGet]
+        public async Task<IActionResult> ManageImageBlacklist()
+        {
+            var blacklist = await _context.BlacklistedImageHashes
+                .Include(b => b.AddedByAdmin)
+                .OrderByDescending(b => b.AddedAt)
+                .ToListAsync();
+            return View(blacklist);
+        }
+
+        // POST: /Admin/AddBlacklistHash
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddBlacklistHash(string sha256Hash, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(sha256Hash) || sha256Hash.Length != 64)
+            {
+                TempData["ErrorMessage"] = "Invalid SHA-256 hash length. Must be exactly 64 characters.";
+                return RedirectToAction(nameof(ManageImageBlacklist));
+            }
+
+            bool exists = await _context.BlacklistedImageHashes.AnyAsync(b => b.SHA256Hash == sha256Hash);
+            if (exists)
+            {
+                TempData["ErrorMessage"] = "This hash is already blacklisted.";
+                return RedirectToAction(nameof(ManageImageBlacklist));
+            }
+
+            var adminId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+
+            var newHash = new BlacklistedImageHash
+            {
+                SHA256Hash = sha256Hash.ToLowerInvariant(),
+                Reason = reason,
+                AddedByAdminID = adminId
+            };
+
+            _context.BlacklistedImageHashes.Add(newHash);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Hash successfully added to the global blacklist.";
+            return RedirectToAction(nameof(ManageImageBlacklist));
+        }
+
+        // POST: /Admin/RemoveBlacklistHash
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveBlacklistHash(int id)
+        {
+            var hash = await _context.BlacklistedImageHashes.FindAsync(id);
+            if (hash != null)
+            {
+                _context.BlacklistedImageHashes.Remove(hash);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Hash successfully removed from the blacklist.";
+            }
+            return RedirectToAction(nameof(ManageImageBlacklist));
+        }
+        // GET: /Admin/ManageIpFilters
+        [HttpGet]
+        public async Task<IActionResult> ManageIpFilters()
+        {
+            var filters = await _context.IpFilters
+                .Include(f => f.AddedByAdmin)
+                .OrderByDescending(f => f.AddedAt)
+                .ToListAsync();
+
+            return View(filters);
+        }
+
+        // POST: /Admin/AddIpFilter
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddIpFilter(string ipAddress, string filterAction, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress) || string.IsNullOrWhiteSpace(filterAction))
+            {
+                TempData["ErrorMessage"] = "IP Address and Action are required.";
+                return RedirectToAction(nameof(ManageIpFilters));
+            }
+
+            var adminId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (adminId == null) return Unauthorized();
+
+            // Check if IP already has a rule
+            var existing = await _context.IpFilters.FirstOrDefaultAsync(f => f.IpAddress == ipAddress);
+            if (existing != null)
+            {
+                TempData["ErrorMessage"] = "This IP address already has an active rule.";
+                return RedirectToAction(nameof(ManageIpFilters));
+            }
+
+            var filter = new IpFilter
+            {
+                IpAddress = ipAddress.Trim(),
+                FilterAction = filterAction.Trim(),
+                Reason = reason,
+                AddedByAdminID = adminId
+            };
+
+            _context.IpFilters.Add(filter);
+            await _context.SaveChangesAsync();
+
+            // Clear cache for IP Filtering Middleware
+            var cache = HttpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Caching.Memory.IMemoryCache)) as Microsoft.Extensions.Caching.Memory.IMemoryCache;
+            if (cache != null)
+            {
+                cache.Remove("IpFilters_Whitelist");
+                cache.Remove("IpFilters_Blacklist");
+            }
+
+            TempData["SuccessMessage"] = $"IP {filterAction} rule successfully added.";
+            return RedirectToAction(nameof(ManageIpFilters));
+        }
+
+        // POST: /Admin/RemoveIpFilter
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveIpFilter(int id)
+        {
+            var filter = await _context.IpFilters.FindAsync(id);
+            if (filter != null)
+            {
+                _context.IpFilters.Remove(filter);
+                await _context.SaveChangesAsync();
+
+                // Clear cache for IP Filtering Middleware
+                var cache = HttpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Caching.Memory.IMemoryCache)) as Microsoft.Extensions.Caching.Memory.IMemoryCache;
+                if (cache != null)
+                {
+                    cache.Remove("IpFilters_Whitelist");
+                    cache.Remove("IpFilters_Blacklist");
+                }
+
+                TempData["SuccessMessage"] = "IP filter rule successfully removed.";
+            }
+            return RedirectToAction(nameof(ManageIpFilters));
+        }
+
+        // GET: /Admin/AuditLogs
+        [HttpGet]
+        public async Task<IActionResult> AuditLogs(string sortOrder, DateTime? startDate, DateTime? endDate, string nameFilter, string actionFilter)
+        {
+            ViewData["CurrentSort"] = sortOrder;
+            ViewData["DateSortParm"] = String.IsNullOrEmpty(sortOrder) ? "date_asc" : "";
+            ViewData["UserSortParm"] = sortOrder == "User" ? "user_desc" : "User";
+            
+            ViewData["StartDateFilter"] = startDate?.ToString("yyyy-MM-dd");
+            ViewData["EndDateFilter"] = endDate?.ToString("yyyy-MM-dd");
+            ViewData["NameFilter"] = nameFilter;
+            ViewData["ActionFilter"] = actionFilter;
+
+            var logs = from l in _context.AuditLogs.Include(a => a.User)
+                       select l;
+
+            if (startDate.HasValue)
+            {
+                logs = logs.Where(s => s.Timestamp >= startDate.Value);
+            }
+            if (endDate.HasValue)
+            {
+                var end = endDate.Value.AddDays(1); // Make it inclusive
+                logs = logs.Where(s => s.Timestamp < end);
+            }
+            if (!String.IsNullOrEmpty(nameFilter))
+            {
+                logs = logs.Where(s => (s.User != null && s.User.Name.Contains(nameFilter)) || (s.User != null && s.User.Email.Contains(nameFilter)));
+            }
+            if (!String.IsNullOrEmpty(actionFilter))
+            {
+                logs = logs.Where(s => s.Action.Contains(actionFilter));
+            }
+
+            switch (sortOrder)
+            {
+                case "date_asc":
+                    logs = logs.OrderBy(s => s.Timestamp);
+                    break;
+                case "User":
+                    logs = logs.OrderBy(s => s.User.Name);
+                    break;
+                case "user_desc":
+                    logs = logs.OrderByDescending(s => s.User.Name);
+                    break;
+                default:
+                    logs = logs.OrderByDescending(s => s.Timestamp);
+                    break;
+            }
+
+            return View(await logs.AsNoTracking().ToListAsync());
+        }
+    }
 }

@@ -35,6 +35,9 @@ namespace FYP.Data
         public DbSet<DeviceLockout> DeviceLockouts { get; set; }
         public DbSet<UserDevice> UserDevices { get; set; }
 
+        public DbSet<BlacklistedImageHash> BlacklistedImageHashes { get; set; }
+        public DbSet<IpFilter> IpFilters { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

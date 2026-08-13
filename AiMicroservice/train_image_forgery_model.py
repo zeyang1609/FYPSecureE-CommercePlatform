@@ -9,11 +9,7 @@ from sklearn.metrics import classification_report, accuracy_score, confusion_mat
 # Image Forgery Detection Model Trainer
 # ==========================================
 # This script trains a classifier to detect image manipulation using
-# Error Level Analysis (ELA). ELA works by re-compressing an image at
-# a known quality level and measuring pixel differences. Authentic images
-# that have been uniformly compressed show consistent, low ELA residuals.
-# Manipulated images contain regions edited after the last compression,
-# producing higher variance in the difference map.
+# Error Level Analysis (ELA).
 #
 # Features extracted (must match app.py):
 #   1. mean(diff)  — average pixel deviation after re-compression
