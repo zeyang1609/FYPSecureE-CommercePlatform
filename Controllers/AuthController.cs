@@ -192,10 +192,10 @@ namespace FYP.Controllers
                 // Check device fingerprint anomaly
                 string currentDevice = HttpContext.Request.Headers["User-Agent"].ToString();
                 
-                // For backward compatibility, check if the single DeviceHash matches, or if it's in UserDevices
+
                 bool deviceRecognized = (user.DeviceHash == currentDevice) || await _context.UserDevices.AnyAsync(ud => ud.UserID == user.UserID && ud.DeviceHash == currentDevice);
 
-                // BYPASS: Disable device fingerprinting for the Seed Admin account
+
                 if (user.Email == "demo_admin@secureplatform.com" || user.Email == "demo_seller@secureplatform.com")
                 {
                     deviceRecognized = true;
@@ -238,7 +238,6 @@ namespace FYP.Controllers
                 }
                 else 
                 {
-                    // Update LastUsedAt if it was in UserDevices, or add it if it was the primary DeviceHash / bypassed
                     var existingDevice = await _context.UserDevices.FirstOrDefaultAsync(ud => ud.UserID == user.UserID && ud.DeviceHash == currentDevice);
                     if (existingDevice != null)
                     {

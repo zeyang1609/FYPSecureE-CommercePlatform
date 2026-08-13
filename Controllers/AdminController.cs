@@ -177,6 +177,129 @@ namespace FYP.Controllers
             TempData["SuccessMessage"] = $"Category '{name}' added successfully!";
             return RedirectToAction(nameof(Categories));
         }
+
+        [HttpGet]
+        public async Task<IActionResult> EditCategory(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var category = await _context.Categories.FindAsync(id);
+            if (category == null) return NotFound();
+
+            return View(category);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditCategory(string id, string name, string description, Microsoft.AspNetCore.Http.IFormFile iconFile)
+        {
+            var category = await _context.Categories.FindAsync(id);
+            if (category == null) return NotFound();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                TempData["ErrorMessage"] = "Category name cannot be empty.";
+                return View(category);
+            }
+
+            category.Name = name;
+            category.Description = description;
+
+            if (iconFile != null && iconFile.Length > 0)
+            {
+                var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "images", "categories");
+                if (!System.IO.Directory.Exists(uploadsFolder))
+                {
+                    System.IO.Directory.CreateDirectory(uploadsFolder);
+                }
+
+                var uniqueFileName = Guid.NewGuid().ToString() + "_" + iconFile.FileName;
+                var filePath = System.IO.Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var fileStream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+                {
+                    await iconFile.CopyToAsync(fileStream);
+                }
+                
+                category.IconSvg = "/images/categories/" + uniqueFileName;
+            }
+
+            var auditLog = new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = User.FindFirstValue(ClaimTypes.NameIdentifier),
+                Action = $"Edited catalog category: {name}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            };
+
+            _context.Categories.Update(category);
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Category '{name}' updated successfully!";
+            return RedirectToAction(nameof(Categories));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteCategory(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var category = await _context.Categories
+                .Include(c => c.Products)
+                .FirstOrDefaultAsync(c => c.CategoryID == id);
+            
+            if (category == null) return NotFound();
+
+            // Create or get "Undefined" category
+            var undefinedCategory = await _context.Categories.FirstOrDefaultAsync(c => c.Name == "Undefined");
+            if (undefinedCategory == null)
+            {
+                undefinedCategory = new Category
+                {
+                    CategoryID = "CAT-UNDEFINED",
+                    Name = "Undefined",
+                    Description = "System category for products without an assigned category.",
+                    IconSvg = "<svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><line x1=\"3\" y1=\"9\" x2=\"21\" y2=\"9\"></line><line x1=\"9\" y1=\"21\" x2=\"9\" y2=\"9\"></line></svg>"
+                };
+                _context.Categories.Add(undefinedCategory);
+                await _context.SaveChangesAsync();
+            }
+
+            // Don't allow deleting the Undefined category itself
+            if (category.CategoryID == undefinedCategory.CategoryID)
+            {
+                TempData["ErrorMessage"] = "The 'Undefined' category cannot be deleted.";
+                return RedirectToAction(nameof(Categories));
+            }
+
+            if (category.Products.Any())
+            {
+                foreach(var product in category.Products)
+                {
+                    product.CategoryID = undefinedCategory.CategoryID;
+                    _context.Products.Update(product);
+                }
+            }
+
+            var auditLog = new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = User.FindFirstValue(ClaimTypes.NameIdentifier),
+                Action = $"Deleted catalog category: {category.Name}. Reassigned {category.Products.Count} products.",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            };
+
+            _context.Categories.Remove(category);
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Category '{category.Name}' deleted. Products reassigned if any existed.";
+            return RedirectToAction(nameof(Categories));
+        }
         [HttpGet]
         public async Task<IActionResult> Disputes()
         {
