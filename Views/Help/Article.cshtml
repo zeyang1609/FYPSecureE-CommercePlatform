@@ -1,0 +1,46 @@
+@model FYP.Models.Entities.HelpArticle
+@{
+    ViewData["Title"] = Model.Title + " - Help Center";
+    Layout = "~/Views/Shared/_HelpLayout.cshtml";
+}
+
+<link rel="stylesheet" href="~/css/help-center.css" />
+
+<div class="help-container" style="padding-top: 30px;">
+
+    <!-- Breadcrumb -->
+    <div class="help-breadcrumb">
+        <a asp-controller="Help" asp-action="Index">Help Center</a>
+        <span class="separator">&rsaquo;</span>
+        <a asp-controller="Help" asp-action="Category" asp-route-id="@Model.HelpCategoryID">@Model.Category?.Name</a>
+        <span class="separator">&rsaquo;</span>
+        <span class="current">@Model.Title</span>
+    </div>
+
+    <!-- Article Title -->
+    <h1 style="font-size: 1.6rem; font-weight: 700; color: #222; margin-bottom: 8px;">@Model.Title</h1>
+    <p style="color: #888; font-size: 0.85rem; margin-bottom: 24px;">
+        Last updated: @(Model.UpdatedAt?.ToString("dd MMM yyyy") ?? Model.CreatedAt.ToString("dd MMM yyyy"))
+        &nbsp;&bull;&nbsp; Category: <a asp-controller="Help" asp-action="Category" asp-route-id="@Model.HelpCategoryID" style="color: #EE4D2D; text-decoration: none;">@Model.Category?.Name</a>
+    </p>
+
+    <!-- Article Content -->
+    <div class="help-article-content">
+        @Html.Raw(Model.Content)
+    </div>
+
+    <!-- Navigation -->
+    <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <a asp-controller="Help" asp-action="Category" asp-route-id="@Model.HelpCategoryID" style="color: #EE4D2D; text-decoration: none; font-weight: 500;">&larr; Back to @Model.Category?.Name</a>
+        <a asp-controller="Help" asp-action="Index" style="color: #888; text-decoration: none; font-size: 0.9rem;">Back to Help Center</a>
+    </div>
+
+    <!-- Was this helpful? -->
+    <div style="margin-top: 40px; background: #f8f9fa; border-radius: 12px; padding: 30px; text-align: center; border: 1px solid #e8e8e8;">
+        <p style="font-weight: 600; margin-bottom: 12px; color: #333;">Was this article helpful?</p>
+        <div style="display: flex; justify-content: center; gap: 12px;">
+            <button onclick="this.parentElement.parentElement.innerHTML='<p style=\'font-weight:600; color:#28a745; padding: 20px;\'>Thank you for your feedback!</p>'" style="padding: 10px 24px; border-radius: 8px; border: 1px solid #28a745; background: white; color: #28a745; cursor: pointer; font-weight: 600; transition: all 0.2s;">Yes, helpful</button>
+            <button onclick="this.parentElement.parentElement.innerHTML='<p style=\'font-weight:600; color:#EE4D2D; padding: 20px;\'>We will work on improving this article. Thank you!</p>'" style="padding: 10px 24px; border-radius: 8px; border: 1px solid #dc3545; background: white; color: #dc3545; cursor: pointer; font-weight: 600; transition: all 0.2s;">Not helpful</button>
+        </div>
+    </div>
+</div>

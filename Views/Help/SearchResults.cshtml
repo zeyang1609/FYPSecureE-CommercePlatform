@@ -1,0 +1,60 @@
+@model FYP.Models.ViewModels.HelpSearchResultViewModel
+@{
+    ViewData["Title"] = "Search Results - Help Center";
+    Layout = "~/Views/Shared/_HelpLayout.cshtml";
+}
+
+<link rel="stylesheet" href="~/css/help-center.css" />
+
+<!-- Hero Search Section (with pre-filled query) -->
+<div class="help-hero" style="padding: 40px 20px;">
+    <h1>Search Results</h1>
+    <form asp-controller="Help" asp-action="Search" method="get" class="help-search-form">
+        <input type="text" name="query" value="@Model.Query" placeholder="Search for answers..." autocomplete="off" />
+        <button type="submit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Search
+        </button>
+    </form>
+</div>
+
+<div class="help-container">
+
+    <div class="help-search-results-header">
+        <h2>Results for "@Model.Query"</h2>
+        <span class="result-count">@Model.Results.Count result(s) found</span>
+    </div>
+
+    @if (Model.Results.Any())
+    {
+        <div style="background: white; border: 1px solid #e8e8e8; border-radius: 12px; overflow: hidden;">
+            <ul class="help-article-list">
+                @foreach (var article in Model.Results)
+                {
+                    <li>
+                        <a asp-controller="Help" asp-action="Article" asp-route-id="@article.HelpArticleID">
+                            <span class="article-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            </span>
+                            <div>
+                                <strong>@article.Title</strong>
+                                <br/>
+                                <small style="color: #888;">@article.Category?.Name</small>
+                            </div>
+                            <span class="arrow">&rsaquo;</span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+    else
+    {
+        <div class="help-no-results">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <p>No results found for "<strong>@Model.Query</strong>".</p>
+            <p style="color: #aaa; font-size: 0.9rem;">Try different keywords or browse our categories below.</p>
+            <a asp-controller="Help" asp-action="Index" style="display: inline-block; margin-top: 16px; color: #EE4D2D; text-decoration: none; font-weight: 600;">&larr; Back to Help Center</a>
+        </div>
+    }
+</div>

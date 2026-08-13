@@ -17,9 +17,6 @@ html {
     min-height: 100%;
 }
 
-body {
-    margin-bottom: 60px;
-}
 
 .secure-chat-tab {
     position: fixed;
@@ -369,4 +366,80 @@ body {
 .btn-view-cart:hover {
     opacity: 0.9;
     color: white;
+}
+/* --- Premium Footer --- */
+.site-footer {
+    background: #fdfdfd;
+    border-top: 1px solid #eaeaea;
+    padding: 60px 0 20px;
+    margin-top: auto;
+    font-size: 0.9rem;
+    color: #555;
+    width: 100%;
+}
+
+.footer-top {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 40px;
+}
+
+.footer-brand h4 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--brand-primary, #EE4D2D);
+    margin-bottom: 15px;
+}
+
+.footer-links h5, .footer-payment h5 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.footer-links ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.footer-links li {
+    margin-bottom: 10px;
+}
+
+.footer-links a {
+    color: #666;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.footer-links a:hover {
+    color: var(--brand-primary, #EE4D2D);
+}
+
+.payment-icons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.payment-badge {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #555;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.footer-bottom {
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid #eaeaea;
+    color: #888;
+    font-size: 0.85rem;
 }

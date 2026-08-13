@@ -4,6 +4,10 @@ using FYP.Data;
 using FYP.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using QuestPDF.Infrastructure;
+
+// Configure QuestPDF license
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +48,7 @@ builder.Services.AddScoped<IOtpService, OtpService>();
 // Register TOTP Authenticator Service
 builder.Services.AddScoped<FYP.Services.TotpService>();
 builder.Services.AddScoped<IShippingService, ShippingService>();
+builder.Services.AddScoped<IPdfReceiptService, PdfReceiptService>();
 builder.Services.AddScoped<IPaymentSecurityService, PaymentSecurityService>();
 builder.Services.AddSingleton<ICheckoutLockService, CheckoutLockService>();
 builder.Services.AddSingleton<IPaymentEncryptionService, PaymentEncryptionService>();

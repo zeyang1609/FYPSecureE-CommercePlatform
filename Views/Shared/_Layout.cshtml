@@ -34,7 +34,7 @@
                 </a>
                 <span class="nav-divider">|</span>
 
-                <a href="#" class="nav-icon-link" aria-label="Help">
+                <a asp-controller="Help" asp-action="Index" class="nav-icon-link" aria-label="Help">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
                         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
@@ -110,9 +110,34 @@
         </main>
     </div>
 
-    <footer class="border-top footer text-muted" style="position: relative; text-align: center; padding: 20px 0; background: #fff; margin-top: auto; width: 100%;">
+    <footer class="site-footer">
         <div class="container">
-            &copy; 2026 - SecurePlatform - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <h4>SecurePlatform</h4>
+                    <p style="margin-bottom: 0;">The next-generation marketplace powered by AI behavioral analysis and zero-trust verification. Shop with complete peace of mind.</p>
+                </div>
+                <div class="footer-links">
+                    <h5>Customer Service</h5>
+                    <ul>
+                        <li><a asp-controller="Help" asp-action="Index">Help Center</a></li>
+                        <li><a href="mailto:support@secureplatform.com">Contact Us</a></li>
+                        <li><a asp-controller="Help" asp-action="Article" asp-route-id="15">Terms & Conditions</a></li>
+                        <li><a asp-controller="Help" asp-action="Article" asp-route-id="14">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                <div class="footer-payment">
+                    <h5>Payment Methods</h5>
+                    <div class="payment-icons">
+                        <span class="payment-badge">Visa</span>
+                        <span class="payment-badge">Mastercard</span>
+                        <span class="payment-badge">FPX</span>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p style="margin-bottom: 0;">&copy; @DateTime.Now.Year SecurePlatform. All Rights Reserved.</p>
+            </div>
         </div>
     </footer>
 

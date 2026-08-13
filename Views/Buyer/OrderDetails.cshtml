@@ -203,9 +203,9 @@
                     <button type="button" class="btn-action-panel" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
                 }
                 
-                @if (Model.Status != "Cancelled")
+                @if (Model.Status != "Cancelled" && step5_received)
                 {
-                    <button type="button" class="btn-action-panel">View Receipt</button>
+                    <button type="button" class="btn-action-panel" onclick="window.location.href='/Buyer/DownloadReceipt?orderId=@Model.OrderID'">View Receipt</button>
                 }
             </div>
         </div>
