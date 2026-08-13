@@ -1,4 +1,4 @@
-﻿@model FYP.Models.ViewModels.VerifyOtpViewModel
+@model FYP.Models.ViewModels.VerifyOtpViewModel
 @{
     ViewData["Title"] = "Security Verification";
     Layout = null;
@@ -66,6 +66,7 @@
 
                         <span asp-validation-for="OtpCode" class="text-danger field-validation-error" style="margin-bottom: 15px; display: block;"></span>
 
+                        <div id="expireTimer" style="color: #EE4D2D; font-size: 0.85rem; margin-bottom: 15px; font-weight: 500; text-align: center;">Code expires in: 60s</div>
                         <button type="submit" class="btn-submit-primary" id="btnVerify">VERIFY & PROCEED</button>
                     </form>
 
@@ -98,6 +99,7 @@
                 const form = document.getElementById("otpForm");
                 const resendLink = document.getElementById("resendLink");
                 const timerSpan = document.getElementById("timerSpan");
+                const expireTimer = document.getElementById("expireTimer");
 
                 inputs.forEach((input, index) => {
                     input.addEventListener("input", function(e) {
@@ -168,10 +170,12 @@
                 const timerInterval = setInterval(() => {
                     timeLeft--;
                     timerSpan.textContent = `(${timeLeft}s)`;
+                    if (expireTimer) expireTimer.textContent = `Code expires in: ${timeLeft}s`;
 
                     if (timeLeft <= 0) {
                         clearInterval(timerInterval);
                         timerSpan.textContent = "";
+                        if (expireTimer) expireTimer.textContent = "Code Expired";
                         resendLink.classList.add("active");
                         resendLink.textContent = "Resend Verification Code";
                     }
@@ -186,16 +190,19 @@
                     this.classList.remove("active");
                     timeLeft = 60;
                     timerSpan.textContent = `(${timeLeft}s)`;
+                    if (expireTimer) expireTimer.textContent = `Code expires in: ${timeLeft}s`;
                     this.innerHTML = `Resend Code <span id="timerSpan">(${timeLeft}s)</span>`;
 
                     const newInterval = setInterval(() => {
                         timeLeft--;
                         const span = document.getElementById("timerSpan");
                         if (span) span.textContent = `(${timeLeft}s)`;
+                        if (expireTimer) expireTimer.textContent = `Code expires in: ${timeLeft}s`;
 
                         if (timeLeft <= 0) {
                             clearInterval(newInterval);
                             if (span) span.textContent = "";
+                            if (expireTimer) expireTimer.textContent = "Code Expired";
                             resendLink.classList.add("active");
                             resendLink.textContent = "Resend Verification Code";
                         }

@@ -28,6 +28,7 @@
         <a asp-action="AuditLogs" class="@(currentAction == "AuditLogs" ? "active" : "")">📋 Audit Logs</a>
         
         <div class="nav-section" style="margin-top: 20px;">Account</div>
+        <a asp-controller="Auth" asp-action="SetupTotp" class="@(currentAction == "SetupTotp" ? "active" : "")">🔐 2FA Setup</a>
         <a asp-action="Notifications" class="@(currentAction == "Notifications" ? "active" : "")" style="position: relative; display: flex; align-items: center; justify-content: space-between;">
             <span>🔔 Notifications</span>
             @if (unreadAdminNotifications > 0)

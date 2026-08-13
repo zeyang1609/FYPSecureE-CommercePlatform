@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Multi-Factor Authenticator Setup";
     Layout = null;
 }
@@ -28,14 +28,14 @@
         </div>
     </header>
 
-    <main class="buyer-container" style="max-width: 800px; margin-top: 40px;">
+    <main class="buyer-container" style="max-width: 800px; margin: 40px auto;">
 
-        <div class="buyer-header" style="border-left: 4px solid #38A169;">
+        <div class="buyer-header" style="border-left: 4px solid #38A169; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
             <div>
-                <h1>Hardware / App Authenticator (TOTP)</h1>
-                <p>Enrolling RFC 6238 Time-Based One-Time Password key for: <strong>@ViewBag.UserEmail</strong></p>
+                <h1 style="margin-top: 0; margin-bottom: 8px; font-size: 1.5rem; color: #1a202c;">Hardware / App Authenticator (TOTP)</h1>
+                <p style="margin: 0; color: #4a5568; font-size: 0.95rem;">Enrolling RFC 6238 Time-Based One-Time Password key for: <strong style="color: #2d3748;">@ViewBag.UserEmail</strong></p>
             </div>
-            <span class="qr-pill" style="font-size: 0.85rem; padding: 6px 12px; background: #E6FFFA; color: #234E52;">📱 Offline Cryptography</span>
+            <span class="qr-pill" style="font-size: 0.85rem; padding: 8px 16px; background: #E6FFFA; color: #234E52; border-radius: 20px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #B2F5EA; white-space: nowrap;">📱 Offline Cryptography</span>
         </div>
 
         @if (TempData["ErrorMessage"] != null)

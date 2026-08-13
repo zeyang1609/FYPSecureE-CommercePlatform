@@ -39,7 +39,7 @@ namespace FYP.Services
             // 2. Store in MemoryCache for 5 minutes
             string cacheKey = $"OTP_{email.Trim().ToLower()}";
             var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(1));
 
             _cache.Set(cacheKey, otpCode, cacheOptions);
 
@@ -106,7 +106,7 @@ namespace FYP.Services
                             <div style='background: #f8f9fa; padding: 15px; text-align: center; border-radius: 6px; margin: 20px 0;'>
                                 <span style='font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #EE4D2D;'>{otpCode}</span>
                             </div>
-                            <p style='font-size: 12px; color: #999;'>This code is valid for <strong>5 minutes</strong>. If you did not make this request, please ignore this email.</p>
+                            <p style='font-size: 12px; color: #999;'>This code is valid for <strong>1 minute</strong>. If you did not make this request, please ignore this email.</p>
                         </div>",
                     IsBodyHtml = true
                 };

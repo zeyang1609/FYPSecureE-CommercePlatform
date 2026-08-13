@@ -1358,7 +1358,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "seller_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 11, 16, 19, 41, 362, DateTimeKind.Utc).AddTicks(8739),
+                            CreatedAt = new DateTime(2026, 8, 12, 22, 20, 43, 892, DateTimeKind.Utc).AddTicks(647),
                             DeviceHash = "SEED",
                             Email = "demo_seller@secureplatform.com",
                             IsDisabled = false,
@@ -1371,7 +1371,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "admin_demo_1",
-                            CreatedAt = new DateTime(2026, 8, 11, 16, 19, 41, 363, DateTimeKind.Utc).AddTicks(7044),
+                            CreatedAt = new DateTime(2026, 8, 12, 17, 5, 1, 485, DateTimeKind.Utc).AddTicks(173),
                             DeviceHash = "SEED",
                             Email = "demo_admin@secureplatform.com",
                             IsDisabled = false,
@@ -1384,7 +1384,7 @@ namespace FYP.Migrations
                         new
                         {
                             UserID = "SYSTEM",
-                            CreatedAt = new DateTime(2026, 8, 11, 16, 19, 41, 363, DateTimeKind.Utc).AddTicks(7048),
+                            CreatedAt = new DateTime(2026, 8, 12, 17, 5, 1, 485, DateTimeKind.Utc).AddTicks(182),
                             DeviceHash = "SEED",
                             Email = "system@secureplatform.com",
                             IsDisabled = false,
@@ -1560,6 +1560,28 @@ namespace FYP.Migrations
                         .IsRequired();
 
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("FYP.Models.Entities.HelpArticle", b =>
+                {
+                    b.HasOne("FYP.Models.Entities.HelpCategory", "Category")
+                        .WithMany("Articles")
+                        .HasForeignKey("HelpCategoryID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("FYP.Models.Entities.IpFilter", b =>
+                {
+                    b.HasOne("FYP.Models.Entities.User", "AddedByAdmin")
+                        .WithMany()
+                        .HasForeignKey("AddedByAdminID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AddedByAdmin");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Notification", b =>

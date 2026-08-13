@@ -29,7 +29,8 @@
                            placeholder="Enter 6-digit OTP" required style="letter-spacing: 2px; font-size: 1.5rem;" />
                 </div>
                 <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-warning btn-lg fw-bold" style="background-color: #ff9800; border: none;">
+                    <div id="expireTimer" class="text-danger text-center mb-2 fw-bold" style="font-size: 0.9rem;">Code expires in: 60s</div>
+                    <button type="submit" id="btnVerify" class="btn btn-warning btn-lg fw-bold" style="background-color: #ff9800; border: none;">
                         Verify & Complete Checkout <i class="fas fa-arrow-right ms-2"></i>
                     </button>
                     <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-secondary mt-2">
@@ -40,3 +41,27 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let timeLeft = 60;
+        const expireTimer = document.getElementById("expireTimer");
+        const btnVerify = document.getElementById("btnVerify");
+
+        const timerInterval = setInterval(() => {
+            timeLeft--;
+            if (expireTimer) expireTimer.textContent = `Code expires in: ${timeLeft}s`;
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                if (expireTimer) expireTimer.textContent = "Code Expired";
+                if (btnVerify) {
+                    btnVerify.disabled = true;
+                    btnVerify.style.backgroundColor = "#ccc";
+                    btnVerify.style.cursor = "not-allowed";
+                    btnVerify.innerHTML = "CODE EXPIRED";
+                }
+            }
+        }, 1000);
+    });
+</script>
