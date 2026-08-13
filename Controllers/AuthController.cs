@@ -646,6 +646,14 @@ namespace FYP.Controllers
                 return NotFound("User not found.");
             }
 
+            bool hasVerifiedTotp = await _context.AuditLogs.AnyAsync(a => a.UserID == user.UserID && a.Action == "Enrolled physical TOTP Authenticator device (RFC 6238 HMAC-SHA1)");
+            if (hasVerifiedTotp)
+            {
+                ViewBag.IsAlreadySetup = true;
+                ViewBag.Role = user.Role;
+                return View();
+            }
+
             if (string.IsNullOrEmpty(user.TotpSecret))
             {
                 user.TotpSecret = _totpService.GenerateSecretKey();
@@ -661,6 +669,21 @@ namespace FYP.Controllers
             ViewBag.Role = user.Role;
 
             return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetTotp(string userId)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user != null)
+            {
+                user.TotpSecret = null;
+                var logs = await _context.AuditLogs.Where(a => a.UserID == user.UserID && a.Action == "Enrolled physical TOTP Authenticator device (RFC 6238 HMAC-SHA1)").ToListAsync();
+                _context.AuditLogs.RemoveRange(logs);
+                await _context.SaveChangesAsync();
+            }
+            return RedirectToAction("SetupTotp", new { userId = userId });
         }
 
         [HttpPost]
