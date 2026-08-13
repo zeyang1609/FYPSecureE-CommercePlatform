@@ -186,12 +186,13 @@ namespace FYP.Controllers
                 {
                     try
                     {
-                        var scanResult = await _aiClient.ScanChatMessageAsync(payload);
+                        using var scope = scopeFactory.CreateScope();
+                        var bgContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                        var bgAiClient = scope.ServiceProvider.GetRequiredService<PythonAiClient>();
+
+                        var scanResult = await bgAiClient.ScanChatMessageAsync(payload);
                         if (scanResult.IsMalicious)
                         {
-                            // Update DB flag
-                            using var scope = scopeFactory.CreateScope();
-                            var bgContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                             var msg = await bgContext.ChatMessages.FindAsync(savedChatId);
                             if (msg != null)
                             {
