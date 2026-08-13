@@ -51,9 +51,14 @@ try:
 except Exception as e:
     print(f"Warning: Chat NLP model not loaded. ({e})")
 
-
+# --- Multilingual Zero-Shot Classifier (XLM-RoBERTa) ---
 multilingual_clf = None
-
+try:
+    print("Loading Multilingual XLM-RoBERTa Classifier... (This may take a moment the first time)")
+    multilingual_clf = pipeline("zero-shot-classification", model="joeddav/xlm-roberta-large-xnli")
+    print("Multilingual AI loaded successfully.")
+except Exception as e:
+    print(f"Warning: Multilingual classifier failed to load. ({e})")
 
 # ==========================================
 # 2. Health Check Endpoint
@@ -86,7 +91,10 @@ def evaluate_risk():
             float(data.get("transactionAmount", 0)),
             float(data.get("accountAgeDays", 0)),
             float(data.get("failedLoginAttempts", 0)),
-            float(data.get("distanceFromShippingAddress", 0))
+            float(data.get("distanceFromShippingAddress", 0)),
+            float(data.get("transactions_last_10_mins", 0)),
+            float(data.get("time_since_account_creation_seconds", 0)),
+            float(data.get("device_ip_flags", 0))
         ]])
     except (ValueError, TypeError) as e:
         return jsonify({"error": f"Invalid feature values: {e}"}), 400

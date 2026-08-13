@@ -494,7 +494,7 @@
                     const addressId = document.querySelector('input[name="SelectedAddressID"]')?.value || 0;
                     const response = await fetch('/Cart/GetShippingOptions', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
                         body: JSON.stringify({ addressId: parseInt(addressId) })
                     });
                     
@@ -687,7 +687,7 @@
                 try {
                     const response = await fetch('/Buyer/CreateSetupIntent', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' }
                     });
                     
                     const data = await response.json();
@@ -708,7 +708,7 @@
                         const isDefaultChecked = document.getElementById('is-default-card').checked;
                         const syncResponse = await fetch('/Buyer/SyncSavedCard', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
                             body: JSON.stringify({ 
                                 paymentMethodId: result.setupIntent.payment_method,
                                 isDefault: isDefaultChecked
@@ -759,7 +759,7 @@
                         const securityToken = document.querySelector('input[name="SecurityToken"]')?.value || '';
                         const response = await fetch('/Cart/CreatePaymentIntent', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
                             body: JSON.stringify({ bank: selectedFpxBank, addressId: addressId, securityToken: securityToken })
                         });
                         
@@ -854,7 +854,7 @@
                         try {
                             const response = await fetch('/Cart/GetShippingOptions', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
                                 body: JSON.stringify({ addressId: parseInt(addrId) })
                             });
                             const data = await response.json();

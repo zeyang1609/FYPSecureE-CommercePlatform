@@ -33,147 +33,80 @@ def apply_ela(image, quality=90):
     diff = cv2.absdiff(image, compressed)
     return [float(np.mean(diff)), float(np.var(diff)), float(np.max(diff))]
 
+import os
 
-def generate_authentic_image(width=256, height=256):
+def load_imd2020_dataset(dataset_dir):
     """
-    Generate a synthetic 'authentic' image by creating a natural-looking scene
-    and compressing it through JPEG once (simulating a camera output).
+    Loads real and forged images from the IMD2020 dataset directory structure.
+    IMD2020 typically contains subfolders for each image pair, containing
+    the original image, the manipulated image, and a mask.
     """
-    img = np.zeros((height, width, 3), dtype=np.uint8)
+    features_list = []
+    labels_list = []
+    
+    print(f"Scanning directory: {dataset_dir}")
+    
+    if not os.path.exists(dataset_dir):
+        raise FileNotFoundError(f"Dataset directory not found: {dataset_dir}")
 
-    # Random smooth gradient background
-    base_color = np.random.randint(40, 200, size=3)
-    for y in range(height):
-        ratio = y / height
-        color = (base_color * (1 - ratio * 0.5)).astype(np.uint8)
-        img[y, :] = color
+    total_authentic = 0
+    total_forged = 0
 
-    # Add random geometric shapes to simulate scene content
-    num_shapes = np.random.randint(3, 8)
-    for _ in range(num_shapes):
-        shape_type = np.random.choice(['circle', 'rectangle', 'line'])
-        color = tuple(np.random.randint(0, 255, size=3).tolist())
+    for root, dirs, files in os.walk(dataset_dir):
+        for file in files:
+            file_lower = file.lower()
+            if file_lower.endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff')):
+                filepath = os.path.join(root, file)
+                
+                # In IMD2020, masks usually end with '_mask.png' or contain 'mask'
+                if '_mask' in file_lower or 'mask' in file_lower:
+                    continue
+                    
+                # Assign label based on filename (orig = 0, manipulated = 1)
+                if '_orig' in file_lower or 'orig' in file_lower or 'real' in file_lower or 'authentic' in file_lower:
+                    label = 0
+                else:
+                    label = 1
+                
+                try:
+                    img = cv2.imread(filepath)
+                    if img is None:
+                        continue
+                        
+                    ela_features = apply_ela(img, quality=90)
+                    
+                    features_list.append(ela_features)
+                    labels_list.append(label)
 
-        if shape_type == 'circle':
-            center = (np.random.randint(30, width - 30), np.random.randint(30, height - 30))
-            radius = np.random.randint(10, 50)
-            cv2.circle(img, center, radius, color, -1)
-        elif shape_type == 'rectangle':
-            pt1 = (np.random.randint(0, width - 40), np.random.randint(0, height - 40))
-            pt2 = (pt1[0] + np.random.randint(20, 80), pt1[1] + np.random.randint(20, 80))
-            cv2.rectangle(img, pt1, pt2, color, -1)
-        else:
-            pt1 = (np.random.randint(0, width), np.random.randint(0, height))
-            pt2 = (np.random.randint(0, width), np.random.randint(0, height))
-            cv2.line(img, pt1, pt2, color, np.random.randint(1, 4))
+                    if label == 0:
+                        total_authentic += 1
+                    else:
+                        total_forged += 1
 
-    # Add mild Gaussian noise (camera sensor noise)
-    noise = np.random.normal(0, 5, img.shape).astype(np.int16)
-    img = np.clip(img.astype(np.int16) + noise, 0, 255).astype(np.uint8)
-
-    # Simulate camera JPEG output — compress once at high quality
-    _, buf = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 95])
-    img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-
-    return img
-
-
-def generate_forged_image(width=256, height=256):
-    """
-    Generate a synthetic 'forged' image by taking an authentic image and
-    splicing in a foreign region or applying localized edits that break
-    the uniform compression signature.
-    """
-    # Start with an authentic base
-    img = generate_authentic_image(width, height)
-
-    # Apply one or more manipulation techniques
-    manipulation = np.random.choice(['splice', 'brightness', 'clone', 'composite'])
-
-    if manipulation == 'splice':
-        # Paste a completely different uncompressed block (foreign region)
-        block_w = np.random.randint(40, width // 2)
-        block_h = np.random.randint(40, height // 2)
-        x = np.random.randint(0, width - block_w)
-        y = np.random.randint(0, height - block_h)
-        # Uncompressed foreign content — distinct from the JPEG-compressed base
-        foreign = np.random.randint(0, 255, (block_h, block_w, 3), dtype=np.uint8)
-        img[y:y + block_h, x:x + block_w] = foreign
-
-    elif manipulation == 'brightness':
-        # Artificially brighten a region (like editing exposure in Photoshop)
-        block_w = np.random.randint(60, width // 2)
-        block_h = np.random.randint(60, height // 2)
-        x = np.random.randint(0, width - block_w)
-        y = np.random.randint(0, height - block_h)
-        region = img[y:y + block_h, x:x + block_w].astype(np.int16)
-        boost = np.random.randint(40, 100)
-        region = np.clip(region + boost, 0, 255).astype(np.uint8)
-        img[y:y + block_h, x:x + block_w] = region
-
-    elif manipulation == 'clone':
-        # Copy-move: duplicate one region of the image to another location
-        block_size = np.random.randint(30, 60)
-        src_x = np.random.randint(0, width - block_size)
-        src_y = np.random.randint(0, height - block_size)
-        dst_x = np.random.randint(0, width - block_size)
-        dst_y = np.random.randint(0, height - block_size)
-        cloned = img[src_y:src_y + block_size, src_x:src_x + block_size].copy()
-        # Apply slight transform to cloned region (scale/rotation artifacts)
-        M = cv2.getRotationMatrix2D((block_size // 2, block_size // 2), np.random.randint(-15, 15), 1.05)
-        cloned = cv2.warpAffine(cloned, M, (block_size, block_size))
-        img[dst_y:dst_y + block_size, dst_x:dst_x + block_size] = cloned
-
-    elif manipulation == 'composite':
-        # Blend two uncompressed images together (compositing)
-        overlay = np.random.randint(50, 200, (height, width, 3), dtype=np.uint8)
-        alpha = np.random.uniform(0.3, 0.6)
-        mask = np.zeros((height, width), dtype=np.float32)
-        cx, cy = width // 2, height // 2
-        cv2.circle(mask, (cx, cy), np.random.randint(40, 80), 1.0, -1)
-        mask = cv2.GaussianBlur(mask, (21, 21), 10)
-        mask_3ch = np.stack([mask] * 3, axis=-1)
-        img = (img * (1 - mask_3ch * alpha) + overlay * mask_3ch * alpha).astype(np.uint8)
-
-    return img
+                except Exception as e:
+                    print(f"Error processing {filepath}: {e}")
+                    
+    print(f"Finished scanning. Found {total_authentic} authentic and {total_forged} forged images.")
+    return np.array(features_list), np.array(labels_list)
 
 
 # ==========================================
-# 1. Generate Synthetic Dataset
+# 1. Load Real-World Dataset (IMD2020)
 # ==========================================
-N_AUTHENTIC = 2000
-N_FORGED = 2000
+dataset_path = "C:/Users/zeyang/Downloads/IMD2020"
+print(f"1. Loading real-world IMD2020 dataset from: {dataset_path}")
+X, y = load_imd2020_dataset(dataset_path)
 
-print(f"1. Generating {N_AUTHENTIC + N_FORGED} synthetic images for ELA training...")
-print(f"   - {N_AUTHENTIC} authentic (uniformly JPEG-compressed)")
-print(f"   - {N_FORGED} forged (post-compression edits)")
-
-features_list = []
-labels_list = []
-
-for i in range(N_AUTHENTIC):
-    img = generate_authentic_image()
-    ela_features = apply_ela(img, quality=90)
-    features_list.append(ela_features)
-    labels_list.append(0)  # 0 = Authentic
-    if (i + 1) % 500 == 0:
-        print(f"   Authentic: {i + 1}/{N_AUTHENTIC}")
-
-for i in range(N_FORGED):
-    img = generate_forged_image()
-    ela_features = apply_ela(img, quality=90)
-    features_list.append(ela_features)
-    labels_list.append(1)  # 1 = Forged
-    if (i + 1) % 500 == 0:
-        print(f"   Forged: {i + 1}/{N_FORGED}")
-
-X = np.array(features_list)
-y = np.array(labels_list)
+if len(X) == 0:
+    print("Error: No valid images found! Please make sure you have extracted the IMD2020.zip file to C:\\Users\\zeyang\\Downloads\\IMD2020")
+    exit(1)
 
 print(f"\n   Feature matrix shape: {X.shape}")
 print(f"   Feature names: [mean_diff, var_diff, max_diff]")
-print(f"   Authentic mean ELA: mean={X[y==0, 0].mean():.3f}, var={X[y==0, 1].mean():.3f}, max={X[y==0, 2].mean():.1f}")
-print(f"   Forged mean ELA:    mean={X[y==1, 0].mean():.3f}, var={X[y==1, 1].mean():.3f}, max={X[y==1, 2].mean():.1f}")
+if len(X[y==0]) > 0:
+    print(f"   Authentic mean ELA: mean={X[y==0, 0].mean():.3f}, var={X[y==0, 1].mean():.3f}, max={X[y==0, 2].mean():.1f}")
+if len(X[y==1]) > 0:
+    print(f"   Forged mean ELA:    mean={X[y==1, 0].mean():.3f}, var={X[y==1, 1].mean():.3f}, max={X[y==1, 2].mean():.1f}")
 
 # ==========================================
 # 2. Train/Test Split

@@ -37,10 +37,11 @@ namespace FYP.Controllers
         [HttpGet]
         public IActionResult Login()
         {
-            // 1. Secret Key Protection (Security by Obscurity)
-            // The URL parameter is the encrypted string: ?key=aadec5c7857263ec97afa3b25ef6baed48af91911fa449e499ee693bfc6afd0b
+            // 1. Secret Key Protection (Security by Obscurity replaced by Config)
             string secretKey = Request.Query["key"];
-            if (string.IsNullOrEmpty(secretKey) || secretKey != "aadec5c7857263ec97afa3b25ef6baed48af91911fa449e499ee693bfc6afd0b")
+            string expectedKey = _configuration["BuiltInAdmin:AdminSecretKey"];
+
+            if (string.IsNullOrEmpty(secretKey) || secretKey != expectedKey)
             {
                 // Return a fake 404 Not Found to hide the existence of the login page from scanners
                 return NotFound();

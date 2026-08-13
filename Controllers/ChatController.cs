@@ -23,13 +23,15 @@ namespace FYP.Controllers
         private readonly PythonAiClient _aiClient;
         private readonly IHubContext<ChatHub> _hubContext; // Inject SignalR Hub
         private readonly IWebHostEnvironment _env;
+        private readonly IPaymentEncryptionService _encryptionService;
 
-        public ChatController(ApplicationDbContext context, PythonAiClient aiClient, IHubContext<ChatHub> hubContext, IWebHostEnvironment env)
+        public ChatController(ApplicationDbContext context, PythonAiClient aiClient, IHubContext<ChatHub> hubContext, IWebHostEnvironment env, IPaymentEncryptionService encryptionService)
         {
             _context = context;
             _aiClient = aiClient;
             _hubContext = hubContext;
             _env = env;
+            _encryptionService = encryptionService;
         }
 
         [HttpGet]
@@ -43,6 +45,12 @@ namespace FYP.Controllers
                             (m.SenderID == receiverId && m.ReceiverID == senderId))
                 .OrderBy(m => m.Timestamp) // 2. Fixed Sorting: Chronological order
                 .ToListAsync();
+
+            // Decrypt payloads before displaying
+            foreach (var msg in messages)
+            {
+                msg.Payload = _encryptionService.DecryptSafe(msg.Payload);
+            }
 
             ViewBag.SenderID = senderId;
             ViewBag.ReceiverID = receiverId;
@@ -151,7 +159,7 @@ namespace FYP.Controllers
                 ChatID = chatId,
                 SenderID = senderId,
                 ReceiverID = receiverId,
-                Payload = safePayload,
+                Payload = _encryptionService.Encrypt(safePayload),
                 NLP_Flag = false,
                 IsRead = false,
                 Timestamp = DateTime.UtcNow,
@@ -262,6 +270,12 @@ namespace FYP.Controllers
                 .OrderByDescending(m => m.Timestamp)
                 .ToListAsync();
 
+            // Decrypt messages
+            foreach(var msg in messages)
+            {
+                msg.Payload = _encryptionService.DecryptSafe(msg.Payload);
+            }
+
             // 2. Group by the contact (the person who is NOT the current user)
             var recentConvos = messages
                 .GroupBy(m => m.SenderID == currentUserId ? m.ReceiverID : m.SenderID)
@@ -285,22 +299,26 @@ namespace FYP.Controllers
         {
             string currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            // 1. Fetch chronological message history
-            var messages = await _context.ChatMessages
+            // 1. Fetch chronological message history from DB
+            var dbMessages = await _context.ChatMessages
                 .Where(m => (m.SenderID == currentUserId && m.ReceiverID == contactId) ||
                             (m.SenderID == contactId && m.ReceiverID == currentUserId))
                 .OrderBy(m => m.Timestamp) // Oldest at the top, newest at the bottom
+                .ToListAsync();
+
+            // Decrypt and project to View Model
+            var messages = dbMessages
                 .Select(m => new
                 {
                     chatId = m.ChatID,
                     isMine = m.SenderID == currentUserId, // Boolean flag so JS knows which color to use
-                    payload = m.Payload,
+                    payload = _encryptionService.DecryptSafe(m.Payload),
                     timestamp = m.Timestamp.ToLocalTime().ToString("HH:mm"),
                     attachmentUrl = m.AttachmentUrl,
                     attachmentType = m.AttachmentType,
                     nlpFlag = m.NLP_Flag
                 })
-                .ToListAsync();
+                .ToList();
 
             // 2. Clear unread notifications
             var unreadMessages = await _context.ChatMessages

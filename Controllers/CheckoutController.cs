@@ -52,7 +52,6 @@ namespace FYP.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ProcessPayment(
-            string buyerId,
             decimal amount,
             string rawCardNumber,
             string paymentMethod,
@@ -63,6 +62,9 @@ namespace FYP.Controllers
             string idempotencyKey,
             string selectedCourierId = null)
         {
+            string buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(buyerId)) return Unauthorized();
+
             var cart = GetCartFromSession();
             if (!cart.Items.Any())
             {
@@ -81,13 +83,32 @@ namespace FYP.Controllers
             // 2. Tokenize sensitive card details (SHA-256 HMAC Tokenization)
             string paymentToken = GeneratePaymentToken(rawCardNumber);
 
-            // 3. Package transaction features for the Python XGBoost microservice
+            // 3. Calculate real-time velocity metrics for the AI
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            var tenMinsAgo = DateTime.UtcNow.AddMinutes(-10);
+            
+            int transactionsLast10Mins = await _context.Orders
+                .CountAsync(o => o.BuyerID == buyerId && o.CreatedAt >= tenMinsAgo);
+
+            int deviceIpFlags = await _context.AuditLogs
+                .CountAsync(a => a.IP_Address == clientIp && a.Action.Contains("Block"));
+
+            var buyer = await _context.Users.FirstOrDefaultAsync(u => u.UserID == buyerId);
+            double timeSinceAccountCreationSeconds = buyer != null 
+                ? (DateTime.UtcNow - buyer.CreatedAt).TotalSeconds 
+                : accountAgeDays * 86400; // Fallback to provided param if null
+
+            // 4. Package transaction features for the Python XGBoost microservice
             var transactionPayload = new
             {
                 transactionAmount = amount,
-                accountAgeDays = accountAgeDays,
+                accountAgeDays = accountAgeDays, // Note: Consider calculating this securely from buyer.CreatedAt too
                 failedLoginAttempts = failedLogins,
-                distanceFromShippingAddress = shippingDistanceKm
+                distanceFromShippingAddress = shippingDistanceKm,
+                
+                transactions_last_10_mins = transactionsLast10Mins,
+                time_since_account_creation_seconds = timeSinceAccountCreationSeconds,
+                device_ip_flags = deviceIpFlags
             };
 
             // 4. Send transaction to Python microservice for real-time AI evaluation
@@ -96,7 +117,6 @@ namespace FYP.Controllers
             // 5. Generate explicit production primary keys
             string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
             string paymentId = "PAY-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
-            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
 
             // 4. Handle high-risk fraud flags (> 0.80 threshold or explicit AI block)
             if (aiVerdict.IsBlocked || aiVerdict.RiskScore > 0.80m)

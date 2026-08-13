@@ -779,6 +779,7 @@ namespace FYP.Controllers
 
         // POST: /Cart/CreatePaymentIntent
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreatePaymentIntent([FromBody] System.Text.Json.JsonElement requestData)
         {
             var userId = GetUserId();
@@ -932,6 +933,7 @@ namespace FYP.Controllers
 
         // POST: /Cart/RetryPaymentIntent
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> RetryPaymentIntent([FromBody] System.Text.Json.JsonElement requestData)
         {
             var userId = GetUserId();
@@ -1075,6 +1077,7 @@ namespace FYP.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> PayExistingOrder([FromBody] System.Text.Json.JsonElement requestData)
         {
             try
@@ -1134,6 +1137,7 @@ namespace FYP.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> GetShippingOptions([FromBody] System.Text.Json.JsonElement data)
         {
             try

@@ -786,6 +786,7 @@ namespace FYP.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateSetupIntent()
         {
             try
@@ -837,6 +838,7 @@ namespace FYP.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> SyncSavedCard([FromBody] SyncCardRequest request)
         {
             try
@@ -1335,6 +1337,7 @@ namespace FYP.Controllers
         }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelOrder([FromBody] System.Text.Json.JsonElement requestData)
     {
         try
@@ -1382,7 +1385,31 @@ namespace FYP.Controllers
         {
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            return allowedExtensions.Contains(extension);
+            if (!allowedExtensions.Contains(extension)) return false;
+
+            try
+            {
+                using (var stream = file.OpenReadStream())
+                {
+                    byte[] header = new byte[8];
+                    stream.Read(header, 0, 8);
+                    string headerHex = BitConverter.ToString(header).Replace("-", string.Empty);
+                    
+                    if (extension == ".jpg" || extension == ".jpeg")
+                    {
+                        return headerHex.StartsWith("FFD8FF");
+                    }
+                    if (extension == ".png")
+                    {
+                        return headerHex.StartsWith("89504E470D0A1A0A");
+                    }
+                }
+            }
+            catch
+            {
+                return false;
+            }
+            return false;
         }
 
         private bool IsValidVideo(IFormFile file)

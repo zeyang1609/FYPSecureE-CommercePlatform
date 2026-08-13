@@ -1,4 +1,4 @@
-﻿using FYP.Data;
+using FYP.Data;
 using FYP.Models.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -11,10 +11,12 @@ namespace FYP.Hubs
     public class ChatHub : Hub
     {
         private readonly ApplicationDbContext _context;
+        private readonly FYP.Services.IPaymentEncryptionService _encryptionService;
 
-        public ChatHub(ApplicationDbContext context)
+        public ChatHub(ApplicationDbContext context, FYP.Services.IPaymentEncryptionService encryptionService)
         {
             _context = context;
+            _encryptionService = encryptionService;
         }
 
         public async Task SendMessage(string receiverId, string payload)
@@ -31,7 +33,7 @@ namespace FYP.Hubs
                 ChatID = chatId,
                 SenderID = senderId,
                 ReceiverID = receiverId,
-                Payload = payload,
+                Payload = _encryptionService.Encrypt(payload),
                 NLP_Flag = false, // Set to false initially, let an AI background worker update it later!
                 IsRead = false,
                 Timestamp = DateTime.UtcNow
