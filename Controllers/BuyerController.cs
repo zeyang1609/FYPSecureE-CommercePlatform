@@ -1529,6 +1529,148 @@ namespace FYP.Controllers
 
             return File(pdfBytes, "application/pdf", $"{receiptNumber}.pdf");
         }
+        [HttpPost]
+        public async Task<IActionResult> ToggleWishlist(string productId)
+        {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(buyerId)) return Unauthorized();
+
+            var existing = await _context.Wishlists.FirstOrDefaultAsync(w => w.BuyerID == buyerId && w.ProductID == productId);
+            bool isWishlisted = false;
+            
+            if (existing != null)
+            {
+                _context.Wishlists.Remove(existing);
+            }
+            else
+            {
+                _context.Wishlists.Add(new Wishlist { BuyerID = buyerId, ProductID = productId });
+                isWishlisted = true;
+            }
+
+            await _context.SaveChangesAsync();
+            return Json(new { success = true, isWishlisted });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Insights(string timeFilter = "All Time")
+        {
+            var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(buyerId)) return RedirectToAction("Login", "Auth");
+
+            // Apply time filter
+            var query = _context.OrderItems
+                .Include(oi => oi.Order)
+                .Include(oi => oi.Product)
+                .ThenInclude(p => p.Category)
+                .Where(oi => oi.Order.BuyerID == buyerId && oi.Order.Status == "Completed");
+
+            DateTime now = DateTime.UtcNow;
+            if (timeFilter == "This Month")
+            {
+                var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                query = query.Where(oi => oi.Order.CreatedAt >= startOfMonth);
+            }
+            else if (timeFilter == "This Year")
+            {
+                var startOfYear = new DateTime(now.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                query = query.Where(oi => oi.Order.CreatedAt >= startOfYear);
+            }
+
+            var orderItems = await query.ToListAsync();
+
+            decimal totalSpent = 0;
+            var spendingByCategory = new Dictionary<string, decimal>();
+            var countByCategory = new Dictionary<string, int>();
+            var uniqueOrders = new HashSet<string>();
+
+            foreach (var item in orderItems)
+            {
+                uniqueOrders.Add(item.OrderID);
+                if (item.Product?.Category?.Name != null)
+                {
+                    decimal amount = item.UnitPrice * item.Quantity;
+                    totalSpent += amount;
+                    string catName = item.Product.Category.Name;
+
+                    if (spendingByCategory.ContainsKey(catName))
+                    {
+                        spendingByCategory[catName] += amount;
+                        countByCategory[catName] += item.Quantity;
+                    }
+                    else
+                    {
+                        spendingByCategory[catName] = amount;
+                        countByCategory[catName] = item.Quantity;
+                    }
+                }
+            }
+
+            int totalOrdersCompleted = uniqueOrders.Count;
+            string favoriteCategory = "None";
+            if (countByCategory.Any())
+            {
+                favoriteCategory = countByCategory.OrderByDescending(c => c.Value).First().Key;
+            }
+
+            // Wishlist items
+            var wishlists = await _context.Wishlists
+                .Include(w => w.Product)
+                .ThenInclude(p => p.Category)
+                .Where(w => w.BuyerID == buyerId)
+                .OrderByDescending(w => w.CreatedAt)
+                .ToListAsync();
+
+            var wishlistItems = wishlists.Where(w => w.Product != null).Select(w => new WishlistItemViewModel
+            {
+                ProductID = w.ProductID,
+                Title = w.Product.Title,
+                ImageHash = w.Product.ImageHash,
+                Price = w.Product.Price,
+                StockLevel = w.Product.StockLevel,
+                IsLowStock = w.Product.StockLevel <= 5
+            }).ToList();
+
+            // Recommended Products (based on purchased or wishlisted categories)
+            var preferredCategories = spendingByCategory.Keys
+                .Concat(wishlists.Where(w => w.Product?.Category != null).Select(w => w.Product.Category.Name))
+                .Distinct()
+                .ToList();
+
+            var recommendedProducts = new List<Product>();
+            if (preferredCategories.Any())
+            {
+                recommendedProducts = await _context.Products
+                    .Include(p => p.Category)
+                    .Where(p => preferredCategories.Contains(p.Category.Name) && p.StockLevel > 0)
+                    .OrderByDescending(p => p.AverageRating)
+                    .Take(8)
+                    .ToListAsync();
+            }
+            else
+            {
+                // Fallback to top rated products
+                recommendedProducts = await _context.Products
+                    .Include(p => p.Category)
+                    .Where(p => p.StockLevel > 0)
+                    .OrderByDescending(p => p.AverageRating)
+                    .Take(8)
+                    .ToListAsync();
+            }
+
+            var viewModel = new BuyerInsightsViewModel
+            {
+                TotalSpent = totalSpent,
+                TotalOrdersCompleted = totalOrdersCompleted,
+                FavoriteCategory = favoriteCategory,
+                CurrentTimeFilter = timeFilter,
+                SpendingByCategory = spendingByCategory,
+                WishlistItems = wishlistItems,
+                RecommendedProducts = recommendedProducts
+            };
+
+            return View(viewModel);
+        }
     }
 
     public class SyncCardRequest

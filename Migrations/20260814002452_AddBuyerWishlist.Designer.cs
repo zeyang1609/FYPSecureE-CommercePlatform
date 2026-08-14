@@ -4,16 +4,19 @@ using FYP.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace FYP.Migrations
+namespace FYP.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814002452_AddBuyerWishlist")]
+    partial class AddBuyerWishlist
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -82,7 +85,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("UserID");
 
-                    b.ToTable("Addresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.AuditLog", b =>
@@ -113,7 +116,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("UserID");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.BlacklistedImageHash", b =>
@@ -146,7 +149,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("AddedByAdminID");
 
-                    b.ToTable("BlacklistedImageHashes", (string)null);
+                    b.ToTable("BlacklistedImageHashes");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Cart", b =>
@@ -171,7 +174,7 @@ namespace FYP.Migrations
                     b.HasIndex("UserID")
                         .IsUnique();
 
-                    b.ToTable("Carts", (string)null);
+                    b.ToTable("Carts");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.CartItem", b =>
@@ -205,7 +208,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("ProductID");
 
-                    b.ToTable("CartItems", (string)null);
+                    b.ToTable("CartItems");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Category", b =>
@@ -234,7 +237,7 @@ namespace FYP.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("Categories", (string)null);
+                    b.ToTable("Categories");
 
                     b.HasData(
                         new
@@ -289,7 +292,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("SenderID");
 
-                    b.ToTable("ChatMessages", (string)null);
+                    b.ToTable("ChatMessages");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Courier", b =>
@@ -313,7 +316,7 @@ namespace FYP.Migrations
 
                     b.HasKey("CourierID");
 
-                    b.ToTable("Couriers", (string)null);
+                    b.ToTable("Couriers");
 
                     b.HasData(
                         new
@@ -373,7 +376,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("OrderID");
 
-                    b.ToTable("Deliveries", (string)null);
+                    b.ToTable("Deliveries");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.DeliveryPricingRule", b =>
@@ -408,7 +411,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("CourierID");
 
-                    b.ToTable("DeliveryPricingRules", (string)null);
+                    b.ToTable("DeliveryPricingRules");
 
                     b.HasData(
                         new
@@ -477,7 +480,7 @@ namespace FYP.Migrations
                     b.HasIndex("DeviceIdentifier")
                         .IsUnique();
 
-                    b.ToTable("DeviceLockouts", (string)null);
+                    b.ToTable("DeviceLockouts");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.FraudAlert", b =>
@@ -509,7 +512,7 @@ namespace FYP.Migrations
                     b.HasIndex("OrderID")
                         .IsUnique();
 
-                    b.ToTable("FraudAlerts", (string)null);
+                    b.ToTable("FraudAlerts");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.HelpArticle", b =>
@@ -545,7 +548,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("HelpCategoryID");
 
-                    b.ToTable("HelpArticles", (string)null);
+                    b.ToTable("HelpArticles");
 
                     b.HasData(
                         new
@@ -708,7 +711,7 @@ namespace FYP.Migrations
 
                     b.HasKey("HelpCategoryID");
 
-                    b.ToTable("HelpCategories", (string)null);
+                    b.ToTable("HelpCategories");
 
                     b.HasData(
                         new
@@ -782,7 +785,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("AddedByAdminID");
 
-                    b.ToTable("IpFilters", (string)null);
+                    b.ToTable("IpFilters");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Notification", b =>
@@ -816,7 +819,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("UserID");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Order", b =>
@@ -861,7 +864,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("BuyerID");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.OrderItem", b =>
@@ -893,7 +896,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("ProductID");
 
-                    b.ToTable("OrderItems", (string)null);
+                    b.ToTable("OrderItems");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Payment", b =>
@@ -939,7 +942,7 @@ namespace FYP.Migrations
                     b.HasIndex("OrderID")
                         .IsUnique();
 
-                    b.ToTable("Payments", (string)null);
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Product", b =>
@@ -997,7 +1000,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("SellerID");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products");
 
                     b.HasData(
                         new
@@ -1182,7 +1185,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("OrderID");
 
-                    b.ToTable("Refunds", (string)null);
+                    b.ToTable("Refunds");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Review", b =>
@@ -1228,7 +1231,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("ProductID");
 
-                    b.ToTable("Reviews", (string)null);
+                    b.ToTable("Reviews");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.SavedBankCard", b =>
@@ -1279,7 +1282,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("UserID");
 
-                    b.ToTable("SavedBankCards", (string)null);
+                    b.ToTable("SavedBankCards");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.User", b =>
@@ -1352,7 +1355,7 @@ namespace FYP.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
 
                     b.HasData(
                         new
@@ -1436,7 +1439,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("UserID");
 
-                    b.ToTable("UserDevices", (string)null);
+                    b.ToTable("UserDevices");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Wishlist", b =>
@@ -1466,7 +1469,7 @@ namespace FYP.Migrations
 
                     b.HasIndex("ProductID");
 
-                    b.ToTable("Wishlists", (string)null);
+                    b.ToTable("Wishlists");
                 });
 
             modelBuilder.Entity("FYP.Models.Entities.Address", b =>

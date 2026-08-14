@@ -226,12 +226,36 @@ namespace FYP.Controllers
             };
 
             var orderItems = new List<OrderItem>();
+            var wishlistNotifications = new List<Notification>();
+
             foreach (var item in cart.Items)
             {
                 var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductID == item.ProductID);
                 if (product != null)
                 {
+                    int oldStock = product.StockLevel;
                     product.StockLevel = Math.Max(0, product.StockLevel - item.Quantity);
+
+                    // Low stock alert for wishlisted buyers
+                    if (oldStock > 5 && product.StockLevel <= 5 && product.StockLevel > 0)
+                    {
+                        var wishlistedBuyerIds = await _context.Wishlists
+                            .Where(w => w.ProductID == product.ProductID)
+                            .Select(w => w.BuyerID)
+                            .Distinct()
+                            .ToListAsync();
+
+                        foreach (var wBuyerId in wishlistedBuyerIds)
+                        {
+                            wishlistNotifications.Add(new Notification
+                            {
+                                NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                                UserID = wBuyerId,
+                                Type = "Low Stock Alert",
+                                Content = $"Hurry! '{product.Title}' in your wishlist is running low on stock (only {product.StockLevel} left)."
+                            });
+                        }
+                    }
 
                     orderItems.Add(new OrderItem
                     {
@@ -257,6 +281,10 @@ namespace FYP.Controllers
             _context.Deliveries.Add(delivery);
             _context.Payments.Add(payment);
             _context.OrderItems.AddRange(orderItems);
+            if (wishlistNotifications.Any())
+            {
+                _context.Notifications.AddRange(wishlistNotifications);
+            }
             _context.AuditLogs.Add(successLog);
             await _context.SaveChangesAsync();
 

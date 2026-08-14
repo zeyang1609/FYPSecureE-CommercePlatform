@@ -276,6 +276,9 @@ namespace FYP.Controllers
                 await System.IO.File.WriteAllBytesAsync(uploadPath, imageBytes);
             }
 
+            decimal oldPrice = product.Price;
+            int oldStock = product.StockLevel;
+
             // Update details
             product.Title = model.Title;
             product.Price = model.Price;
@@ -283,6 +286,73 @@ namespace FYP.Controllers
             product.WeightKg = model.WeightKg;
             product.Description = model.Description;
             product.CategoryID = categoryId;
+
+            // Notify wishlisted buyers of price changes or restocks
+            var wishlistedBuyerIds = await _context.Wishlists
+                .Where(w => w.ProductID == product.ProductID)
+                .Select(w => w.BuyerID)
+                .Distinct()
+                .ToListAsync();
+
+            if (wishlistedBuyerIds.Any())
+            {
+                // Price change alerts
+                if (model.Price < oldPrice)
+                {
+                    foreach (var buyerId in wishlistedBuyerIds)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = buyerId,
+                            Type = "Price Drop Alert",
+                            Content = $"Good news! '{product.Title}' in your wishlist dropped in price from RM {oldPrice:0.00} to RM {model.Price:0.00}."
+                        });
+                    }
+                }
+                else if (model.Price > oldPrice)
+                {
+                    foreach (var buyerId in wishlistedBuyerIds)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = buyerId,
+                            Type = "Price Change Alert",
+                            Content = $"Notice: '{product.Title}' in your wishlist has increased in price from RM {oldPrice:0.00} to RM {model.Price:0.00}."
+                        });
+                    }
+                }
+
+                // Restock alert (0 -> >0)
+                if (oldStock == 0 && model.StockLevel > 0)
+                {
+                    foreach (var buyerId in wishlistedBuyerIds)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = buyerId,
+                            Type = "Restock Alert",
+                            Content = $"Back in stock! '{product.Title}' in your wishlist is now available with {model.StockLevel} units."
+                        });
+                    }
+                }
+                // Low stock alert (>5 -> <=5 and >0)
+                else if (oldStock > 5 && model.StockLevel <= 5 && model.StockLevel > 0)
+                {
+                    foreach (var buyerId in wishlistedBuyerIds)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = buyerId,
+                            Type = "Low Stock Alert",
+                            Content = $"Hurry! '{product.Title}' in your wishlist is running low on stock (only {model.StockLevel} left)."
+                        });
+                    }
+                }
+            }
 
             var auditLog = new AuditLog
             {

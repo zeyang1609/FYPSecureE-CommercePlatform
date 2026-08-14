@@ -354,7 +354,7 @@ namespace FYP.Controllers
 
             ViewBag.SellerID = sellerId;
             ViewBag.TotalProducts = products.Count;
-            ViewBag.LowStockCount = products.Count(p => p.StockLevel < 5);
+            ViewBag.LowStockCount = products.Count(p => p.StockLevel <= 5);
             ViewBag.TotalRevenue = recentSales.Sum(oi => oi.UnitPrice * oi.Quantity);
             ViewBag.RecentSales = recentSales;
 
@@ -396,6 +396,45 @@ namespace FYP.Controllers
 
             int oldStock = product.StockLevel;
             product.StockLevel = newStockLevel;
+
+            // Notify wishlisted buyers if restocked or low stock
+            var wishlistedBuyerIds = await _context.Wishlists
+                .Where(w => w.ProductID == product.ProductID)
+                .Select(w => w.BuyerID)
+                .Distinct()
+                .ToListAsync();
+
+            if (wishlistedBuyerIds.Any())
+            {
+                // Restock alert (0 -> >0)
+                if (oldStock == 0 && newStockLevel > 0)
+                {
+                    foreach (var buyerId in wishlistedBuyerIds)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = buyerId,
+                            Type = "Restock Alert",
+                            Content = $"Back in stock! '{product.Title}' in your wishlist is now available with {newStockLevel} units."
+                        });
+                    }
+                }
+                // Low stock alert (>5 -> <=5 and >0)
+                else if (oldStock > 5 && newStockLevel <= 5 && newStockLevel > 0)
+                {
+                    foreach (var buyerId in wishlistedBuyerIds)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = buyerId,
+                            Type = "Low Stock Alert",
+                            Content = $"Hurry! '{product.Title}' in your wishlist is running low on stock (only {newStockLevel} left)."
+                        });
+                    }
+                }
+            }
 
             var auditLog = new AuditLog
             {

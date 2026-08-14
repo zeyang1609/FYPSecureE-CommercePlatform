@@ -31,6 +31,13 @@ namespace FYP.Middleware
                 // Handle IPv4 mapped to IPv6 (e.g. ::ffff:127.0.0.1)
                 string ipString = ipAddress.IsIPv4MappedToIPv6 ? ipAddress.MapToIPv4().ToString() : ipAddress.ToString();
 
+                // Always allow localhost / loopback during development
+                if (IPAddress.IsLoopback(ipAddress) || ipString == "127.0.0.1" || ipString == "::1" || ipString == "localhost")
+                {
+                    await _next(context);
+                    return;
+                }
+
                 // Retrieve from cache if possible to avoid DB query on every single HTTP request
                 if (!_cache.TryGetValue("IpFilters_Whitelist", out List<string> whitelist) ||
                     !_cache.TryGetValue("IpFilters_Blacklist", out List<string> blacklist))

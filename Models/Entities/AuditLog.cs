@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -8,11 +8,11 @@ namespace FYP.Models.Entities
     {
         [Key]
         [MaxLength(50)]
-        public string LogID { get; set; }
+        public string LogID { get; set; } = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
 
         [Required]
         [MaxLength(50)]
-        public string UserID { get; set; }
+        public string UserID { get; set; } = "SYSTEM";
 
         [Required]
         [MaxLength(255)]

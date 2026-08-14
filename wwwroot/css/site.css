@@ -8,7 +8,11 @@ html {
     }
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+.btn:focus,
+.btn:active:focus,
+.btn-link.nav-link:focus,
+.form-control:focus,
+.form-check-input:focus {
     box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
@@ -29,7 +33,7 @@ html {
     font-weight: 600;
     font-size: 15px;
     cursor: pointer;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -49,7 +53,7 @@ html {
     height: 550px;
     background: white;
     border-radius: 6px 6px 0 0;
-    box-shadow: 0 -5px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.15);
     display: none;
     flex-direction: column;
     z-index: 9998;
@@ -142,7 +146,7 @@ html {
 }
 
 /* Prevent long messages from overflowing chat bubbles */
-.secure-messages > div {
+.secure-messages>div {
     word-wrap: break-word;
     overflow-wrap: break-word;
     word-break: break-word;
@@ -207,7 +211,7 @@ html {
     display: inline-block;
 }
 
-.cart-preview-container > .cart-link {
+.cart-preview-container>.cart-link {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -238,7 +242,7 @@ html {
     right: -20px;
     width: 380px;
     background-color: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border-radius: 4px;
     z-index: 1000;
     margin-top: 10px;
@@ -367,6 +371,7 @@ html {
     opacity: 0.9;
     color: white;
 }
+
 /* --- Premium Footer --- */
 .site-footer {
     background: #fdfdfd;
@@ -392,7 +397,8 @@ html {
     margin-bottom: 15px;
 }
 
-.footer-links h5, .footer-payment h5 {
+.footer-links h5,
+.footer-payment h5 {
     font-size: 1rem;
     font-weight: 700;
     color: #333;
@@ -433,7 +439,7 @@ html {
     font-weight: 600;
     font-size: 0.8rem;
     color: #555;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .footer-bottom {

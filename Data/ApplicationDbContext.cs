@@ -38,6 +38,7 @@ namespace FYP.Data
         public DbSet<HelpArticle> HelpArticles { get; set; }
         public DbSet<BlacklistedImageHash> BlacklistedImageHashes { get; set; }
         public DbSet<IpFilter> IpFilters { get; set; }
+        public DbSet<Wishlist> Wishlists { get; set; }
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -129,6 +130,18 @@ namespace FYP.Data
                 .HasOne(ci => ci.Product)
                 .WithMany()
                 .HasForeignKey(ci => ci.ProductID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Wishlist>()
+                .HasOne(w => w.Buyer)
+                .WithMany()
+                .HasForeignKey(w => w.BuyerID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Wishlist>()
+                .HasOne(w => w.Product)
+                .WithMany()
+                .HasForeignKey(w => w.ProductID)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // 5. Configure Review Relationships (Prevent multiple cascade paths)

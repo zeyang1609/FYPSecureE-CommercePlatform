@@ -681,6 +681,7 @@ namespace FYP.Controllers
             {
                 if (item.Product != null)
                 {
+                    int oldStock = item.Product.StockLevel;
                     item.Product.StockLevel = Math.Max(0, item.Product.StockLevel - item.Quantity);
                     orderItems.Add(new OrderItem
                     {
@@ -691,7 +692,28 @@ namespace FYP.Controllers
                         UnitPrice = item.Product.Price
                     });
 
-                    // Low Stock Alert / Out of Stock Alert
+                    // Low Stock Alert for wishlisted buyers
+                    if (oldStock > 5 && item.Product.StockLevel <= 5 && item.Product.StockLevel > 0)
+                    {
+                        var wishlistedBuyerIds = await _context.Wishlists
+                            .Where(w => w.ProductID == item.ProductID)
+                            .Select(w => w.BuyerID)
+                            .Distinct()
+                            .ToListAsync();
+
+                        foreach (var wBuyerId in wishlistedBuyerIds)
+                        {
+                            notifications.Add(new Notification
+                            {
+                                NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                                UserID = wBuyerId,
+                                Type = "Low Stock Alert",
+                                Content = $"Hurry! '{item.Product.Title}' in your wishlist is running low on stock (only {item.Product.StockLevel} left)."
+                            });
+                        }
+                    }
+
+                    // Low Stock Alert / Out of Stock Alert for Seller
                     if (item.Product.StockLevel == 0)
                     {
                         notifications.Add(new Notification

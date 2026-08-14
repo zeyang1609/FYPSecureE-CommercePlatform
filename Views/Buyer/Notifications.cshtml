@@ -61,6 +61,9 @@
     .notification-card.type-inventory::before { background: #F59E0B; }
     .notification-card.type-system::before { background: #3B82F6; }
     .notification-card.type-security::before { background: #dc2626; }
+    .notification-card.type-price::before { background: #EE4D2D; }
+    .notification-card.type-restock::before { background: #10B981; }
+    .notification-card.type-wishlist::before { background: #EC4899; }
     .notification-card.type-default::before { background: #6B7280; }
 
     .notification-icon-wrapper {
@@ -79,6 +82,9 @@
     .type-inventory .notification-icon-wrapper { background: rgba(245, 158, 11, 0.1); color: #F59E0B; }
     .type-system .notification-icon-wrapper { background: rgba(59, 130, 246, 0.1); color: #3B82F6; }
     .type-security .notification-icon-wrapper { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+    .type-price .notification-icon-wrapper { background: rgba(238, 77, 45, 0.1); color: #EE4D2D; }
+    .type-restock .notification-icon-wrapper { background: rgba(16, 185, 129, 0.1); color: #10B981; }
+    .type-wishlist .notification-icon-wrapper { background: rgba(236, 72, 153, 0.1); color: #EC4899; }
     .type-default .notification-icon-wrapper { background: rgba(107, 114, 128, 0.1); color: #6B7280; }
 
     .notification-content-wrapper {
@@ -158,8 +164,12 @@
                     var iconClass = "fa-bell";
                     
                     if (notification.Type.Contains("Order")) { typeClass = "type-order"; iconClass = "fa-box-open"; }
+                    else if (notification.Type.Contains("Delivery")) { typeClass = "type-order"; iconClass = "fa-truck"; }
                     else if (notification.Type.Contains("Refund")) { typeClass = "type-refund"; iconClass = "fa-undo"; }
+                    else if (notification.Type.Contains("Price")) { typeClass = "type-price"; iconClass = "fa-tag"; }
+                    else if (notification.Type.Contains("Restock")) { typeClass = "type-restock"; iconClass = "fa-boxes"; }
                     else if (notification.Type.Contains("Inventory") || notification.Type.Contains("Stock")) { typeClass = "type-inventory"; iconClass = "fa-exclamation-triangle"; }
+                    else if (notification.Type.Contains("Wishlist") || notification.Type.Contains("Reminder")) { typeClass = "type-wishlist"; iconClass = "fa-heart"; }
                     else if (notification.Type.Contains("System") || notification.Type.Contains("Announcement")) { typeClass = "type-system"; iconClass = "fa-bullhorn"; }
                     else if (notification.Type.Contains("Security") || notification.Type.Contains("Fraud")) { typeClass = "type-security"; iconClass = "fa-shield-alt"; }
                     

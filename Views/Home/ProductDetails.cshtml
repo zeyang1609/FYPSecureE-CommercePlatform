@@ -1,4 +1,6 @@
 @model FYP.Models.Entities.Product
+@using System.Security.Claims
+@inject FYP.Data.ApplicationDbContext _context
 @{
     ViewData["Title"] = Model.Title;
 }
@@ -27,10 +29,12 @@
     .stock-info { margin-left: 15px; color: #757575; font-size: 0.95rem; }
 
     .button-group { display: flex; gap: 20px; margin-top: auto; padding-top: 20px; }
-    .btn-add-cart { padding: 0 25px; height: 50px; border: 1px solid #ee4d2d; background: #ffeee8; color: #ee4d2d; font-size: 1.05rem; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.2s; text-decoration: none; font-weight: 500; }
+    .btn-add-cart { flex: 1; padding: 0 15px; height: 50px; border: 1px solid #ee4d2d; background: #ffeee8; color: #ee4d2d; font-size: 1.05rem; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.2s; text-decoration: none; font-weight: 500; }
     .btn-add-cart:hover { background: #ffdcd3; }
-    .btn-buy-now { padding: 0 25px; height: 50px; min-width: 150px; border: none; background: #ee4d2d; color: #fff; font-size: 1.05rem; border-radius: 4px; cursor: pointer; transition: background 0.2s; text-decoration: none; display: flex; align-items: center; justify-content: center; font-weight: 500; }
+    .btn-buy-now { flex: 1; padding: 0 15px; height: 50px; border: none; background: #ee4d2d; color: #fff; font-size: 1.05rem; border-radius: 4px; cursor: pointer; transition: background 0.2s; text-decoration: none; display: flex; align-items: center; justify-content: center; font-weight: 500; }
     .btn-buy-now:hover { background: #d73211; }
+    .btn-favorite-icon { flex: 0 0 50px; height: 50px; border: 1px solid #ee4d2d; background: #fff; color: #ee4d2d; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .btn-favorite-icon:hover { background: #fff5f5; }
 
     .shop-card { background: #fff; padding: 20px; border-radius: 4px; display: flex; align-items: center; box-shadow: 0 1px 1px rgba(0,0,0,.05); gap: 20px; margin-bottom: 20px; }
     .shop-avatar { width: 80px; height: 80px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999; border: 1px solid #e0e0e0; font-size: 24px; }
@@ -74,6 +78,15 @@
                 <div class="product-price">RM @Model.Price.ToString("0.00")</div>
             </div>
 
+            @{
+                bool isWishlisted = false;
+                if (User.Identity?.IsAuthenticated == true && User.IsInRole("Buyer"))
+                {
+                    var buyerId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    isWishlisted = _context.Wishlists.Any(w => w.BuyerID == buyerId && w.ProductID == Model.ProductID);
+                }
+            }
+
             @if (!User.IsInRole("Seller"))
             {
                 <form asp-controller="Cart" asp-action="AddToCart" method="post" id="addToCartForm">
@@ -102,6 +115,11 @@
                             Add To Cart
                         </button>
                         <button type="button" class="btn-buy-now" onclick="buyNow()">Buy Now</button>
+                        <button type="button" class="btn-favorite-icon" onclick="toggleWishlist('@Model.ProductID')" title="Toggle Wishlist">
+                            <svg id="wishlist-icon" width="22" height="22" viewBox="0 0 24 24" fill="@(isWishlisted ? "#ee4d2d" : "none")" stroke="#ee4d2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                            </svg>
+                        </button>
                     </div>
                 </form>
             }
@@ -450,6 +468,39 @@
                 }
             }, 300);
         }, 1500);
+    }
+
+    async function toggleWishlist(productId) {
+        if (!isAuthenticated) {
+            window.location.href = '/Auth/Login';
+            return;
+        }
+
+        try {
+            var response = await fetch('/Buyer/ToggleWishlist?productId=' + productId, {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                }
+            });
+            var data = await response.json();
+            
+            if (data.success) {
+                var icon = document.getElementById('wishlist-icon');
+                if (data.isWishlisted) {
+                    icon.setAttribute('fill', '#ee4d2d');
+                    showToast('Added to Wishlist');
+                } else {
+                    icon.setAttribute('fill', 'none');
+                    showToast('Removed from Wishlist');
+                }
+            } else {
+                alert('Failed to update wishlist.');
+            }
+        } catch (error) {
+            console.error('Error toggling wishlist:', error);
+            alert('An error occurred.');
+        }
     }
 </script>
 

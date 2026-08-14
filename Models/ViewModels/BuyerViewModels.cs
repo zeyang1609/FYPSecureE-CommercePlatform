@@ -85,4 +85,24 @@ namespace FYP.Models.ViewModels
         [Compare("NewPassword", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
+    public class BuyerInsightsViewModel
+    {
+        public decimal TotalSpent { get; set; }
+        public int TotalOrdersCompleted { get; set; }
+        public string FavoriteCategory { get; set; } = "None";
+        public string CurrentTimeFilter { get; set; } = "All Time";
+        public Dictionary<string, decimal> SpendingByCategory { get; set; } = new Dictionary<string, decimal>();
+        public List<Product> RecommendedProducts { get; set; } = new List<Product>();
+        public List<WishlistItemViewModel> WishlistItems { get; set; } = new List<WishlistItemViewModel>();
+    }
+
+    public class WishlistItemViewModel
+    {
+        public string ProductID { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string ImageHash { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public int StockLevel { get; set; }
+        public bool IsLowStock { get; set; }
+    }
 }

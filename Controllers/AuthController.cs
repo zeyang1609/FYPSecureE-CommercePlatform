@@ -298,8 +298,6 @@ namespace FYP.Controllers
                 var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
                 await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
 
-                await CheckAbandonedCartNotification(user.UserID);
-
                 // Dynamic Redirect: Centralized routing engine
                 return RedirectToUserDashboard(user.Role, user.UserID);
             }
@@ -408,8 +406,6 @@ namespace FYP.Controllers
                 var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
                 await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
 
-                await CheckAbandonedCartNotification(user.UserID);
-
                 string redirectUrl = user.Role switch
                 {
                     "Buyer" => Url.Action("Dashboard", "Buyer"),
@@ -497,8 +493,6 @@ namespace FYP.Controllers
 
                         var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
                         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
-
-                        await CheckAbandonedCartNotification(user.UserID);
 
                         TempData["SuccessMessage"] = "Identity verified! Welcome to SecurePlatform.";
 
@@ -755,8 +749,6 @@ namespace FYP.Controllers
                 var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
                 await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
 
-                await CheckAbandonedCartNotification(user.UserID);
-
                 TempData["SuccessMessage"] = "Cryptographic identity verified! Welcome back.";
                 return RedirectToUserDashboard(user.Role, user.UserID);
             }
@@ -790,29 +782,6 @@ namespace FYP.Controllers
             };
         }
 
-        private async Task CheckAbandonedCartNotification(string userId)
-        {
-            var user = await _context.Users.FindAsync(userId);
-            if (user?.Role == "Buyer")
-            {
-                var activeCart = await _context.Carts.Include(c => c.Items).FirstOrDefaultAsync(c => c.UserID == userId);
-                if (activeCart != null && activeCart.Items.Count > 0)
-                {
-                    var hasNotification = await _context.Notifications.AnyAsync(n => n.UserID == userId && n.Type == "Reminder" && n.Content.Contains("abandoned cart"));
-                    if (!hasNotification)
-                    {
-                        _context.Notifications.Add(new Notification
-                        {
-                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                            UserID = userId,
-                            Type = "Reminder",
-                            Content = "Reminder: You have items waiting in your abandoned cart. Don't forget to check out!"
-                        });
-                        await _context.SaveChangesAsync();
-                    }
-                }
-            }
-        }
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ResendOtp([FromBody] ResendOtpRequest request)

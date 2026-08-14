@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using System.Net;
 using Microsoft.AspNetCore.Http;
 using FYP.Data;
 using FYP.Services;
@@ -66,42 +67,55 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
+    {
+        var ip = httpContext.Connection.RemoteIpAddress;
+        // Exempt localhost / loopback from rate limiting during development
+        if (ip != null && (IPAddress.IsLoopback(ip) || ip.ToString() == "127.0.0.1" || ip.ToString() == "::1"))
+        {
+            return RateLimitPartition.GetNoLimiter("localhost");
+        }
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
             factory: partition => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
-                PermitLimit = 100,
+                PermitLimit = 500,
                 QueueLimit = 0,
                 Window = TimeSpan.FromMinutes(1)
-            }));
+            });
+    });
 
     options.OnRejected = async (context, token) =>
     {
-        var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString();
-        if (!string.IsNullOrEmpty(ip))
+        var ip = context.HttpContext.Connection.RemoteIpAddress;
+        if (ip != null && !IPAddress.IsLoopback(ip) && ip.ToString() != "127.0.0.1" && ip.ToString() != "::1")
         {
+            var ipStr = ip.ToString();
             // Auto-blacklist the IP using a scoped DbContext
             using (var scope = context.HttpContext.RequestServices.CreateScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 
                 // Only add if it doesn't already exist
-                if (!await dbContext.IpFilters.AnyAsync(f => f.IpAddress == ip))
+                if (!await dbContext.IpFilters.AnyAsync(f => f.IpAddress == ipStr))
                 {
                     dbContext.IpFilters.Add(new FYP.Models.Entities.IpFilter
                     {
-                        IpAddress = ip,
+                        IpAddress = ipStr,
                         FilterAction = "Block",
                         Reason = "Auto-blacklisted due to rate limit violation",
-                        AddedAt = DateTime.UtcNow
+                        AddedAt = DateTime.UtcNow,
+                        AddedByAdminID = "SYSTEM"
                     });
 
                     // Log the security event
                     dbContext.AuditLogs.Add(new FYP.Models.Entities.AuditLog
                     {
+                        LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = "SYSTEM",
                         Action = "System Auto-Blacklist (Rate Limit Exceeded)",
-                        IP_Address = ip,
+                        IP_Address = ipStr,
                         Timestamp = DateTime.UtcNow
                     });
 
@@ -132,9 +146,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<FYP.Middleware.IpFilteringMiddleware>();
+app.UseStaticFiles();
 app.UseRateLimiter();
 app.UseHttpsRedirection();
-app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
 app.UseAuthentication();
