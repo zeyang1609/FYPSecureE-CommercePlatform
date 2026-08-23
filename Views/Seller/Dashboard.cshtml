@@ -107,6 +107,51 @@
             </div>
         </div>
 
+        <!-- AI Demand Forecasting Widget -->
+        @if (ViewBag.DemandForecasts != null && ((IEnumerable<FYP.Services.DemandForecastItem>)ViewBag.DemandForecasts).Any())
+        {
+            <div class="table-card" style="margin-bottom: 24px; border: 1px solid #c7d2fe; background: #e0e7ff;">
+                <div class="table-header" style="border-bottom: 1px solid #a5b4fc; padding-bottom: 15px;">
+                    <h2 style="color: #3730a3; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"></path><path d="M17 6h6v6"></path></svg>
+                        AI Demand Forecasting (Next 7 Days)
+                    </h2>
+                </div>
+                <div style="padding: 15px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    @foreach (var forecast in (IEnumerable<FYP.Services.DemandForecastItem>)ViewBag.DemandForecasts)
+                    {
+                        var product = Model.FirstOrDefault(p => p.ProductID == forecast.ProductId);
+                        if (product != null)
+                        {
+                            <div style="background: white; padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; border-left: 4px solid @(forecast.RestockNeeded ? "#ef4444" : "#10b981"); box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 700; color: #1f2937;">@product.Title</h4>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #4b5563; margin-bottom: 5px;">
+                                    <span>Current Stock:</span>
+                                    <strong>@product.StockLevel</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #4b5563; margin-bottom: 10px;">
+                                    <span>Predicted 7-Day Sales:</span>
+                                    <strong>@forecast.Predicted7DaySales</strong>
+                                </div>
+                                @if (forecast.RestockNeeded)
+                                {
+                                    <div style="background: #fee2e2; color: #b91c1c; padding: 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                        <span>⚠️</span> Restock +@forecast.RestockAmount Recommended
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="background: #d1fae5; color: #047857; padding: 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                        <span>✓</span> Stock Level Optimal
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+
         <!-- Active Inventory Table -->
         <div class="table-card">
             <div class="table-header">

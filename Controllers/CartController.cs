@@ -477,31 +477,34 @@ namespace FYP.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
-            if (string.IsNullOrEmpty(model.CourierName))
+            // SERVER-SIDE CALCULATION: Recalculate Shipping Fee dynamically to prevent tampering
+            decimal finalShippingFee = 0;
+            string finalCourierId = "COUR_JNT";
+            var userAddressesForShipping = await _context.Addresses.Where(a => a.UserID == GetUserId()).ToListAsync();
+            var checkoutAddress = userAddressesForShipping.FirstOrDefault(a => a.AddressID == model.SelectedAddressID)
+                                ?? userAddressesForShipping.FirstOrDefault(a => a.IsDefault);
+                                
+            if (checkoutAddress != null)
             {
-                // Fallback for stale form submission or missing data
-                var userAddresses = await _context.Addresses.Where(a => a.UserID == GetUserId()).ToListAsync();
-                var selectedAddress = userAddresses.FirstOrDefault(a => a.AddressID == model.SelectedAddressID);
-                if (selectedAddress != null)
-                {
-                    var addressString = $"{selectedAddress.HouseBuildingStreet}, {selectedAddress.StateArea} {selectedAddress.PostalCode}";
-                    var shippingItems = cart.Items.Where(i => i.IsSelected).Select(i => (i.ProductID, i.Quantity));
-                    var (originalFee, fee, courier) = await _shippingService.CalculateAndAssignShippingAsync(shippingItems, cartViewModel.GrandTotal, addressString);
-                    
-                    model.OriginalShippingFee = originalFee;
-                    model.ShippingFee = fee;
-                    model.CourierName = courier?.Name ?? "Standard Courier";
-                    model.CourierID = courier?.CourierID ?? "COUR_JNT";
-                    
-                    ModelState.Remove("CourierName");
-                    ModelState.Remove("CourierID");
-                    ModelState.Remove("OriginalShippingFee");
-                    ModelState.Remove("ShippingFee");
-                }
+                var addressString = $"{checkoutAddress.HouseBuildingStreet}, {checkoutAddress.StateArea} {checkoutAddress.PostalCode}";
+                var shippingItemsForCalc = cart.Items.Where(i => i.IsSelected).Select(i => (i.ProductID, i.Quantity));
+                var (originalFee, fee, courier) = await _shippingService.CalculateAndAssignShippingAsync(shippingItemsForCalc, cartViewModel.GrandTotal, addressString);
+                finalShippingFee = fee;
+                if (courier != null) finalCourierId = courier.CourierID;
+                
+                model.OriginalShippingFee = originalFee;
+                model.ShippingFee = fee;
+                model.CourierName = courier?.Name ?? "Standard Courier";
+                model.CourierID = finalCourierId;
+                
+                ModelState.Remove("CourierName");
+                ModelState.Remove("CourierID");
+                ModelState.Remove("OriginalShippingFee");
+                ModelState.Remove("ShippingFee");
             }
 
             model.CartItems = cartViewModel.Items.Where(i => i.IsSelected).ToList();
-            model.TotalAmount = cartViewModel.GrandTotal + model.ShippingFee;
+            model.TotalAmount = cartViewModel.GrandTotal + finalShippingFee; // Secure total amount
 
             if (model.PaymentMethod == "Credit Card")
             {
@@ -647,21 +650,8 @@ namespace FYP.Controllers
 
             var checkoutItems = cart.Items.Where(i => i.IsSelected).ToList();
             
-            // Recalculate Shipping Fee dynamically
-            decimal finalShippingFee = 0;
-            string finalCourierId = "COUR_JNT";
-            var defaultAddress = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == model.SelectedAddressID)
-                                ?? await _context.Addresses.FirstOrDefaultAsync(a => a.UserID == GetUserId() && a.IsDefault);
-            if (defaultAddress != null)
-            {
-                var addressString = $"{defaultAddress.HouseBuildingStreet}, {defaultAddress.StateArea} {defaultAddress.PostalCode}";
-                var shippingItems = checkoutItems.Select(i => (i.ProductID, i.Quantity));
-                var (originalFee, fee, courier) = await _shippingService.CalculateAndAssignShippingAsync(shippingItems, cartViewModel.GrandTotal, addressString);
-                finalShippingFee = fee;
-                if (courier != null) finalCourierId = courier.CourierID;
-            }
-
-            decimal finalTotalAmount = model.TotalAmount + finalShippingFee;
+            // finalShippingFee and finalCourierId were safely calculated above
+            decimal finalTotalAmount = model.TotalAmount; // model.TotalAmount is already safely calculated
             payment.Amount = finalTotalAmount;
 
             var order = new Order

@@ -1458,7 +1458,7 @@ namespace FYP.Controllers
                 using (var stream = file.OpenReadStream())
                 {
                     byte[] header = new byte[8];
-                    stream.Read(header, 0, 8);
+                    stream.ReadExactly(header, 0, 8);
                     string headerHex = BitConverter.ToString(header).Replace("-", string.Empty);
                     
                     if (extension == ".jpg" || extension == ".jpeg")

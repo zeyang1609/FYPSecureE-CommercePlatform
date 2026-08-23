@@ -309,4 +309,54 @@ def recommend_products():
             recommended_ids.append(candidate_ids[idx])
 
     return jsonify({"recommended_ids": recommended_ids})
-
+
+@app.route('/api/ai/forecast-demand', methods=['POST'])
+def forecast_demand():
+    data = request.json
+    if not data or 'products' not in data:
+        return jsonify({"error": "No product data provided"}), 400
+
+    from sklearn.linear_model import LinearRegression
+    import numpy as np
+    
+    forecasts = []
+    # X is the days 1 to 30
+    X = np.array(range(1, 31)).reshape(-1, 1)
+    # The days we want to predict (next 7 days)
+    X_predict = np.array(range(31, 38)).reshape(-1, 1)
+
+    for p in data['products']:
+        try:
+            sales_history = p.get('recent_sales_30d', [])
+            stock = p.get('stock', 0)
+            product_id = p.get('id')
+
+            if len(sales_history) != 30:
+                # Pad with zeros if less than 30
+                sales_history = ([0] * (30 - len(sales_history))) + sales_history
+            
+            y = np.array(sales_history)
+            
+            # Simple linear regression
+            model = LinearRegression()
+            model.fit(X, y)
+            
+            predicted = model.predict(X_predict)
+            
+            # Ensure predictions aren't negative, and sum them up
+            total_predicted_7_day = int(sum([max(0, val) for val in predicted]))
+            
+            restock_needed = total_predicted_7_day > stock
+            restock_amount = max(0, total_predicted_7_day - stock)
+            
+            forecasts.append({
+                "id": product_id,
+                "predicted_7_day_sales": total_predicted_7_day,
+                "restock_needed": restock_needed,
+                "restock_amount": restock_amount
+            })
+        except Exception as e:
+            print(f"Error predicting for product {p.get('id')}: {str(e)}")
+            continue
+
+    return jsonify({"forecasts": forecasts})

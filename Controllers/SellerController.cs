@@ -29,14 +29,16 @@ namespace FYP.Controllers
         private readonly IHubContext<OrderHub> _orderHubContext;
         private readonly IConfiguration _configuration;
         private readonly IPaymentEncryptionService _paymentEncryptionService;
+        private readonly PythonAiClient _aiClient;
 
-        public SellerController(ApplicationDbContext context, IOtpService otpService, IHubContext<OrderHub> orderHubContext, IConfiguration configuration, IPaymentEncryptionService paymentEncryptionService)
+        public SellerController(ApplicationDbContext context, IOtpService otpService, IHubContext<OrderHub> orderHubContext, IConfiguration configuration, IPaymentEncryptionService paymentEncryptionService, PythonAiClient aiClient)
         {
             _context = context;
             _otpService = otpService;
             _orderHubContext = orderHubContext;
             _configuration = configuration;
             _paymentEncryptionService = paymentEncryptionService;
+            _aiClient = aiClient;
         }
 
         // GET: /Seller/Onboard
@@ -357,6 +359,48 @@ namespace FYP.Controllers
             ViewBag.LowStockCount = products.Count(p => p.StockLevel <= 5);
             ViewBag.TotalRevenue = recentSales.Sum(oi => oi.UnitPrice * oi.Quantity);
             ViewBag.RecentSales = recentSales;
+
+            // --- AI Demand Forecasting Logic ---
+            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+            
+            // Fetch order items from last 30 days for seller's products
+            var last30DaysOrderItems = await _context.OrderItems
+                .Include(oi => oi.Order)
+                .Where(oi => productIds.Contains(oi.ProductID) 
+                             && oi.Order.CreatedAt >= thirtyDaysAgo
+                             && (oi.Order.Status == "Completed" || oi.Order.Status == "To Ship" || oi.Order.Status == "To Receive" || oi.Order.Status == "Paid"))
+                .ToListAsync();
+
+            // Prepare payload for top 5 products (to keep the UI clean)
+            var topProducts = products.Take(5).ToList();
+            var payloadProducts = new List<object>();
+
+            foreach (var p in topProducts)
+            {
+                int[] salesLast30Days = new int[30];
+                var productOrders = last30DaysOrderItems.Where(oi => oi.ProductID == p.ProductID).ToList();
+                
+                foreach (var po in productOrders)
+                {
+                    int dayIndex = (po.Order.CreatedAt.Date - thirtyDaysAgo.Date).Days;
+                    if (dayIndex >= 0 && dayIndex < 30)
+                    {
+                        salesLast30Days[dayIndex] += po.Quantity;
+                    }
+                }
+                
+                payloadProducts.Add(new
+                {
+                    id = p.ProductID,
+                    title = p.Title,
+                    stock = p.StockLevel,
+                    recent_sales_30d = salesLast30Days
+                });
+            }
+
+            var aiPayload = new { products = payloadProducts };
+            var forecastResults = await _aiClient.ForecastDemandAsync(aiPayload);
+            ViewBag.DemandForecasts = forecastResults;
 
             return View(products);
         }

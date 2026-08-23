@@ -109,6 +109,28 @@ namespace FYP.Services
 
             return new List<string>();
         }
+
+        /// <summary>
+        /// Sends sales history to Python for AI demand forecasting (Linear Regression).
+        /// </summary>
+        public async Task<List<DemandForecastItem>> ForecastDemandAsync(object payload)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync("api/ai/forecast-demand", payload);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<DemandForecastResult>();
+                    return result?.Forecasts ?? new List<DemandForecastItem>();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"AI Forecasting Service Unreachable: {ex.Message}");
+            }
+
+            return new List<DemandForecastItem>();
+        }
     }
 
     // --- Data Transfer Objects (DTOs) ---
@@ -137,5 +159,26 @@ namespace FYP.Services
     {
         [System.Text.Json.Serialization.JsonPropertyName("recommended_ids")]
         public List<string> RecommendedIds { get; set; } = new List<string>();
+    }
+
+    public class DemandForecastResult
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("forecasts")]
+        public List<DemandForecastItem> Forecasts { get; set; } = new List<DemandForecastItem>();
+    }
+
+    public class DemandForecastItem
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public string ProductId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("predicted_7_day_sales")]
+        public int Predicted7DaySales { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("restock_needed")]
+        public bool RestockNeeded { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("restock_amount")]
+        public int RestockAmount { get; set; }
     }
 }

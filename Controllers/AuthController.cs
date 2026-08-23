@@ -72,7 +72,7 @@ namespace FYP.Controllers
                     PhoneNumber = model.PhoneNumber,
                     Email = model.Email,
                     PasswordHash = hashedPassword,
-                    Role = string.IsNullOrWhiteSpace(model.Role) ? "Buyer" : model.Role,
+                    Role = (model.Role == "Seller" || model.Role == "Courier") ? model.Role : "Buyer",
                     StoreName = model.StoreName,
                     SSMNumber = model.SSMNumber,
                     MFA_Enabled = true,

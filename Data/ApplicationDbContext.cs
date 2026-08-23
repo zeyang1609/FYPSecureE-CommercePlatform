@@ -7,9 +7,12 @@ namespace FYP.Data
 {
     public class ApplicationDbContext : DbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        private readonly FYP.Services.IPaymentEncryptionService _encryptionService;
+
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, FYP.Services.IPaymentEncryptionService encryptionService = null)
             : base(options)
         {
+            _encryptionService = encryptionService;
         }
 
         // Register all database tables
@@ -43,6 +46,23 @@ namespace FYP.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // --- Apply AES-256 Encryption at Rest ---
+            if (_encryptionService != null)
+            {
+                var encryptConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<string, string>(
+                    v => _encryptionService.Encrypt(v),
+                    v => _encryptionService.DecryptSafe(v)
+                );
+
+                modelBuilder.Entity<User>().Property(u => u.PhoneNumber).HasConversion(encryptConverter);
+                modelBuilder.Entity<User>().Property(u => u.SSMNumber).HasConversion(encryptConverter!);
+                modelBuilder.Entity<Address>().Property(a => a.PhoneNumber).HasConversion(encryptConverter);
+                modelBuilder.Entity<Address>().Property(a => a.HouseBuildingStreet).HasConversion(encryptConverter);
+                modelBuilder.Entity<Address>().Property(a => a.StateArea).HasConversion(encryptConverter);
+                modelBuilder.Entity<Address>().Property(a => a.UnitNumber).HasConversion(encryptConverter!);
+                modelBuilder.Entity<Address>().Property(a => a.PostalCode).HasConversion(encryptConverter);
+            }
 
             // 1. Configure ChatMessage Relationships (Dual Foreign Keys to User Table)
             modelBuilder.Entity<ChatMessage>()
