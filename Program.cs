@@ -80,7 +80,7 @@ builder.Services.AddRateLimiter(options =>
             factory: partition => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
-                PermitLimit = 500,
+                PermitLimit = 100,
                 QueueLimit = 0,
                 Window = TimeSpan.FromMinutes(1)
             });
@@ -141,7 +141,6 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
@@ -155,7 +154,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<FYP.Hubs.ChatHub>("/chatHub");
-app.MapHub<FYP.Hubs.OrderHub>("/orderHub"); // Keep our OrderHub!
+app.MapHub<FYP.Hubs.OrderHub>("/orderHub"); 
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
@@ -171,7 +170,7 @@ using (var scope = app.Services.CreateScope())
         foreach (var user in seededUsers)
         {
             user.PasswordHash = validHash;
-            user.MFA_Enabled = false; // Bypass OTP for seed account
+            user.MFA_Enabled = false;
         }
         db.SaveChanges();
         Console.WriteLine($"[INFO] Updated {seededUsers.Count} seeded accounts to use password123 and disabled MFA.");

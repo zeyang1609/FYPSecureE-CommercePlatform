@@ -589,7 +589,10 @@ namespace FYP.Controllers
                 DateOfBirth = user.DateOfBirth,
                 Role = user.Role,
                 MfaEnabled = user.MFA_Enabled,
-                DeviceHash = user.DeviceHash ?? "No Device Hash Recorded"
+                DeviceHash = user.DeviceHash ?? "No Device Hash Recorded",
+                IsProfilePublic = user.IsProfilePublic,
+                AllowPersonalizedAds = user.AllowPersonalizedAds,
+                ShareDataWithThirdParties = user.ShareDataWithThirdParties
             };
 
             return View(viewModel);
@@ -623,6 +626,11 @@ namespace FYP.Controllers
             user.Gender = model.Gender;
             user.DateOfBirth = model.DateOfBirth;
             user.MFA_Enabled = model.MfaEnabled;
+            
+            // Privacy Controls
+            user.IsProfilePublic = model.IsProfilePublic;
+            user.AllowPersonalizedAds = model.AllowPersonalizedAds;
+            user.ShareDataWithThirdParties = model.ShareDataWithThirdParties;
 
             if (!string.IsNullOrWhiteSpace(model.NewPassword))
             {
@@ -644,6 +652,61 @@ namespace FYP.Controllers
 
             TempData["SuccessMessage"] = "Your profile has been updated!";
             return RedirectToAction("Profile");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteAccount()
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var user = await _context.Users
+                .Include(u => u.Addresses)
+                .Include(u => u.UserDevices)
+                .Include(u => u.Orders)
+                .FirstOrDefaultAsync(u => u.UserID == userId);
+
+            if (user == null) return NotFound();
+
+            // Check if there are active, uncompleted orders
+            var activeOrders = user.Orders.Any(o => o.Status != "Completed" && o.Status != "Cancelled" && o.Status != "Success" && o.Status != "Rejected");
+            if (activeOrders)
+            {
+                TempData["PhoneChangeError"] = "Cannot delete account: You have active orders. Please wait until they are completed or cancelled.";
+                return RedirectToAction("Profile");
+            }
+
+            // Anonymization Strategy (Right to be Forgotten)
+            user.Name = "Anonymized User";
+            user.Email = $"deleted_{Guid.NewGuid()}@secureplatform.com";
+            user.PhoneNumber = null;
+            user.Gender = null;
+            user.DateOfBirth = null;
+            user.IsDisabled = true;
+            user.IsProfilePublic = false;
+            user.AllowPersonalizedAds = false;
+            user.ShareDataWithThirdParties = false;
+            user.PasswordHash = "DELETED";
+
+            // Hard delete related PII entities
+            _context.Addresses.RemoveRange(user.Addresses);
+            _context.UserDevices.RemoveRange(user.UserDevices);
+
+            var auditLog = new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = "SYSTEM",
+                Action = $"User {userId} exercised Right to be Forgotten. Account anonymized and disabled.",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+
+            await _context.SaveChangesAsync();
+
+            // Sign out
+            return RedirectToAction("Logout", "Auth");
         }
 
         [HttpPost]

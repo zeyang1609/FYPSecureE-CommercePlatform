@@ -1,0 +1,114 @@
+@model IEnumerable<FYP.Models.Entities.Order>
+@using FYP.Models.Entities
+@{
+    ViewData["Title"] = "AdminOS - Manual Review & Orders";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AdminOS</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    @await Html.PartialAsync("_AdminNavigationBar")
+
+    <main class="dashboard-container" style="max-width: 1400px;">
+        <div class="dashboard-header" style="border-left: 4px solid #F59E0B;">
+            <div style="flex: 1;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h1 style="margin:0;">Manage Orders & Manual Review</h1>
+                    <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px; background: #FEF3C7; color: #D97706;">● Verification Required</span>
+                </div>
+                <p>Override AI decisions, manually approve flagged transactions, or monitor platform orders.</p>
+            </div>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background: #E8F5E9; color: #2E7D32; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #C8E6C9;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+
+        <div class="data-card" style="margin-top: 25px;">
+            <h3>All Transactions (@Model.Count())</h3>
+            <div style="overflow-x: auto; margin-top: 15px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Created At</th>
+                            <th>Order ID</th>
+                            <th>Buyer</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in Model)
+                        {
+                            <tr>
+                                <td style="white-space: nowrap;">@order.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                <td style="font-family: monospace; font-size: 0.9em;">@order.OrderID</td>
+                                <td>@order.Buyer?.Name (@order.BuyerID)</td>
+                                <td>RM @order.TotalAmount.ToString("0.00")</td>
+                                <td>
+                                    @if(order.Status == TransactionStatus.Rejected || order.Status == TransactionStatus.Failed || order.Status == "Declined - AI Security Block")
+                                    {
+                                        <span class="status-badge" style="background: #FFEBEE; color: #C62828;">@order.Status</span>
+                                    }
+                                    else if(order.Status == TransactionStatus.RequiredCheck)
+                                    {
+                                        <span class="status-badge" style="background: #FFF3E0; color: #E65100;">@order.Status</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge" style="background: #E8F5E9; color: #2E7D32;">@order.Status</span>
+                                    }
+                                </td>
+                                <td style="text-align: right;">
+                                    @if (order.Status == TransactionStatus.RequiredCheck || order.Status == TransactionStatus.Rejected || order.Status == TransactionStatus.Pending || order.Status == "Declined - AI Security Block")
+                                    {
+                                        <form asp-action="UpdateOrderStatus" method="post" style="display:inline;" onsubmit="return confirm('Manually approve this order?');">
+                                            <input type="hidden" name="orderId" value="@order.OrderID" />
+                                            <input type="hidden" name="newStatus" value="@TransactionStatus.Approved" />
+                                            <input type="hidden" name="adminNote" value="Manually Approved by Admin" />
+                                            <button type="submit" class="btn-submit-primary" style="background: #2E7D32; padding: 4px 10px; font-size: 0.8rem; width: auto; margin:0; border: none; cursor: pointer; color: white;">Approve</button>
+                                        </form>
+
+                                        @if(order.Status != TransactionStatus.Rejected)
+                                        {
+                                            <form asp-action="UpdateOrderStatus" method="post" style="display:inline; margin-left: 5px;" onsubmit="return confirm('Manually reject this order?');">
+                                                <input type="hidden" name="orderId" value="@order.OrderID" />
+                                                <input type="hidden" name="newStatus" value="@TransactionStatus.Rejected" />
+                                                <input type="hidden" name="adminNote" value="Manually Rejected by Admin" />
+                                                <button type="submit" class="btn-submit-primary" style="background: #C62828; padding: 4px 10px; font-size: 0.8rem; width: auto; margin:0; border: none; cursor: pointer; color: white;">Reject</button>
+                                            </form>
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.Any())
+                        {
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 30px; color: #888;">No orders found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
+
+@await Html.PartialAsync("_ChatPartial")

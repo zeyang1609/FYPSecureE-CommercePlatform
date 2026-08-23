@@ -70,7 +70,8 @@
                 <div class="order-tab" data-tab="toship">To Ship</div>
                 <div class="order-tab" data-tab="toreceive">To Receive</div>
                 <div class="order-tab" data-tab="completed">Completed</div>
-                <div class="order-tab" data-tab="cancelled">Cancelled</div>
+                <div class="order-tab" data-tab="cancelled">Cancelled / Rejected</div>
+                <div class="order-tab" data-tab="pending-approve">Pending Approve</div>
                 <div class="order-tab" data-tab="return">Return/Refund</div>
             </div>
 
@@ -109,11 +110,11 @@
                                     <a href="/Home/ShopProfile/@(firstItem?.Product?.SellerID)" class="btn-view-shop" style="text-decoration:none;">View Shop</a>
                                 </div>
                                 <div class="order-status">
-                                    @if (order.Status == "Cancelled")
+                                    @if (order.Status == "Cancelled" || order.Status == "Rejected")
                                     {
-                                        <span style="color: #ee4d2d; font-weight: 500;">CANCELLED</span>
+                                        <span style="color: #ee4d2d; font-weight: 500;">@order.Status.ToUpper()</span>
                                     }
-                                    else if (order.Status == "Pending" || order.Status == "Pending Payment")
+                                    else if (order.Status == "Pending" || order.Status == "Pending Payment" || order.Status == "Approved")
                                     {
                                         <span style="color: #ee4d2d; font-weight: 500;">PENDING PAYMENT</span>
                                     }
@@ -135,6 +136,10 @@
                                     else if (order.Status == "Delivered")
                                     {
                                         <span>Parcel has been delivered <span class="status-divider">|</span> DELIVERED</span>
+                                    }
+                                    else if (order.Status == "Declined - AI Security Block" || order.Status == "Required Check")
+                                    {
+                                        <span style="color: #F59E0B; font-weight: 500;">PENDING APPROVAL</span>
                                     }
                                     else
                                     {
@@ -188,7 +193,7 @@
                             <div class="order-card-footer">
                                 <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-end;">
                                     <div style="font-size: 12px; color: #999;">
-                                        @if (order.Status == "Pending" || order.Status == "Pending Payment")
+                                        @if (order.Status == "Pending" || order.Status == "Pending Payment" || order.Status == "Approved")
                                         {
                                             var expiryTime = order.CreatedAt.AddHours(5);
                                             <div style="color: #999; display: flex; align-items: center; gap: 4px;">
@@ -240,7 +245,7 @@
                                                 <button type="button" class="btn-action primary" onclick="window.location.href='/Home/ProductDetails/@(firstItem?.ProductID)'">Buy Again</button>
                                                 <button type="button" class="btn-action secondary" onclick="openChatWith('@(firstItem?.Product?.SellerID)', '@(sellerName.Replace("\'", "\\\'"))')">Contact Seller</button>
                                             }
-                                            else if (order.Status == "Pending" || order.Status == "Pending Payment")
+                                            else if (order.Status == "Pending" || order.Status == "Pending Payment" || order.Status == "Approved")
                                             {
                                                 var savedBank = order.ServiceType.Contains("|") ? order.ServiceType.Split('|')[1] : "hong_leong_bank";
                                                 <button type="button" class="btn-action primary btn-pay-now" data-order-id="@order.OrderID" data-fpx-bank="@savedBank" style="background-color: #ee4d2d; color: white; border-color: #ee4d2d;">Pay Now</button>
@@ -1094,7 +1099,7 @@
                     if (activeTab === "all") {
                         tabMatch = true;
                     } else if (activeTab === "topay") {
-                        tabMatch = status.includes("pending");
+                        tabMatch = status.includes("pending") || status.includes("approved");
                     } else if (activeTab === "toship") {
                         tabMatch = status.includes("processing");
                     } else if (activeTab === "toreceive") {
@@ -1102,7 +1107,9 @@
                     } else if (activeTab === "completed") {
                         tabMatch = status.includes("completed");
                     } else if (activeTab === "cancelled") {
-                        tabMatch = status.includes("cancelled") || status.includes("declined");
+                        tabMatch = status.includes("cancelled") || status.includes("rejected");
+                    } else if (activeTab === "pending-approve") {
+                        tabMatch = status.includes("declined") || status.includes("required check");
                     } else if (activeTab === "return") {
                         tabMatch = status.includes("refund") || status.includes("return");
                     }

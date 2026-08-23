@@ -194,6 +194,20 @@
         </div>
     </section>
 
+    <!-- Recommended Products Section -->
+    @if (ViewBag.RecommendedProducts != null && ((IEnumerable<FYP.Models.Entities.Product>)ViewBag.RecommendedProducts).Any())
+    {
+        <section class="products-section" style="margin-bottom: 20px; background: #fff8f5; border: 1px solid #ffefe8;">
+            <div class="section-title" style="color: #EE4D2D; display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+                RECOMMENDED FOR YOU
+            </div>
+            <div class="product-grid">
+                @await Html.PartialAsync("_ProductGrid", (IEnumerable<FYP.Models.Entities.Product>)ViewBag.RecommendedProducts)
+            </div>
+        </section>
+    }
+
     <!-- Product Catalog Section -->
     <section class="products-section">
         <div class="section-title">DAILY DISCOVER</div>

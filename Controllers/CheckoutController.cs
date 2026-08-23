@@ -127,7 +127,7 @@ namespace FYP.Controllers
                     OrderID = orderId,
                     BuyerID = buyerId,
                     TotalAmount = amount,
-                    Status = "Declined - AI Security Block",
+                    Status = TransactionStatus.RequiredCheck,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -147,7 +147,7 @@ namespace FYP.Controllers
                 {
                     LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                     UserID = buyerId,
-                    Action = $"XGBoost AI Block triggered for order {orderId} (Risk: {aiVerdict.RiskScore:P1})",
+                    Action = $"Order {orderId} state changed to {TransactionStatus.RequiredCheck}. XGBoost AI Block triggered (Risk: {aiVerdict.RiskScore:P1})",
                     IP_Address = clientIp,
                     Timestamp = DateTime.UtcNow
                 };
@@ -195,7 +195,7 @@ namespace FYP.Controllers
                 OrderID = orderId,
                 BuyerID = buyerId,
                 TotalAmount = amount,
-                Status = "Processing",
+                Status = TransactionStatus.Processing,
                 ServiceType = "Standard Delivery",
                 DeliveryID = deliveryId,
                 CreatedAt = DateTime.UtcNow
@@ -220,7 +220,7 @@ namespace FYP.Controllers
                 PaymentMethod = paymentMethod,
                 PaymentToken = _paymentEncryptionService.Encrypt(paymentToken),
                 IdempotencyKey = _paymentEncryptionService.Encrypt(idempotencyKey),
-                Status = "Authorized",
+                Status = TransactionStatus.Approved,
                 TransactionHash = _paymentEncryptionService.Encrypt(Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(orderId + paymentToken))).ToLower()),
                 CreatedAt = DateTime.UtcNow
             };
@@ -272,7 +272,7 @@ namespace FYP.Controllers
             {
                 LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                 UserID = buyerId,
-                Action = $"Completed checkout for Order {orderId} (RM {amount:0.00}) - Cleared by XGBoost (Risk: {aiVerdict.RiskScore:P1})",
+                Action = $"Order {orderId} state changed to {TransactionStatus.Processing}. Payment state changed to {TransactionStatus.Approved}. Cleared by XGBoost (Risk: {aiVerdict.RiskScore:P1})",
                 IP_Address = clientIp,
                 Timestamp = DateTime.UtcNow
             };

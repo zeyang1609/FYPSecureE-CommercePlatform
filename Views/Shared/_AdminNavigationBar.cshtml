@@ -16,6 +16,7 @@
     <div class="admin-nav-links">
         <div class="nav-section">Main Menu</div>
         <a asp-action="Dashboard" class="@(currentAction == "Dashboard" ? "active" : "")">🛡️ Security Dashboard</a>
+        <a asp-action="ManageOrders" class="@(currentAction == "ManageOrders" ? "active" : "")">📦 Manage Orders</a>
         <a asp-action="Users" class="@(currentAction == "Users" ? "active" : "")">👥 User Management</a>
         <a asp-action="Categories" class="@(currentAction == "Categories" ? "active" : "")">📁 Categories</a>
         <a asp-action="Disputes" class="@(currentAction == "Disputes" ? "active" : "")">⚖️ Disputes</a>

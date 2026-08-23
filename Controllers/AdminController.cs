@@ -969,5 +969,52 @@ namespace FYP.Controllers
 
             return View(await logs.AsNoTracking().ToListAsync());
         }
+
+        // GET: /Admin/ManageOrders
+        [HttpGet]
+        public async Task<IActionResult> ManageOrders()
+        {
+            var orders = await _context.Orders
+                .Include(o => o.Payment)
+                .Include(o => o.Buyer)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+
+            return View(orders);
+        }
+
+        // POST: /Admin/UpdateOrderStatus
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateOrderStatus(string orderId, string newStatus, string adminNote)
+        {
+            var order = await _context.Orders.Include(o => o.Payment).FirstOrDefaultAsync(o => o.OrderID == orderId);
+            if (order == null) return NotFound();
+
+            string oldStatus = order.Status;
+            order.Status = newStatus;
+
+            // If the order has a payment and we are approving it manually
+            if (order.Payment != null && newStatus == TransactionStatus.Approved)
+            {
+                order.Payment.Status = TransactionStatus.Approved;
+            }
+
+            var adminId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = adminId,
+                Action = $"Manual Review: Order {orderId} status changed from {oldStatus} to {newStatus}. Notes: {adminNote}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = $"Order {orderId} status successfully updated to {newStatus}.";
+            
+            return RedirectToAction(nameof(ManageOrders));
+        }
     }
 }

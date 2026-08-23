@@ -1114,7 +1114,7 @@ namespace FYP.Controllers
                 string paymentMethod = requestData.TryGetProperty("paymentMethod", out var pmProp) ? pmProp.GetString() ?? "Credit Card" : "Credit Card";
 
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == GetUserId());
-                if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
+                if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment" && order.Status != "Approved"))
                 {
                     return BadRequest(new { error = "Order not found or not pending payment." });
                 }

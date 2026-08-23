@@ -267,3 +267,46 @@ def scan_chat():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
+# ==========================================
+# 6. Personalized Content-Based Recommendations
+# ==========================================
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+@app.route("/api/ai/recommend-products", methods=["POST"])
+def recommend_products():
+    data = request.get_json()
+    if not data or "buyer_history" not in data or "candidate_products" not in data:
+        return jsonify({"error": "Missing buyer_history or candidate_products in JSON payload."}), 400
+
+    buyer_history = data["buyer_history"]
+    candidate_products = data["candidate_products"]
+
+    if not buyer_history or not candidate_products:
+        return jsonify({"recommended_ids": []})
+
+    # Combine text representations
+    history_text = " ".join(buyer_history)
+    candidate_texts = [p["text"] for p in candidate_products]
+    candidate_ids = [p["id"] for p in candidate_products]
+
+    # Vectorize
+    vectorizer = TfidfVectorizer(stop_words="english")
+    try:
+        tfidf_matrix = vectorizer.fit_transform([history_text] + candidate_texts)
+    except ValueError:
+        return jsonify({"recommended_ids": []})
+
+    # Cosine Similarity between user profile (index 0) and candidates (index 1 to N)
+    cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+
+    # Get top 5 indices
+    top_indices = cosine_sim.argsort()[-5:][::-1]
+    
+    recommended_ids = []
+    for idx in top_indices:
+        if cosine_sim[idx] > 0.05: # Only recommend if there is some overlap
+            recommended_ids.append(candidate_ids[idx])
+
+    return jsonify({"recommended_ids": recommended_ids})
+

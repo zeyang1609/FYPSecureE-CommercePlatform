@@ -43,6 +43,11 @@ namespace FYP.Models.ViewModels
         public string Role { get; set; } = "Buyer";
         public string DeviceHash { get; set; } = string.Empty;
 
+        // Privacy Controls
+        public bool IsProfilePublic { get; set; }
+        public bool AllowPersonalizedAds { get; set; }
+        public bool ShareDataWithThirdParties { get; set; }
+
         [DataType(DataType.Password)]
         [Display(Name = "New Password (Optional)")]
         [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters.")]

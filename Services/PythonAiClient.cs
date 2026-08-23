@@ -87,6 +87,28 @@ namespace FYP.Services
 
             return new ChatScanResult { IsMalicious = false, IsBlocked = false, Reason = "NLP service offline — message allowed." };
         }
+
+        /// <summary>
+        /// Sends buyer history and candidate products to Python for content-based recommendations.
+        /// </summary>
+        public async Task<List<string>> GetRecommendationsAsync(object payload)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync("api/ai/recommend-products", payload);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<RecommendationResult>();
+                    return result?.RecommendedIds ?? new List<string>();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"AI Recommendation Service Unreachable: {ex.Message}");
+            }
+
+            return new List<string>();
+        }
     }
 
     // --- Data Transfer Objects (DTOs) ---
@@ -109,5 +131,11 @@ namespace FYP.Services
         public bool IsMalicious { get; set; }
         public bool IsBlocked { get; set; }
         public string Reason { get; set; } = string.Empty;
+    }
+
+    public class RecommendationResult
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("recommended_ids")]
+        public List<string> RecommendedIds { get; set; } = new List<string>();
     }
 }

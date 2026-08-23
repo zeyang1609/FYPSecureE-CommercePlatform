@@ -10,10 +10,12 @@ namespace FYP.Controllers
     public class HomeController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly FYP.Services.PythonAiClient _aiClient;
 
-        public HomeController(ApplicationDbContext context)
+        public HomeController(ApplicationDbContext context, FYP.Services.PythonAiClient aiClient)
         {
             _context = context;
+            _aiClient = aiClient;
         }
 
         private async Task<List<Product>> GetProductsBySearchAsync(string searchQuery, string categoryId)
@@ -62,6 +64,55 @@ namespace FYP.Controllers
             ViewBag.SearchQuery = searchQuery;
 
             var products = await GetProductsBySearchAsync(searchQuery, categoryId);
+
+            // Fetch AI Recommendations for Logged-In Buyers
+            var recommendedProducts = new List<Product>();
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userRole = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
+
+            if (!string.IsNullOrEmpty(userId) && userRole == "Buyer")
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+                if (user != null && user.AllowPersonalizedAds)
+                {
+                    var buyerHistory = await _context.OrderItems
+                        .Include(oi => oi.Order)
+                        .Include(oi => oi.Product)
+                        .ThenInclude(p => p.Category)
+                        .Where(oi => oi.Order.BuyerID == userId)
+                        .Select(oi => $"{oi.Product.Category.Name} {oi.Product.Title} {oi.Product.Description}")
+                        .Distinct()
+                        .ToListAsync();
+
+                    var candidateProducts = await _context.Products
+                        .Include(p => p.Category)
+                        .Where(p => p.StockLevel > 0)
+                        .Select(p => new {
+                            id = p.ProductID,
+                            text = $"{p.Category.Name} {p.Title} {p.Description}"
+                        })
+                        .ToListAsync();
+
+                    if (buyerHistory.Any() && candidateProducts.Any())
+                    {
+                        var aiPayload = new {
+                            buyer_history = buyerHistory,
+                            candidate_products = candidateProducts
+                        };
+
+                        var recommendedIds = await _aiClient.GetRecommendationsAsync(aiPayload);
+                        if (recommendedIds.Any())
+                        {
+                            recommendedProducts = await _context.Products
+                                .Include(p => p.Category)
+                                .Where(p => recommendedIds.Contains(p.ProductID))
+                                .ToListAsync();
+                        }
+                    }
+                }
+            }
+            ViewBag.RecommendedProducts = recommendedProducts;
+
             return View(products);
         }
 

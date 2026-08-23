@@ -60,6 +60,11 @@ namespace FYP.Models.Entities
         public virtual Cart Cart { get; set; }
         public bool IsDisabled { get; set; } = false;
         public virtual ICollection<UserDevice> UserDevices { get; set; }
+
+        // Privacy Controls
+        public bool IsProfilePublic { get; set; } = false;
+        public bool AllowPersonalizedAds { get; set; } = true;
+        public bool ShareDataWithThirdParties { get; set; } = false;
     }
 
 }
