@@ -265,8 +265,7 @@ def scan_chat():
         "reason": reason
     })
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+# (app.run moved to bottom)
 # ==========================================
 # 6. Personalized Content-Based Recommendations
 # ==========================================
@@ -360,3 +359,6 @@ def forecast_demand():
             continue
 
     return jsonify({"forecasts": forecasts})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)

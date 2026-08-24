@@ -23,13 +23,15 @@ namespace FYP.Controllers
         private readonly IOtpService _otpService;
         private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
         private readonly IHubContext<OrderHub> _orderHubContext;
+        private readonly PythonAiClient _aiClient;
 
-        public BuyerController(ApplicationDbContext context, IOtpService otpService, Microsoft.Extensions.Configuration.IConfiguration configuration, IHubContext<OrderHub> orderHubContext)
+        public BuyerController(ApplicationDbContext context, IOtpService otpService, Microsoft.Extensions.Configuration.IConfiguration configuration, IHubContext<OrderHub> orderHubContext, PythonAiClient aiClient)
         {
             _context = context;
             _otpService = otpService;
             _configuration = configuration;
             _orderHubContext = orderHubContext;
+            _aiClient = aiClient;
         }
 
         // GET: /Buyer/Dashboard
@@ -1694,23 +1696,57 @@ namespace FYP.Controllers
                 IsLowStock = w.Product.StockLevel <= 5
             }).ToList();
 
-            // Recommended Products (based on purchased or wishlisted categories)
-            var preferredCategories = spendingByCategory.Keys
-                .Concat(wishlists.Where(w => w.Product?.Category != null).Select(w => w.Product.Category.Name))
-                .Distinct()
-                .ToList();
-
+            // Recommended Products (AI Powered)
             var recommendedProducts = new List<Product>();
-            if (preferredCategories.Any())
+            var buyerHistory = await _context.OrderItems
+                .Include(oi => oi.Order)
+                .Include(oi => oi.Product)
+                .ThenInclude(p => p.Category)
+                .Where(oi => oi.Order.BuyerID == buyerId)
+                .Select(oi => $"{oi.Product.Category.Name} {oi.Product.Title} {oi.Product.Description}")
+                .Distinct()
+                .ToListAsync();
+
+            var cartItems = await _context.CartItems
+                .Include(ci => ci.Cart)
+                .Include(ci => ci.Product)
+                .ThenInclude(p => p.Category)
+                .Where(ci => ci.Cart.UserID == buyerId)
+                .Select(ci => $"{ci.Product.Category.Name} {ci.Product.Title} {ci.Product.Description}")
+                .Distinct()
+                .ToListAsync();
+
+            buyerHistory.AddRange(cartItems);
+            buyerHistory = buyerHistory.Distinct().ToList();
+
+            var candidateProducts = await _context.Products
+                .Include(p => p.Category)
+                .Where(p => p.StockLevel > 0)
+                .Select(p => new {
+                    id = p.ProductID,
+                    text = $"{p.Category.Name} {p.Title} {p.Description}"
+                })
+                .ToListAsync();
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == buyerId);
+            if (user != null && user.AllowPersonalizedAds && buyerHistory.Any() && candidateProducts.Any())
             {
-                recommendedProducts = await _context.Products
-                    .Include(p => p.Category)
-                    .Where(p => preferredCategories.Contains(p.Category.Name) && p.StockLevel > 0)
-                    .OrderByDescending(p => p.AverageRating)
-                    .Take(8)
-                    .ToListAsync();
+                var aiPayload = new {
+                    buyer_history = buyerHistory,
+                    candidate_products = candidateProducts
+                };
+
+                var recommendedIds = await _aiClient.GetRecommendationsAsync(aiPayload);
+                if (recommendedIds.Any())
+                {
+                    recommendedProducts = await _context.Products
+                        .Include(p => p.Category)
+                        .Where(p => recommendedIds.Contains(p.ProductID))
+                        .ToListAsync();
+                }
             }
-            else
+            
+            if (!recommendedProducts.Any())
             {
                 // Fallback to top rated products
                 recommendedProducts = await _context.Products

@@ -84,6 +84,18 @@ namespace FYP.Controllers
                         .Distinct()
                         .ToListAsync();
 
+                    var cartItems = await _context.CartItems
+                        .Include(ci => ci.Cart)
+                        .Include(ci => ci.Product)
+                        .ThenInclude(p => p.Category)
+                        .Where(ci => ci.Cart.UserID == userId)
+                        .Select(ci => $"{ci.Product.Category.Name} {ci.Product.Title} {ci.Product.Description}")
+                        .Distinct()
+                        .ToListAsync();
+
+                    buyerHistory.AddRange(cartItems);
+                    buyerHistory = buyerHistory.Distinct().ToList();
+
                     var candidateProducts = await _context.Products
                         .Include(p => p.Category)
                         .Where(p => p.StockLevel > 0)
@@ -111,6 +123,18 @@ namespace FYP.Controllers
                     }
                 }
             }
+
+            if (!recommendedProducts.Any())
+            {
+                // Fallback to top-rated products if AI returns nothing or personalized ads are disabled
+                recommendedProducts = await _context.Products
+                    .Include(p => p.Category)
+                    .Where(p => p.StockLevel > 0)
+                    .OrderByDescending(p => p.AverageRating)
+                    .Take(8)
+                    .ToListAsync();
+            }
+
             ViewBag.RecommendedProducts = recommendedProducts;
 
             return View(products);
