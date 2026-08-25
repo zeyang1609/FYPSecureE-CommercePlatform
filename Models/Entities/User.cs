@@ -33,7 +33,7 @@ namespace FYP.Models.Entities
         [MaxLength(100)]
         public string? Name { get; set; }
 
-        [MaxLength(20)]
+        [MaxLength(500)]
         public string? PhoneNumber { get; set; }
 
         [MaxLength(10)]
@@ -47,7 +47,7 @@ namespace FYP.Models.Entities
         [MaxLength(100)]
         public string? StoreName { get; set; }
 
-        [MaxLength(50)]
+        [MaxLength(500)]
         public string? SSMNumber { get; set; }
 
         // Navigation Properties

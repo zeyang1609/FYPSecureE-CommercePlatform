@@ -11,10 +11,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - SecurePlatform</title>
-    <link rel="stylesheet" href="~/css/auth-login.css" />
-    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
-    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/auth-login.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body style="background-color: #F8F9FA;">
 
@@ -95,7 +95,7 @@
                                     </td>
                                     <td style="font-size: 0.8rem; color: #666;">@alert.CreatedAt.ToString("MMM dd, HH:mm")</td>
                                     <td>
-                                        <a asp-action="XaiDetails" asp-route-alertId="@alert.AlertID" class="btn-submit-primary" style="padding: 4px 10px; font-size: 0.75rem; width: auto; margin: 0;">View XAI</a>
+                                        <a asp-action="XaiDetails" asp-route-alertId="@alert.AlertID" class="btn-submit-primary" style="padding: 6px 12px; font-size: 0.75rem; width: auto; margin: 0; white-space: nowrap; display: inline-block; text-align: center;">View XAI</a>
                                     </td>
                                 </tr>
                             }

@@ -16,22 +16,22 @@ namespace FYP.Models.Entities
         public string FullName { get; set; }
 
         [Required]
-        [MaxLength(20)]
+        [MaxLength(500)]
         public string PhoneNumber { get; set; }
 
         [Required]
-        [MaxLength(100)]
+        [MaxLength(500)]
         public string StateArea { get; set; }
 
         [Required]
-        [MaxLength(20)]
+        [MaxLength(500)]
         public string PostalCode { get; set; }
 
-        [MaxLength(50)]
+        [MaxLength(500)]
         public string? UnitNumber { get; set; }
 
         [Required]
-        [MaxLength(255)]
+        [MaxLength(500)]
         public string HouseBuildingStreet { get; set; }
 
         [Required]

@@ -405,6 +405,53 @@ namespace FYP.Controllers
             return View(products);
         }
 
+        // GET: /Seller/Analytics
+        [HttpGet]
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> Analytics()
+        {
+            string sellerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var products = await _context.Products
+                .Where(p => p.SellerID == sellerId)
+                .ToListAsync();
+
+            var productIds = products.Select(p => p.ProductID).ToList();
+
+            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+            var recentOrderItems = await _context.OrderItems
+                .Include(oi => oi.Order)
+                .Include(oi => oi.Product)
+                .Where(oi => productIds.Contains(oi.ProductID) 
+                             && oi.Order.CreatedAt >= thirtyDaysAgo
+                             && (oi.Order.Status == "Completed" || oi.Order.Status == "To Ship" || oi.Order.Status == "To Receive" || oi.Order.Status == "Paid" || oi.Order.Status == "Success" || oi.Order.Status == "Approved"))
+                .ToListAsync();
+
+            // 1. Sales by Product (Chart)
+            var salesByProduct = recentOrderItems
+                .GroupBy(oi => oi.Product.Title)
+                .Select(g => new { ProductName = g.Key, Quantity = g.Sum(oi => oi.Quantity) })
+                .OrderByDescending(x => x.Quantity)
+                .Take(10)
+                .ToList();
+
+            // 2. Revenue Over Time (Chart)
+            var revenueOverTime = recentOrderItems
+                .GroupBy(oi => oi.Order.CreatedAt.Date)
+                .OrderBy(g => g.Key)
+                .Select(g => new { Date = g.Key.ToString("MMM dd"), Revenue = g.Sum(oi => oi.UnitPrice * oi.Quantity) })
+                .ToList();
+
+            ViewBag.SalesByProductLabels = salesByProduct.Select(x => x.ProductName).ToArray();
+            ViewBag.SalesByProductData = salesByProduct.Select(x => x.Quantity).ToArray();
+
+            ViewBag.RevenueDates = revenueOverTime.Select(x => x.Date).ToArray();
+            ViewBag.RevenueData = revenueOverTime.Select(x => x.Revenue).ToArray();
+            
+            ViewBag.SellerID = sellerId;
+            return View(products.OrderByDescending(p => p.TotalSales).ToList());
+        }
+
         // GET: /Seller/MyProducts
         [HttpGet]
         [Authorize(Roles = "Seller")]
@@ -515,7 +562,7 @@ namespace FYP.Controllers
                 .Include(oi => oi.Order)
                     .ThenInclude(o => o.Refunds)
                 .Include(oi => oi.Product)
-                .Where(oi => productIds.Contains(oi.ProductID))
+                .Where(oi => productIds.Contains(oi.ProductID) && oi.Order.Status != "Pending Approve" && oi.Order.Status != "Rejected")
                 .OrderByDescending(oi => oi.Order.CreatedAt)
                 .ToListAsync();
 

@@ -94,7 +94,7 @@
                                             Refund Requested
                                         </span>
                                     }
-                                    else if (item.Order?.Status == "Processing" || item.Order?.Status == "Paid")
+                                    else if (item.Order?.Status == "Processing" || item.Order?.Status == "Paid" || item.Order?.Status == "Approved")
                                     {
                                         <form asp-controller="Seller" asp-action="ShipOrder" method="post" style="margin:0;">
                                             @Html.AntiForgeryToken()

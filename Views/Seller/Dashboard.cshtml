@@ -11,9 +11,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - SecurePlatform</title>
-    <link rel="stylesheet" href="~/css/auth-login.css" />
-    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/auth-login.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body style="background-color: #F8F9FA;">
 
@@ -46,19 +46,22 @@
                 <p>Monitoring active inventory and verified sales for Seller ID: <strong>@ViewBag.SellerID</strong></p>
             </div>
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <a asp-controller="Seller" asp-action="MyProducts" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
+                <a asp-controller="Seller" asp-action="MyProducts" class="btn-quick-action">
                     📦 Manage Stock
                 </a>
-                <a asp-controller="Seller" asp-action="Orders" class="btn-social" style="text-decoration: none; font-weight: 600; background: white;">
+                <a asp-controller="Seller" asp-action="Orders" class="btn-quick-action">
                     🛒 View Orders
                 </a>
-                <a asp-controller="Seller" asp-action="Refunds" class="btn-social" style="text-decoration: none; font-weight: 600; background: white; color: #dc2626; border-color: #fca5a5;">
+                <a asp-controller="Seller" asp-action="Refunds" class="btn-quick-action" style="color: #dc2626; border-color: #fca5a5;">
                     ↩️ Return & Refunds
                 </a>
-                <a asp-controller="Seller" asp-action="Profile" class="btn-social" style="text-decoration: none; font-weight: 600; background: white; color: #3b82f6; border-color: #93c5fd;">
+                <a asp-controller="Seller" asp-action="Analytics" class="btn-quick-action" style="color: #8b5cf6; border-color: #c4b5fd;">
+                    📊 Analytics & Reports
+                </a>
+                <a asp-controller="Seller" asp-action="Profile" class="btn-quick-action" style="color: #3b82f6; border-color: #93c5fd;">
                     👤 Merchant Profile
                 </a>
-                <a asp-controller="Seller" asp-action="Notifications" class="btn-social" style="text-decoration: none; font-weight: 600; background: white; color: #d97706; border-color: #fcd34d; position: relative; display: inline-flex; align-items: center; justify-content: center;">
+                <a asp-controller="Seller" asp-action="Notifications" class="btn-quick-action" style="color: #d97706; border-color: #fcd34d; position: relative;">
                     @{
                         var unreadSellerNotifications = 0;
                         if (User.Identity.IsAuthenticated)

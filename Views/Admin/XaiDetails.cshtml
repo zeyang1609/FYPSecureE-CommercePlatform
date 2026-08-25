@@ -38,9 +38,6 @@
 
             <!-- SHAP Data Container -->
             <div id="shapChartContainer"></div>
-
-            <!-- Hidden raw JSON payload from database -->
-            <input type="hidden" id="rawShapData" value="@Model.SHAP_Data" />
         </div>
 
         <div class="table-card" style="padding: 20px; background: #FFF5F5; border-left: 4px solid #E53E3E;">
@@ -55,15 +52,40 @@
     <!-- JavaScript to Parse and Visualize the JSON SHAP Data -->
     <script>
             document.addEventListener("DOMContentLoaded", function() {
-                const rawData = document.getElementById('rawShapData').value;
                 const container = document.getElementById('shapChartContainer');
 
                 try {
-                    // Parse the JSON string from the database (e.g. {"transactionAmount": 0.45, "shippingDistanceKm": 0.38})
-                    const shapData = JSON.parse(rawData);
+                    // Inject the JSON string directly from the model
+                    const shapData = @Html.Raw(string.IsNullOrEmpty(Model.SHAP_Data) ? "{}" : Model.SHAP_Data);
 
-                    for (const [feature, value] of Object.entries(shapData)) {
+                    let featureDict = {};
+                    if (shapData.reason && Object.keys(shapData).length === 1) {
+                         // Simulated data fallback
+                         container.innerHTML = `<div style="padding: 15px; color: #718096; font-style: italic;">No SHAP tensors available. Reason: ${shapData.reason}</div>`;
+                         return;
+                    } else if (shapData.feature_weights && Array.isArray(shapData.feature_weights)) {
+                        // New format from app.py
+                        const featureNames = [
+                            "transactionAmount", "accountAgeDays", "failedLoginAttempts", 
+                            "distanceFromShippingAddress", "transactionsLast10Mins", 
+                            "timeSinceAccountCreation", "deviceIpFlags"
+                        ];
+                        for (let i = 0; i < featureNames.length; i++) {
+                            if (i < shapData.feature_weights.length) {
+                                featureDict[featureNames[i]] = shapData.feature_weights[i];
+                            }
+                        }
+                    } else {
+                        // Old format (direct dictionary)
+                        featureDict = shapData;
+                    }
+
+                    for (const [feature, value] of Object.entries(featureDict)) {
+                        if (feature === 'base_value') continue;
+
                         const numValue = parseFloat(value);
+                        if (isNaN(numValue)) continue;
+
                         const isHighRisk = numValue > 0;
                         // Calculate visual width based on magnitude (max width capped for UI safety)
                         const widthPercent = Math.min(Math.abs(numValue) * 100, 100);

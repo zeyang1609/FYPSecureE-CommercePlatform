@@ -54,6 +54,13 @@
             </div>
         }
 
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div style="background-color: #f8d7da; color: #721c24; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #f5c6cb; font-weight: 600;">
+                ⚠ @TempData["ErrorMessage"]
+            </div>
+        }
+
         <!-- Hidden Anti-Forgery Token for AJAX -->
         <form id="antiForgeryForm">
             @Html.AntiForgeryToken()

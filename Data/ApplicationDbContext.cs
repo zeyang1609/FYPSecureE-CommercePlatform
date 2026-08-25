@@ -188,6 +188,8 @@ namespace FYP.Data
             // SEED DATA: Realistic eCommerce Environment
             // ==================================
             
+            var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            
             // 1. Seed Seller Account
             var demoSellerId = "seller_demo_1";
             modelBuilder.Entity<User>().HasData(
@@ -200,7 +202,8 @@ namespace FYP.Data
                     DeviceHash = "SEED",
                     MFA_Enabled = true,
                     Name = "Official Tech Store",
-                    PhoneNumber = "0123456789"
+                    PhoneNumber = "",
+                    CreatedAt = seedDate
                 }
             );
 
@@ -216,7 +219,8 @@ namespace FYP.Data
                     DeviceHash = "SEED",
                     MFA_Enabled = true,
                     Name = "System Administrator",
-                    PhoneNumber = "0123456789"
+                    PhoneNumber = "",
+                    CreatedAt = seedDate
                 },
                 new User
                 {
@@ -227,7 +231,8 @@ namespace FYP.Data
                     DeviceHash = "SEED",
                     MFA_Enabled = false,
                     Name = "SYSTEM",
-                    PhoneNumber = "0000000000"
+                    PhoneNumber = "",
+                    CreatedAt = seedDate
                 }
             );
 
@@ -300,7 +305,6 @@ namespace FYP.Data
             // ==========================================
             // 6. SEED HELP CENTER DATA
             // ==========================================
-            var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
             modelBuilder.Entity<HelpCategory>().HasData(
                 new HelpCategory { HelpCategoryID = 1, Name = "Account & Security", IconClass = "shield-lock", DisplayOrder = 1 },

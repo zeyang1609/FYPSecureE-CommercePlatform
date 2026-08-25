@@ -13,6 +13,10 @@ using Microsoft.AspNetCore.SignalR;
 using FYP.Hubs;
 using Stripe;
 using Microsoft.Extensions.Configuration;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+using System.Text;
 
 namespace FYP.Controllers
 {
@@ -80,6 +84,150 @@ namespace FYP.Controllers
             ViewBag.SecurityAlerts = securityAlerts;
 
             return View(alerts);
+        }
+
+        // GET: /Admin/Analytics
+        [HttpGet]
+        public async Task<IActionResult> Analytics()
+        {
+            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+
+            var recentOrders = await _context.Orders
+                .Where(o => o.CreatedAt >= thirtyDaysAgo)
+                .ToListAsync();
+
+            var recentOrderItems = await _context.OrderItems
+                .Include(oi => oi.Order)
+                .Include(oi => oi.Product)
+                .Where(oi => oi.Order.CreatedAt >= thirtyDaysAgo)
+                .ToListAsync();
+
+            var fraudAlerts = await _context.FraudAlerts
+                .Where(f => f.CreatedAt >= thirtyDaysAgo)
+                .ToListAsync();
+
+            var users = await _context.Users
+                .Where(u => u.CreatedAt >= thirtyDaysAgo)
+                .ToListAsync();
+
+            // 1. Platform Revenue Over Time
+            var revenueOverTime = recentOrderItems
+                .GroupBy(oi => oi.Order.CreatedAt.Date)
+                .OrderBy(g => g.Key)
+                .Select(g => new { Date = g.Key.ToString("MMM dd"), Revenue = g.Sum(oi => oi.UnitPrice * oi.Quantity) })
+                .ToList();
+
+            // 2. Fraud Alerts Over Time
+            var fraudOverTime = fraudAlerts
+                .GroupBy(f => f.CreatedAt.Date)
+                .OrderBy(g => g.Key)
+                .Select(g => new { Date = g.Key.ToString("MMM dd"), Count = g.Count() })
+                .ToList();
+
+            ViewBag.RevenueDates = revenueOverTime.Select(x => x.Date).ToArray();
+            ViewBag.RevenueData = revenueOverTime.Select(x => x.Revenue).ToArray();
+
+            ViewBag.FraudDates = fraudOverTime.Select(x => x.Date).ToArray();
+            ViewBag.FraudData = fraudOverTime.Select(x => x.Count).ToArray();
+
+            ViewBag.TotalSales = recentOrderItems.Sum(oi => oi.UnitPrice * oi.Quantity);
+            ViewBag.TotalOrders = recentOrders.Count;
+            ViewBag.TotalFraudAlerts = fraudAlerts.Count;
+            ViewBag.NewUsers = users.Count;
+
+            return View();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ExportPdfReport()
+        {
+            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+            var totalSales = await _context.OrderItems
+                .Include(oi => oi.Order)
+                .Where(oi => oi.Order.CreatedAt >= thirtyDaysAgo)
+                .SumAsync(oi => oi.UnitPrice * oi.Quantity);
+                
+            var totalOrders = await _context.Orders.CountAsync(o => o.CreatedAt >= thirtyDaysAgo);
+            var totalFraud = await _context.FraudAlerts.CountAsync(f => f.CreatedAt >= thirtyDaysAgo);
+            var newUsers = await _context.Users.CountAsync(u => u.CreatedAt >= thirtyDaysAgo);
+
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(2, Unit.Centimetre);
+                    page.PageColor(Colors.White);
+                    page.DefaultTextStyle(x => x.FontSize(12));
+
+                    page.Header().Text("Platform Analytics Report").SemiBold().FontSize(24).FontColor(Colors.Blue.Darken2);
+
+                    page.Content().PaddingVertical(1, Unit.Centimetre).Column(x =>
+                    {
+                        x.Item().Text($"Generated on: {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")}").FontSize(10);
+                        x.Item().PaddingBottom(20).Text("30-Day Platform Summary").SemiBold().FontSize(16);
+
+                        x.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn();
+                                columns.RelativeColumn();
+                            });
+
+                            table.Header(header =>
+                            {
+                                header.Cell().Text("Metric").SemiBold();
+                                header.Cell().Text("Value").SemiBold();
+                            });
+
+                            table.Cell().Text("Total Revenue");
+                            table.Cell().Text($"RM {totalSales:F2}");
+
+                            table.Cell().Text("Total Orders");
+                            table.Cell().Text(totalOrders.ToString());
+
+                            table.Cell().Text("Fraud Alerts Blocked");
+                            table.Cell().Text(totalFraud.ToString());
+
+                            table.Cell().Text("New Users Registered");
+                            table.Cell().Text(newUsers.ToString());
+                        });
+                    });
+
+                    page.Footer().AlignCenter().Text(x =>
+                    {
+                        x.Span("Page ");
+                        x.CurrentPageNumber();
+                    });
+                });
+            });
+
+            byte[] pdfBytes = document.GeneratePdf();
+            return File(pdfBytes, "application/pdf", $"Platform_Analytics_{DateTime.UtcNow:yyyyMMdd}.pdf");
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ExportCsvReport()
+        {
+            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+            var recentOrderItems = await _context.OrderItems
+                .Include(oi => oi.Order)
+                .Where(oi => oi.Order.CreatedAt >= thirtyDaysAgo)
+                .OrderByDescending(oi => oi.Order.CreatedAt)
+                .ToListAsync();
+
+            var sb = new StringBuilder();
+            sb.AppendLine("OrderID,Date,ProductID,Quantity,UnitPrice,Total");
+            
+            foreach (var item in recentOrderItems)
+            {
+                var total = item.Quantity * item.UnitPrice;
+                sb.AppendLine($"{item.OrderID},{item.Order.CreatedAt:yyyy-MM-dd},{item.ProductID},{item.Quantity},{item.UnitPrice},{total}");
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            return File(bytes, "text/csv", $"Platform_Sales_{DateTime.UtcNow:yyyyMMdd}.csv");
         }
 
         // 2. EXPLAINABLE AI (XAI): Deep dive into SHAP tensors

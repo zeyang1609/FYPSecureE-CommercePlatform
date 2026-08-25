@@ -10,10 +10,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - AdminOS</title>
-    <link rel="stylesheet" href="~/css/auth-login.css" />
-    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
-    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/auth-login.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body style="background-color: #F8F9FA;">
 
@@ -72,12 +72,14 @@
                                 }
                                 else if (user.Role == "Seller")
                                 {
-
                                     <span class="badge" style="background: #FFF5F5; color: #C53030;">Merchant</span>
+                                }
+                                else if (user.Role == "Courier")
+                                {
+                                    <span class="badge" style="background: #FFFBEB; color: #9C4221;">Courier</span>
                                 }
                                 else
                                 {
-
                                     <span class="badge" style="background: #F0F4F8; color: #4A5568;">Buyer</span>
                                 }
                             </td>

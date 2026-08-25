@@ -546,22 +546,42 @@ namespace FYP.Controllers
 
             string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
 
-            // Simulate the algorithmic risk score check:
-            double simulatedRiskScore = (double)model.TotalAmount > 5000 ? 0.85 : 0.12;
-            
-            if ((double)model.TotalAmount > 3000 && (double)model.TotalAmount <= 5000)
+            // Calculate real-time velocity metrics for the AI
+            var tenMinsAgo = DateTime.UtcNow.AddMinutes(-10);
+            int transactionsLast10Mins = await _context.Orders
+                .CountAsync(o => o.BuyerID == userId && o.CreatedAt >= tenMinsAgo);
+
+            int deviceIpFlags = await _context.AuditLogs
+                .CountAsync(a => a.IP_Address == currentIp && a.Action.Contains("Block"));
+
+            var buyer = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            double timeSinceAccountCreationSeconds = buyer != null 
+                ? (DateTime.UtcNow - buyer.CreatedAt).TotalSeconds 
+                : 86400;
+
+            // Package transaction features for the Python XGBoost microservice
+            var transactionPayload = new
             {
-                simulatedRiskScore = 0.60;
-            }
+                transactionAmount = model.TotalAmount,
+                accountAgeDays = (int)(timeSinceAccountCreationSeconds / 86400),
+                failedLoginAttempts = 0,
+                distanceFromShippingAddress = 15,
+                transactions_last_10_mins = transactionsLast10Mins,
+                time_since_account_creation_seconds = timeSinceAccountCreationSeconds,
+                device_ip_flags = deviceIpFlags
+            };
+
+            // Send transaction to Python microservice for real-time AI evaluation
+            FraudEvaluationResult aiVerdict = await _aiClient.EvaluateTransactionRiskAsync(transactionPayload);
 
             if (TempData["SkipRiskCheck"] != null)
             {
-                simulatedRiskScore = 0.0;
+                aiVerdict = new FraudEvaluationResult { RiskScore = 0.0m, IsBlocked = false, ShapData = "{}" };
             }
 
             string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
 
-            if (simulatedRiskScore > 0.50 && simulatedRiskScore <= 0.80)
+            if (aiVerdict.RiskScore > 0.50m && aiVerdict.RiskScore <= 0.80m && !aiVerdict.IsBlocked)
             {
                 // Medium Risk: Enforce MFA
                 var user = await _context.Users.FindAsync(userId);
@@ -582,30 +602,55 @@ namespace FYP.Controllers
                 }
             }
 
-            if (simulatedRiskScore > 0.80)
+            if (aiVerdict.RiskScore > 0.80m || aiVerdict.IsBlocked)
             {
                 var blockedOrder = new Order
                 {
                     OrderID = orderId,
                     BuyerID = GetUserId(),
                     TotalAmount = model.TotalAmount,
-                    Status = "Declined - AI Security Block",
+                    Status = FYP.Models.Entities.TransactionStatus.RequiredCheck,
                     CreatedAt = DateTime.UtcNow,
                     ServiceType = "Standard Delivery"
                 };
+
+                // Create OrderItems for the blocked order so the admin can review the cart contents
+                var blockedCheckoutItems = cart.Items.Where(i => i.IsSelected).ToList();
+                var blockedOrderItems = new List<OrderItem>();
+                foreach (var item in blockedCheckoutItems)
+                {
+                    if (item.Product != null)
+                    {
+                        blockedOrderItems.Add(new OrderItem
+                        {
+                            OrderItemID = "OIT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            OrderID = orderId,
+                            ProductID = item.ProductID,
+                            Quantity = item.Quantity,
+                            UnitPrice = item.Product.Price
+                        });
+                    }
+                }
+                
+                // Remove items from the cart
+                if (blockedCheckoutItems.Any())
+                {
+                    _context.CartItems.RemoveRange(blockedCheckoutItems);
+                }
 
                 // Aligned to match your exact FraudAlert properties
                 var fraudAlert = new FraudAlert
                 {
                     AlertID = "FRD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                     OrderID = orderId,
-                    RiskScore = (decimal)simulatedRiskScore,
-                    Reason = "XGBoost behavioral anomaly detected: Abnormal expenditure spike.",
-                    SHAP_Data = "{\"reason\": \"High transaction velocity and abnormal expenditure spike detected by XGBoost.\"}",
+                    RiskScore = aiVerdict.RiskScore,
+                    Reason = "XGBoost behavioral anomaly detected: High transaction velocity or anomaly pattern.",
+                    SHAP_Data = aiVerdict.ShapData ?? "{}",
                     CreatedAt = DateTime.UtcNow
                 };
 
                 _context.Orders.Add(blockedOrder);
+                _context.OrderItems.AddRange(blockedOrderItems);
                 _context.FraudAlerts.Add(fraudAlert);
 
                 var admins = _context.Users.Where(u => u.Role == "Admin").ToList();
@@ -616,7 +661,7 @@ namespace FYP.Controllers
                         NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                         UserID = admin.UserID,
                         Type = "Security Alert",
-                        Content = $"High-Risk Checkout Blocked! Score: {simulatedRiskScore:P1}. Order: {orderId}",
+                        Content = $"High-Risk Checkout Blocked! Score: {aiVerdict.RiskScore:P1}. Order: {orderId}",
                         CreatedAt = DateTime.UtcNow,
                         IsRead = false
                     });
@@ -632,8 +677,8 @@ namespace FYP.Controllers
 
                 await _context.SaveChangesAsync();
 
-                ModelState.AddModelError("", $"?? SECURITY BLOCK: Transaction flagged by XGBoost AI (Risk Score: {simulatedRiskScore:P0}).");
-                return View("Checkout", model);
+                TempData["ErrorMessage"] = $"SECURITY BLOCK: Transaction flagged by XGBoost AI (Risk Score: {aiVerdict.RiskScore:P0}). Your transaction is under review.";
+                return RedirectToAction("Index", "Cart");
             }
 
             string paymentId = "PAY-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
@@ -764,7 +809,7 @@ namespace FYP.Controllers
             {
                 LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
                 UserID = GetUserId(),
-                Action = $"Completed checkout for Order {orderId} (RM {model.TotalAmount:0.00}) - XGBoost Risk: {simulatedRiskScore:P0}",
+                Action = $"Completed checkout for Order {orderId} (RM {model.TotalAmount:0.00}) - XGBoost Risk: {aiVerdict.RiskScore:P0}",
                 IP_Address = currentIp,
                 Timestamp = DateTime.UtcNow
             };
