@@ -129,36 +129,7 @@
         </main>
     </div>
 
-    <footer class="site-footer">
-        <div class="container">
-            <div class="footer-top">
-                <div class="footer-brand">
-                    <h4>SecurePlatform</h4>
-                    <p style="margin-bottom: 0;">The next-generation marketplace powered by AI behavioral analysis and zero-trust verification. Shop with complete peace of mind.</p>
-                </div>
-                <div class="footer-links">
-                    <h5>Customer Service</h5>
-                    <ul>
-                        <li><a asp-controller="Help" asp-action="Index">Help Center</a></li>
-                        <li><a href="mailto:support@secureplatform.com">Contact Us</a></li>
-                        <li><a asp-controller="Help" asp-action="Article" asp-route-id="15">Terms & Conditions</a></li>
-                        <li><a asp-controller="Help" asp-action="Article" asp-route-id="14">Privacy Policy</a></li>
-                    </ul>
-                </div>
-                <div class="footer-payment">
-                    <h5>Payment Methods</h5>
-                    <div class="payment-icons">
-                        <span class="payment-badge">Visa</span>
-                        <span class="payment-badge">Mastercard</span>
-                        <span class="payment-badge">FPX</span>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p style="margin-bottom: 0;">&copy; @DateTime.Now.Year SecurePlatform. All Rights Reserved.</p>
-            </div>
-        </div>
-    </footer>
+    @await Html.PartialAsync("_FooterPartial")
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

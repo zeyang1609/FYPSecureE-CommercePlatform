@@ -10,9 +10,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - SecurePlatform</title>
-    <link rel="stylesheet" href="~/css/platform-home.css" />
-    <link rel="stylesheet" href="~/css/seller-shop.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/platform-home.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/seller-shop.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
 </head>
 <body style="display: flex; flex-direction: column; min-height: 100vh;">
 
@@ -256,36 +257,7 @@
         </div>
     </main>
 
-    <footer class="site-footer">
-        <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 15px;">
-            <div class="footer-top" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 40px; margin-bottom: 40px; text-align: left;">
-                <div class="footer-brand">
-                    <h4 style="font-size: 1.5rem; font-weight: 800; color: #EE4D2D; margin-bottom: 15px;">SecurePlatform</h4>
-                    <p style="margin-bottom: 0; color: #555;">The next-generation marketplace powered by AI behavioral analysis and zero-trust verification. Shop with complete peace of mind.</p>
-                </div>
-                <div class="footer-links">
-                    <h5 style="font-size: 1rem; font-weight: 700; color: #333; margin-bottom: 15px;">Customer Service</h5>
-                    <ul style="list-style: none; padding: 0; margin: 0;">
-                        <li style="margin-bottom: 10px;"><a asp-controller="Help" asp-action="Index" style="color: #666; text-decoration: none;">Help Center</a></li>
-                        <li style="margin-bottom: 10px;"><a href="mailto:support@secureplatform.com" style="color: #666; text-decoration: none;">Contact Us</a></li>
-                        <li style="margin-bottom: 10px;"><a asp-controller="Help" asp-action="Article" asp-route-id="15" style="color: #666; text-decoration: none;">Terms & Conditions</a></li>
-                        <li style="margin-bottom: 10px;"><a asp-controller="Help" asp-action="Article" asp-route-id="14" style="color: #666; text-decoration: none;">Privacy Policy</a></li>
-                    </ul>
-                </div>
-                <div class="footer-payment">
-                    <h5 style="font-size: 1rem; font-weight: 700; color: #333; margin-bottom: 15px;">Payment Methods</h5>
-                    <div class="payment-icons" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <span class="payment-badge" style="background: #fff; border: 1px solid #e0e0e0; padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #555;">Visa</span>
-                        <span class="payment-badge" style="background: #fff; border: 1px solid #e0e0e0; padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #555;">Mastercard</span>
-                        <span class="payment-badge" style="background: #fff; border: 1px solid #e0e0e0; padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #555;">FPX</span>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom" style="text-align: center; padding-top: 20px; border-top: 1px solid #eaeaea; color: #888; font-size: 0.85rem;">
-                <p style="margin-bottom: 0;">&copy; @DateTime.Now.Year SecurePlatform. All Rights Reserved.</p>
-            </div>
-        </div>
-    </footer>
+    @await Html.PartialAsync("_FooterPartial")
 
     <!-- Full Image Viewer Modal -->
     <div id="fullImageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1100; align-items: center; justify-content: center;" onclick="closeFullImageModal()">

@@ -172,6 +172,7 @@ app.MapControllerRoute(
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
     var seededUsers = db.Users.Where(u => u.Email == "demo_seller@secureplatform.com" || u.Email == "demo_admin@secureplatform.com").ToList();
     if (seededUsers.Any())
     {

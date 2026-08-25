@@ -93,7 +93,16 @@ namespace FYP.Controllers
                         .Distinct()
                         .ToListAsync();
 
+                    var wishlistItems = await _context.Wishlists
+                        .Include(w => w.Product)
+                        .ThenInclude(p => p.Category)
+                        .Where(w => w.BuyerID == userId)
+                        .Select(w => $"{w.Product.Category.Name} {w.Product.Title} {w.Product.Description}")
+                        .Distinct()
+                        .ToListAsync();
+
                     buyerHistory.AddRange(cartItems);
+                    buyerHistory.AddRange(wishlistItems);
                     buyerHistory = buyerHistory.Distinct().ToList();
 
                     var candidateProducts = await _context.Products

@@ -1,0 +1,201 @@
+<footer class="site-footer">
+    <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 15px;">
+        <div class="footer-top">
+            <div class="footer-brand">
+                <h4>SecurePlatform</h4>
+                <p>The next-generation marketplace powered by AI behavioral analysis and zero-trust verification. Shop with complete peace of mind.</p>
+            </div>
+            <div class="footer-links">
+                <h5>Customer Service</h5>
+                <ul>
+                    <li>
+                        <a asp-controller="Help" asp-action="Index">
+                            <span class="link-bullet"></span>
+                            <span class="link-label">Help Center</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="mailto:support@secureplatform.com" title="support@secureplatform.com">
+                            <span class="link-bullet"></span>
+                            <span class="link-label">Contact Us</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Help" asp-action="Article" asp-route-id="15">
+                            <span class="link-bullet"></span>
+                            <span class="link-label">Terms & Conditions</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a asp-controller="Help" asp-action="Article" asp-route-id="14">
+                            <span class="link-bullet"></span>
+                            <span class="link-label">Privacy Policy</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="footer-payment">
+                <h5>Payment Methods</h5>
+                <div class="payment-icons">
+                    <div class="payment-badge" title="Visa Credit / Debit">
+                        <i class="fab fa-cc-visa" style="color: #1a1f71; font-size: 1.15rem;"></i>
+                        <span>Visa</span>
+                    </div>
+                    <div class="payment-badge" title="Mastercard Identity Check">
+                        <i class="fab fa-cc-mastercard" style="color: #eb001b; font-size: 1.15rem;"></i>
+                        <span>Mastercard</span>
+                    </div>
+                    <div class="payment-badge" title="FPX Online Banking">
+                        <i class="fas fa-university" style="color: #005a9c; font-size: 0.95rem;"></i>
+                        <span>FPX</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p style="margin-bottom: 0;">&copy; @DateTime.Now.Year SecurePlatform. All Rights Reserved.</p>
+        </div>
+    </div>
+</footer>
+
+<style>
+    /* Direct footer styles to ensure instant rendering across all pages */
+    .site-footer {
+        background: #ffffff !important;
+        border-top: 1px solid #eaeaea !important;
+        padding: 50px 0 25px !important;
+        margin-top: auto !important;
+        font-size: 0.9rem !important;
+        color: #555 !important;
+        width: 100% !important;
+    }
+
+    .site-footer .footer-top {
+        display: grid !important;
+        grid-template-columns: 2fr 1fr 1fr !important;
+        gap: 40px !important;
+        margin-bottom: 35px !important;
+        text-align: left !important;
+    }
+
+    .site-footer .footer-brand h4 {
+        font-size: 1.5rem !important;
+        font-weight: 800 !important;
+        color: #EE4D2D !important;
+        margin-bottom: 15px !important;
+        letter-spacing: -0.5px !important;
+    }
+
+    .site-footer .footer-brand p {
+        margin-bottom: 0 !important;
+        color: #666 !important;
+        line-height: 1.6 !important;
+        max-width: 420px !important;
+        font-size: 0.9rem !important;
+    }
+
+    .site-footer .footer-links h5,
+    .site-footer .footer-payment h5 {
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        color: #222 !important;
+        margin-bottom: 16px !important;
+        letter-spacing: -0.2px !important;
+    }
+
+    .site-footer .footer-links ul {
+        list-style: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .site-footer .footer-links li {
+        margin-bottom: 12px !important;
+    }
+
+    .site-footer .footer-links a {
+        color: #666 !important;
+        text-decoration: none !important;
+        font-size: 0.9rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), color 0.22s ease !important;
+    }
+
+    .site-footer .link-bullet {
+        display: inline-block !important;
+        width: 0 !important;
+        height: 2px !important;
+        background-color: #EE4D2D !important;
+        margin-right: 0 !important;
+        transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), margin-right 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease !important;
+        opacity: 0 !important;
+        border-radius: 2px !important;
+    }
+
+    .site-footer .footer-links a:hover {
+        color: #EE4D2D !important;
+        transform: translateX(6px) !important;
+    }
+
+    .site-footer .footer-links a:hover .link-bullet {
+        width: 8px !important;
+        margin-right: 6px !important;
+        opacity: 1 !important;
+    }
+
+    .site-footer .payment-icons {
+        display: flex !important;
+        gap: 10px !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+    }
+
+    .site-footer .payment-badge {
+        background: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+        padding: 7px 14px !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        font-size: 0.82rem !important;
+        color: #555 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease !important;
+    }
+
+    .site-footer .payment-badge i {
+        transition: transform 0.25s ease !important;
+    }
+
+    .site-footer .payment-badge:hover {
+        border-color: #EE4D2D !important;
+        color: #EE4D2D !important;
+        background: #fff8f6 !important;
+        transform: translateY(-3px) scale(1.02) !important;
+        box-shadow: 0 6px 16px rgba(238, 77, 45, 0.16) !important;
+    }
+
+    .site-footer .payment-badge:hover i {
+        transform: scale(1.15) !important;
+    }
+
+    .site-footer .footer-bottom {
+        text-align: center !important;
+        padding-top: 20px !important;
+        border-top: 1px solid #f0f0f0 !important;
+        color: #888 !important;
+        font-size: 0.85rem !important;
+    }
+
+    @@media (max-width: 768px) {
+        .site-footer .footer-top {
+            grid-template-columns: 1fr !important;
+            gap: 25px !important;
+        }
+    }
+</style>

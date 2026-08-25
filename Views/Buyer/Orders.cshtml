@@ -70,7 +70,7 @@
                 <div class="order-tab" data-tab="toship">To Ship</div>
                 <div class="order-tab" data-tab="toreceive">To Receive</div>
                 <div class="order-tab" data-tab="completed">Completed</div>
-                <div class="order-tab" data-tab="cancelled">Cancelled / Rejected</div>
+                <div class="order-tab" data-tab="cancelled">Cancelled</div>
                 <div class="order-tab" data-tab="pending-approve">Pending Approve</div>
                 <div class="order-tab" data-tab="return">Return/Refund</div>
             </div>
@@ -101,7 +101,7 @@
                             searchIndex += $"{item.Product.Title} ";
                         }
 
-                        <div class="order-card" data-order-id="@order.OrderID" data-status="@(hasRefund ? "Return" : order.Status)" data-search="@searchIndex">
+                        <div class="order-card" data-order-id="@order.OrderID" data-status="@(hasRefund ? (latestRefund.Status == "DISPUTED" ? "Disputed" : "Return") : order.Status)" data-search="@searchIndex">
                             <!-- Card Header -->
                             <div class="order-card-header">
                                 <div class="seller-info">
@@ -120,7 +120,14 @@
                                     }
                                     else if (hasRefund)
                                     {
-                                        <span>Refund Status <span class="status-divider">|</span> @(latestRefund.Status.Replace("_", " "))</span>
+                                        if (latestRefund.Status == "DISPUTED")
+                                        {
+                                            <span style="color: #F59E0B; font-weight: 500;">REFUND DISPUTED <span class="status-divider">|</span> PENDING APPROVAL</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Refund Status <span class="status-divider">|</span> @(latestRefund.Status.Replace("_", " "))</span>
+                                        }
                                     }
                                     else if (order.Status == "Completed")
                                     {
@@ -1109,9 +1116,9 @@
                     } else if (activeTab === "cancelled") {
                         tabMatch = status.includes("cancelled") || status.includes("rejected");
                     } else if (activeTab === "pending-approve") {
-                        tabMatch = status.includes("declined") || status.includes("required check");
+                        tabMatch = status.includes("declined") || status.includes("required check") || status.includes("disputed");
                     } else if (activeTab === "return") {
-                        tabMatch = status.includes("refund") || status.includes("return");
+                        tabMatch = status.includes("refund") || status.includes("return") || status.includes("disputed");
                     }
 
                     let searchMatch = searchData.includes(searchTerm);

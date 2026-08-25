@@ -372,11 +372,11 @@ html {
     color: white;
 }
 
-/* --- Premium Footer --- */
+/* --- Premium Interactive Footer --- */
 .site-footer {
-    background: #fdfdfd;
+    background: #ffffff;
     border-top: 1px solid #eaeaea;
-    padding: 60px 0 20px;
+    padding: 50px 0 25px;
     margin-top: auto;
     font-size: 0.9rem;
     color: #555;
@@ -387,7 +387,8 @@ html {
     display: grid;
     grid-template-columns: 2fr 1fr 1fr;
     gap: 40px;
-    margin-bottom: 40px;
+    margin-bottom: 35px;
+    text-align: left;
 }
 
 .footer-brand h4 {
@@ -395,14 +396,24 @@ html {
     font-weight: 800;
     color: var(--brand-primary, #EE4D2D);
     margin-bottom: 15px;
+    letter-spacing: -0.5px;
+}
+
+.footer-brand p {
+    margin-bottom: 0;
+    color: #666;
+    line-height: 1.6;
+    max-width: 420px;
+    font-size: 0.9rem;
 }
 
 .footer-links h5,
 .footer-payment h5 {
     font-size: 1rem;
     font-weight: 700;
-    color: #333;
-    margin-bottom: 15px;
+    color: #222;
+    margin-bottom: 16px;
+    letter-spacing: -0.2px;
 }
 
 .footer-links ul {
@@ -412,40 +423,85 @@ html {
 }
 
 .footer-links li {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
 .footer-links a {
-    color: #666;
-    text-decoration: none;
-    transition: color 0.2s;
+    color: #666 !important;
+    text-decoration: none !important;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.footer-links a::before {
+    content: "";
+    display: inline-block;
+    width: 0;
+    height: 2px;
+    background-color: var(--brand-primary, #EE4D2D);
+    margin-right: 0;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    border-radius: 2px;
 }
 
 .footer-links a:hover {
-    color: var(--brand-primary, #EE4D2D);
+    color: var(--brand-primary, #EE4D2D) !important;
+    transform: translateX(4px);
+}
+
+.footer-links a:hover::before {
+    width: 6px;
+    margin-right: 6px;
+    opacity: 1;
 }
 
 .payment-icons {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .payment-badge {
-    background: #fff;
+    background: #ffffff;
     border: 1px solid #e0e0e0;
-    padding: 6px 12px;
-    border-radius: 4px;
+    padding: 7px 14px;
+    border-radius: 6px;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     color: #555;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+    user-select: none;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.payment-badge:hover {
+    border-color: var(--brand-primary, #EE4D2D);
+    color: var(--brand-primary, #EE4D2D);
+    background: #fff8f6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(238, 77, 45, 0.12);
 }
 
 .footer-bottom {
     text-align: center;
     padding-top: 20px;
-    border-top: 1px solid #eaeaea;
+    border-top: 1px solid #f0f0f0;
     color: #888;
     font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    .footer-top {
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
 }

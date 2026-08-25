@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="~/FYP.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/auth-login.css" />
     <link rel="stylesheet" href="~/css/help-center.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <style>
         .page-label {
             font-size: 1.25rem;
@@ -39,11 +40,7 @@
         @RenderBody()
     </main>
 
-    <footer style="background-color: white; border-top: 1px solid #eaeaea; padding: 40px 0; margin-top: auto;">
-        <div style="max-width: 1200px; margin: 0 auto; text-align: center; color: #888;">
-            <p>&copy; @DateTime.Now.Year SecurePlatform. All Rights Reserved.</p>
-        </div>
-    </footer>
+    @await Html.PartialAsync("_FooterPartial")
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

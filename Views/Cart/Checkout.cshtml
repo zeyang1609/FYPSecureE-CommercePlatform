@@ -241,7 +241,7 @@
                             <input type="radio" asp-for="PaymentMethod" value="Online Banking" style="display: none;" /> FPX Online Banking
                         </label>
                         <label style="border: 1px solid #ccc; padding: 5px 12px; color: #333; font-size: 0.95rem; cursor: pointer; border-radius: 2px;">
-                            <input type="radio" asp-for="PaymentMethod" value="DuitNow QR" style="display: none;" /> DuitNow QR
+                            <input type="radio" asp-for="PaymentMethod" value="Cash on Delivery" style="display: none;" /> Cash on Delivery
                         </label>
                     </div>
                 </div>
@@ -303,6 +303,19 @@
                             <!-- Stripe FPX Element will be inserted here -->
                         </div>
                         <div id="fpx-error" role="alert" style="color: #ee4d2d; font-size: 13px; margin-top: 5px;"></div>
+                    </div>
+                </div>
+
+                <div id="cod-section" style="display: none; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
+                    <div style="font-size: 1.1rem; font-weight: 500; color: #333; min-width: 220px;">Cash on Delivery</div>
+                    <div style="flex: 1; color: #555; font-size: 0.95rem; line-height: 1.5; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 6px; padding: 14px 18px; max-width: 600px;">
+                        <div style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #333; margin-bottom: 4px;">
+                            <i class="fas fa-money-bill-wave" style="color: #10b981; font-size: 1.1rem;"></i>
+                            Pay with Cash upon Delivery
+                        </div>
+                        <p style="margin: 0; color: #666; font-size: 0.88rem;">
+                            Please prepare the exact cash amount for our courier upon package arrival at your delivery address.
+                        </p>
                     </div>
                 </div>
 
@@ -464,11 +477,15 @@
                 
                 const ccSection = document.getElementById('credit-card-section');
                 const fpxSection = document.getElementById('fpx-section');
+                const codSection = document.getElementById('cod-section');
                 if(ccSection) {
                     ccSection.style.display = (selected.value === 'Credit Card') ? 'flex' : 'none';
                 }
                 if(fpxSection) {
                     fpxSection.style.display = (selected.value === 'Online Banking') ? 'flex' : 'none';
+                }
+                if(codSection) {
+                    codSection.style.display = (selected.value === 'Cash on Delivery') ? 'flex' : 'none';
                 }
             });
         });

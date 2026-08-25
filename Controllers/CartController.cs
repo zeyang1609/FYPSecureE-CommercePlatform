@@ -645,6 +645,7 @@ namespace FYP.Controllers
                 OrderID = orderId,
                 PaymentToken = _paymentEncryptionService.Encrypt("TOK-SESSION-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()),
                 IdempotencyKey = _paymentEncryptionService.Encrypt(Guid.NewGuid().ToString("N").ToUpper()),
+                PaymentMethod = model.PaymentMethod ?? "Credit Card",
                 Status = "Authorized"
             };
 
