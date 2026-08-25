@@ -688,6 +688,16 @@ namespace FYP.Controllers
                 await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
                 await _orderHubContext.Clients.Group("Couriers").SendAsync("ReceiveReturnUpdate");
                 
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = sellerId,
+                    Action = $"Approved refund {refundId} for order {refund.OrderID}",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+                
                 TempData["SuccessMessage"] = "Refund approved. Return label generated.";
             }
             return RedirectToAction(nameof(Refunds));
@@ -712,6 +722,16 @@ namespace FYP.Controllers
 
                 await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
                 await _orderHubContext.Clients.Group("Admins").SendAsync("ReceiveReturnUpdate");
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = sellerId,
+                    Action = $"Rejected refund {refundId} for order {refund.OrderID}. Reason: {reason}",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
 
                 TempData["SuccessMessage"] = "Refund rejected. Sent to Admin for dispute resolution.";
             }
@@ -781,6 +801,16 @@ namespace FYP.Controllers
                 
                 await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
                 
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = sellerId,
+                    Action = $"Confirmed receipt and processed refund {refundId} for order {refund.OrderID}",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+                
                 TempData["SuccessMessage"] = "Parcel received. Refund issued successfully to buyer.";
             }
             return RedirectToAction(nameof(Refunds));
@@ -805,6 +835,16 @@ namespace FYP.Controllers
                 
                 await _orderHubContext.Clients.Group(refund.Order.BuyerID).SendAsync("ReceiveReturnUpdate");
                 await _orderHubContext.Clients.Group("Admins").SendAsync("ReceiveReturnUpdate");
+                
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = sellerId,
+                    Action = $"Disputed refund {refundId} for order {refund.OrderID}. Issue: {issue}",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
                 
                 TempData["SuccessMessage"] = "Issue reported. Sent to Admin for arbitration.";
             }

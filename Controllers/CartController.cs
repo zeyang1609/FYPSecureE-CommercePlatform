@@ -914,6 +914,97 @@ namespace FYP.Controllers
 
                 totalAmount += finalShippingFee;
 
+                // --- Inject XGBoost Fraud Evaluation ---
+                string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+                var tenMinsAgo = DateTime.UtcNow.AddMinutes(-10);
+                int transactionsLast10Mins = await _context.Orders.CountAsync(o => o.BuyerID == userId && o.CreatedAt >= tenMinsAgo);
+                int deviceIpFlags = await _context.AuditLogs.CountAsync(a => a.IP_Address == currentIp && a.Action.Contains("Block"));
+                var buyer = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+                double timeSinceAccountCreationSeconds = buyer != null ? (DateTime.UtcNow - buyer.CreatedAt).TotalSeconds : 86400;
+
+                var transactionPayload = new
+                {
+                    transactionAmount = totalAmount,
+                    accountAgeDays = (int)(timeSinceAccountCreationSeconds / 86400),
+                    failedLoginAttempts = 0,
+                    distanceFromShippingAddress = 15,
+                    transactions_last_10_mins = transactionsLast10Mins,
+                    time_since_account_creation_seconds = timeSinceAccountCreationSeconds,
+                    device_ip_flags = deviceIpFlags
+                };
+
+                FraudEvaluationResult aiVerdict = await _aiClient.EvaluateTransactionRiskAsync(transactionPayload);
+
+                if (aiVerdict.RiskScore > 0.50m && aiVerdict.RiskScore <= 0.80m && !aiVerdict.IsBlocked)
+                {
+                    return BadRequest(new { error = "SECURITY CHECK REQUIRED: Please use Credit Card checkout to complete MFA verification for this transaction." });
+                }
+
+                string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+
+                if (aiVerdict.RiskScore > 0.80m || aiVerdict.IsBlocked)
+                {
+                    var blockedOrder = new Order
+                    {
+                        OrderID = orderId,
+                        BuyerID = GetUserId(),
+                        TotalAmount = totalAmount,
+                        Status = FYP.Models.Entities.TransactionStatus.RequiredCheck,
+                        CreatedAt = DateTime.UtcNow,
+                        ServiceType = "Standard Delivery"
+                    };
+
+                    var blockedOrderItems = checkoutItems.Select(item => new OrderItem
+                    {
+                        OrderItemID = "OIT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        OrderID = orderId,
+                        ProductID = item.ProductID,
+                        Quantity = item.Quantity,
+                        UnitPrice = item.Product.Price
+                    }).ToList();
+                    
+                    if (checkoutItems.Any()) _context.CartItems.RemoveRange(checkoutItems);
+
+                    var fraudAlert = new FraudAlert
+                    {
+                        AlertID = "FRD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        OrderID = orderId,
+                        RiskScore = aiVerdict.RiskScore,
+                        Reason = "XGBoost behavioral anomaly detected (via FPX): High transaction velocity or anomaly pattern.",
+                        SHAP_Data = aiVerdict.ShapData ?? "{}",
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _context.Orders.Add(blockedOrder);
+                    _context.OrderItems.AddRange(blockedOrderItems);
+                    _context.FraudAlerts.Add(fraudAlert);
+
+                    var admins = _context.Users.Where(u => u.Role == "Admin").ToList();
+                    foreach (var admin in admins)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = admin.UserID,
+                            Type = "Security Alert",
+                            Content = $"High-Risk Checkout Blocked (FPX)! Score: {aiVerdict.RiskScore:P1}. Order: {orderId}",
+                            CreatedAt = DateTime.UtcNow,
+                            IsRead = false
+                        });
+                    }
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = userId,
+                        Type = "Security Alert",
+                        Content = "Security Alert: A suspicious transaction attempt was blocked on your account."
+                    });
+
+                    await _context.SaveChangesAsync();
+                    return BadRequest(new { error = $"SECURITY BLOCK: Transaction flagged by XGBoost AI (Risk Score: {aiVerdict.RiskScore:P0}). Your transaction is under review." });
+                }
+                // --- End XGBoost Fraud Evaluation ---
+
                 StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
 
                 var options = new PaymentIntentCreateOptions
@@ -927,7 +1018,6 @@ namespace FYP.Controllers
                 var service = new PaymentIntentService();
                 var paymentIntent = await service.CreateAsync(options, requestOptions);
 
-                string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
                 string serviceType = string.IsNullOrEmpty(bankCode) ? "FPX Online Banking" : $"FPX|{bankCode}";
 
                 var order = new Order
@@ -1034,6 +1124,73 @@ namespace FYP.Controllers
                 {
                     return BadRequest(new { error = "Order not found or not pending payment." });
                 }
+
+                // --- Inject XGBoost Fraud Evaluation ---
+                string currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+                var tenMinsAgo = DateTime.UtcNow.AddMinutes(-10);
+                int transactionsLast10Mins = await _context.Orders.CountAsync(o => o.BuyerID == userId && o.CreatedAt >= tenMinsAgo);
+                int deviceIpFlags = await _context.AuditLogs.CountAsync(a => a.IP_Address == currentIp && a.Action.Contains("Block"));
+                var buyer = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+                double timeSinceAccountCreationSeconds = buyer != null ? (DateTime.UtcNow - buyer.CreatedAt).TotalSeconds : 86400;
+
+                var transactionPayload = new
+                {
+                    transactionAmount = order.TotalAmount,
+                    accountAgeDays = (int)(timeSinceAccountCreationSeconds / 86400),
+                    failedLoginAttempts = 0,
+                    distanceFromShippingAddress = 15,
+                    transactions_last_10_mins = transactionsLast10Mins,
+                    time_since_account_creation_seconds = timeSinceAccountCreationSeconds,
+                    device_ip_flags = deviceIpFlags
+                };
+
+                FraudEvaluationResult aiVerdict = await _aiClient.EvaluateTransactionRiskAsync(transactionPayload);
+
+                if (aiVerdict.RiskScore > 0.50m && aiVerdict.RiskScore <= 0.80m && !aiVerdict.IsBlocked)
+                {
+                    return BadRequest(new { error = "SECURITY CHECK REQUIRED: Please use Credit Card checkout to complete MFA verification for this transaction." });
+                }
+
+                if (aiVerdict.RiskScore > 0.80m || aiVerdict.IsBlocked)
+                {
+                    order.Status = FYP.Models.Entities.TransactionStatus.RequiredCheck;
+
+                    var fraudAlert = new FraudAlert
+                    {
+                        AlertID = "FRD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        OrderID = orderId,
+                        RiskScore = aiVerdict.RiskScore,
+                        Reason = "XGBoost behavioral anomaly detected (via FPX Retry): High transaction velocity or anomaly pattern.",
+                        SHAP_Data = aiVerdict.ShapData ?? "{}",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.FraudAlerts.Add(fraudAlert);
+
+                    var admins = _context.Users.Where(u => u.Role == "Admin").ToList();
+                    foreach (var admin in admins)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = admin.UserID,
+                            Type = "Security Alert",
+                            Content = $"High-Risk Checkout Blocked (FPX Retry)! Score: {aiVerdict.RiskScore:P1}. Order: {orderId}",
+                            CreatedAt = DateTime.UtcNow,
+                            IsRead = false
+                        });
+                    }
+                    _context.Notifications.Add(new Notification
+                    {
+                        NotificationID = "NOT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = userId,
+                        Type = "Security Alert",
+                        Content = "Security Alert: A suspicious transaction attempt was blocked on your account."
+                    });
+
+                    await _context.SaveChangesAsync();
+                    return BadRequest(new { error = $"SECURITY BLOCK: Transaction flagged by XGBoost AI (Risk Score: {aiVerdict.RiskScore:P0}). Your transaction is under review." });
+                }
+                // --- End XGBoost Fraud Evaluation ---
 
                 StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
 

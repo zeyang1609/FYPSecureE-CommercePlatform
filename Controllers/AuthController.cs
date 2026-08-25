@@ -158,6 +158,19 @@ namespace FYP.Controllers
                     }
                     await _context.SaveChangesAsync();
 
+                    if (user != null)
+                    {
+                        _context.AuditLogs.Add(new AuditLog
+                        {
+                            LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                            UserID = user.UserID,
+                            Action = lockoutRecord.FailedAttempts >= 5 ? "Account locked due to multiple failed login attempts." : "Failed login attempt.",
+                            IP_Address = currentIp,
+                            Timestamp = DateTime.UtcNow
+                        });
+                        await _context.SaveChangesAsync();
+                    }
+
                     if (lockoutRecord.FailedAttempts >= 5)
                     {
                         ModelState.AddModelError("", "Account locked due to too many failed attempts. Please try again in 10 minutes.");
@@ -761,6 +774,20 @@ namespace FYP.Controllers
         [HttpGet]
         public async Task<IActionResult> Logout(string returnUrl = null)
         {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = userId,
+                    Action = "User logged out.",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+            }
+
             TempData.Clear();
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))

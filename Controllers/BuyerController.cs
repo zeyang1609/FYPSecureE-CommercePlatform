@@ -355,6 +355,11 @@ namespace FYP.Controllers
                 .FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == buyerId); 
             if (order == null) return NotFound("Order not found or access denied.");
 
+            if (order.Status == "Pending" || order.Status == "Pending Payment" || order.Status == "Cancelled" || order.Status == "Rejected" || order.Status == "Refunded")
+            {
+                return BadRequest("Order is not eligible for refund at its current stage.");
+            }
+
             if (string.IsNullOrWhiteSpace(description))
             {
                 TempData["ErrorMessage"] = "Description is required.";
@@ -1426,6 +1431,15 @@ namespace FYP.Controllers
             order.Status = "Cancelled";
             if (!order.ServiceType.Contains("CancelledByUser"))
                 order.ServiceType += "|CancelledByUser";
+
+            // Restore product stock
+            foreach (var item in order.OrderItems)
+            {
+                if (item.Product != null)
+                {
+                    item.Product.StockLevel += item.Quantity;
+                }
+            }
                 
             var sellerIds = order.OrderItems.Select(oi => oi.Product.SellerID).Distinct().ToList();
             foreach (var sellerId in sellerIds)
@@ -1438,6 +1452,14 @@ namespace FYP.Controllers
                     Content = $"Order {orderId} has been cancelled by the buyer."
                 });
             }
+            _context.AuditLogs.Add(new AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = userId,
+                Action = $"Cancelled order {orderId}",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            });
 
             await _context.SaveChangesAsync();
             
