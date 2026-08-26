@@ -82,10 +82,25 @@ builder.Services.AddRateLimiter(options =>
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
         var ip = httpContext.Connection.RemoteIpAddress;
-        // Exempt localhost / loopback from rate limiting during development
-        if (ip != null && (IPAddress.IsLoopback(ip) || ip.ToString() == "127.0.0.1" || ip.ToString() == "::1"))
+        if (ip != null)
         {
-            return RateLimitPartition.GetNoLimiter("localhost");
+            string ipString = ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4().ToString() : ip.ToString();
+            
+            // Exempt localhost / loopback from rate limiting during development
+            if (IPAddress.IsLoopback(ip) || ipString == "127.0.0.1" || ipString == "::1" || ipString == "localhost")
+            {
+                return RateLimitPartition.GetNoLimiter("localhost");
+            }
+
+            // Exempt explicitly whitelisted IPs
+            var cache = httpContext.RequestServices.GetService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+            if (cache != null && cache.TryGetValue("IpFilters_Whitelist", out System.Collections.Generic.List<string> whitelist))
+            {
+                if (whitelist != null && whitelist.Contains(ipString))
+                {
+                    return RateLimitPartition.GetNoLimiter(ipString);
+                }
+            }
         }
 
         return RateLimitPartition.GetFixedWindowLimiter(
