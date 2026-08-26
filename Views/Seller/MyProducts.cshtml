@@ -71,7 +71,8 @@
                                 </td>
                                 <td>
                                     <strong style="font-size: 0.95rem; display: block;">@item.Title</strong>
-                                    <small style="font-family: monospace; color: var(--text-muted);">ID: @item.ProductID</small>
+                                    <small style="font-family: monospace; color: var(--text-muted); display: block;">ID: @item.ProductID</small>
+                                    <small style="color: var(--text-muted);">Listed: @item.CreatedAt.ToString("MMM dd, yyyy")</small>
                                 </td>
                                 <td><span style="background: #F0F0F0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">@(item.Category?.Name ?? "General")</span></td>
                                 <td><strong style="color: var(--brand-primary);">RM @item.Price.ToString("0.00")</strong></td>

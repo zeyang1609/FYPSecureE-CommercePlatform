@@ -4,6 +4,7 @@ using FYP.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FYP.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826052036_AddProductCreatedAt")]
+    partial class AddProductCreatedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1008,7 +1011,7 @@ namespace FYP.Migrations
                             ProductID = "PROD_001",
                             AverageRating = 4.9m,
                             CategoryID = "cat_tech_1",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 8, 26, 5, 20, 34, 621, DateTimeKind.Utc).AddTicks(3148),
                             Description = "Experience pure sound with industry-leading active noise cancellation. Features 30-hour battery life, touch sensor controls, and speak-to-chat technology.",
                             ImageHash = "SEED",
                             Price = 899.00m,
@@ -1024,7 +1027,7 @@ namespace FYP.Migrations
                             ProductID = "PROD_002",
                             AverageRating = 4.8m,
                             CategoryID = "cat_tech_1",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 8, 26, 5, 20, 34, 621, DateTimeKind.Utc).AddTicks(7793),
                             Description = "Advanced health monitoring right on your wrist. Measure your blood oxygen level, take an ECG anytime, and track your daily activity.",
                             ImageHash = "SEED",
                             Price = 1299.00m,
@@ -1040,7 +1043,7 @@ namespace FYP.Migrations
                             ProductID = "PROD_003",
                             AverageRating = 4.7m,
                             CategoryID = "cat_tech_1",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 8, 26, 5, 20, 34, 621, DateTimeKind.Utc).AddTicks(7800),
                             Description = "Tactile mechanical switches for ultimate gaming performance. Features customizable per-key RGB lighting and an aircraft-grade aluminum alloy frame.",
                             ImageHash = "SEED",
                             Price = 450.00m,
@@ -1056,7 +1059,7 @@ namespace FYP.Migrations
                             ProductID = "PROD_004",
                             AverageRating = 4.9m,
                             CategoryID = "cat_tech_1",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 8, 26, 5, 20, 34, 621, DateTimeKind.Utc).AddTicks(7805),
                             Description = "Weighing only 63 grams, this mouse is designed for professional esports. Features a 25K DPI sensor and zero-additive PTFE feet for smooth gliding.",
                             ImageHash = "SEED",
                             Price = 320.00m,
@@ -1072,7 +1075,7 @@ namespace FYP.Migrations
                             ProductID = "PROD_005",
                             AverageRating = 4.6m,
                             CategoryID = "cat_tech_1",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 8, 26, 5, 20, 34, 621, DateTimeKind.Utc).AddTicks(7860),
                             Description = "Stunning 4K resolution with 99% sRGB color accuracy. Factory calibrated for creators who demand perfect color representation and crisp text.",
                             ImageHash = "SEED",
                             Price = 1850.00m,
@@ -1088,7 +1091,7 @@ namespace FYP.Migrations
                             ProductID = "PROD_006",
                             AverageRating = 4.9m,
                             CategoryID = "cat_tech_1",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 8, 26, 5, 20, 34, 621, DateTimeKind.Utc).AddTicks(7864),
                             Description = "Never run out of battery again. This high-capacity power bank supports 65W Power Delivery, allowing you to fast-charge your smartphone, tablet, and even your laptop on the go.",
                             ImageHash = "SEED",
                             Price = 150.00m,

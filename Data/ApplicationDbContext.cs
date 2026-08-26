@@ -253,32 +253,32 @@ namespace FYP.Data
                 new Product { 
                     ProductID = "PROD_001", SellerID = demoSellerId, CategoryID = techCategoryId,
                     Title = "Wireless Noise-Cancelling Headphones Pro", Price = 899.00m, StockLevel = 45, TotalSales = 1250, AverageRating = 4.9m, ReviewCount = 342,
-                    ImageHash = "SEED", Description = "Experience pure sound with industry-leading active noise cancellation. Features 30-hour battery life, touch sensor controls, and speak-to-chat technology."
+                    ImageHash = "SEED", Description = "Experience pure sound with industry-leading active noise cancellation. Features 30-hour battery life, touch sensor controls, and speak-to-chat technology.", CreatedAt = seedDate
                 },
                 new Product { 
                     ProductID = "PROD_002", SellerID = demoSellerId, CategoryID = techCategoryId,
                     Title = "Smart Fitness Watch Series 7", Price = 1299.00m, StockLevel = 120, TotalSales = 3400, AverageRating = 4.8m, ReviewCount = 890,
-                    ImageHash = "SEED", Description = "Advanced health monitoring right on your wrist. Measure your blood oxygen level, take an ECG anytime, and track your daily activity."
+                    ImageHash = "SEED", Description = "Advanced health monitoring right on your wrist. Measure your blood oxygen level, take an ECG anytime, and track your daily activity.", CreatedAt = seedDate
                 },
                 new Product { 
                     ProductID = "PROD_003", SellerID = demoSellerId, CategoryID = techCategoryId,
                     Title = "Mechanical Gaming Keyboard RGB", Price = 450.00m, StockLevel = 3, TotalSales = 850, AverageRating = 4.7m, ReviewCount = 156,
-                    ImageHash = "SEED", Description = "Tactile mechanical switches for ultimate gaming performance. Features customizable per-key RGB lighting and an aircraft-grade aluminum alloy frame."
+                    ImageHash = "SEED", Description = "Tactile mechanical switches for ultimate gaming performance. Features customizable per-key RGB lighting and an aircraft-grade aluminum alloy frame.", CreatedAt = seedDate
                 },
                 new Product { 
                     ProductID = "PROD_004", SellerID = demoSellerId, CategoryID = techCategoryId,
                     Title = "Ultra-Light Wireless Esports Mouse", Price = 320.00m, StockLevel = 80, TotalSales = 2100, AverageRating = 4.9m, ReviewCount = 512,
-                    ImageHash = "SEED", Description = "Weighing only 63 grams, this mouse is designed for professional esports. Features a 25K DPI sensor and zero-additive PTFE feet for smooth gliding."
+                    ImageHash = "SEED", Description = "Weighing only 63 grams, this mouse is designed for professional esports. Features a 25K DPI sensor and zero-additive PTFE feet for smooth gliding.", CreatedAt = seedDate
                 },
                 new Product { 
                     ProductID = "PROD_005", SellerID = demoSellerId, CategoryID = techCategoryId,
                     Title = "27-inch 4K IPS Creator Monitor", Price = 1850.00m, StockLevel = 15, TotalSales = 420, AverageRating = 4.6m, ReviewCount = 89,
-                    ImageHash = "SEED", Description = "Stunning 4K resolution with 99% sRGB color accuracy. Factory calibrated for creators who demand perfect color representation and crisp text."
+                    ImageHash = "SEED", Description = "Stunning 4K resolution with 99% sRGB color accuracy. Factory calibrated for creators who demand perfect color representation and crisp text.", CreatedAt = seedDate
                 },
                 new Product { 
                     ProductID = "PROD_006", SellerID = demoSellerId, CategoryID = techCategoryId,
                     Title = "20,000mAh PD Fast Charge Power Bank", Price = 150.00m, StockLevel = 250, TotalSales = 5600, AverageRating = 4.9m, ReviewCount = 1240,
-                    ImageHash = "SEED", Description = "Never run out of battery again. This high-capacity power bank supports 65W Power Delivery, allowing you to fast-charge your smartphone, tablet, and even your laptop on the go."
+                    ImageHash = "SEED", Description = "Never run out of battery again. This high-capacity power bank supports 65W Power Delivery, allowing you to fast-charge your smartphone, tablet, and even your laptop on the go.", CreatedAt = seedDate
                 }
             );
 

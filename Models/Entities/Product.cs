@@ -40,6 +40,8 @@ namespace FYP.Models.Entities
 
         public int ReviewCount { get; set; } = 0;
 
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
         [ForeignKey("SellerID")]
         public virtual User Seller { get; set; }
 
