@@ -22,6 +22,9 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     line-height: 1.2;
     box-sizing: border-box;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
 }
 
 .main-header *, .main-header *::before, .main-header *::after {

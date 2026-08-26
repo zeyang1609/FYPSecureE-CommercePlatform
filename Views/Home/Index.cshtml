@@ -196,7 +196,7 @@
     </section>
 
     <!-- Recommended Products Section -->
-    @if (ViewBag.RecommendedProducts != null && ((IEnumerable<FYP.Models.Entities.Product>)ViewBag.RecommendedProducts).Any())
+    @if (string.IsNullOrWhiteSpace(ViewBag.SearchQuery as string) && string.IsNullOrWhiteSpace(ViewBag.SelectedCategory as string) && ViewBag.RecommendedProducts != null && ((IEnumerable<FYP.Models.Entities.Product>)ViewBag.RecommendedProducts).Any())
     {
         <section class="products-section" id="recommended-section" style="margin-bottom: 20px;">
             <div class="section-title" style="display: flex; align-items: center; gap: 8px;">
@@ -264,6 +264,20 @@
                                 dailyDiscoverTitle.innerHTML = `<span>DAILY DISCOVER</span>`;
                             }
                         }
+                        
+                        // Hide recommended section when searching
+                        const recommendedSection = document.getElementById('recommended-section');
+                        if (recommendedSection) {
+                            if (query) {
+                                recommendedSection.style.display = 'none';
+                            } else {
+                                const urlParams = new URLSearchParams(window.location.search);
+                                if (!urlParams.has('categoryId')) {
+                                    recommendedSection.style.display = 'block';
+                                }
+                            }
+                        }
+
                         // Update URL without reloading
                         window.history.pushState({}, '', `/Home/Index?searchQuery=${encodeURIComponent(query)}`);
                         // Hide autocomplete if open
