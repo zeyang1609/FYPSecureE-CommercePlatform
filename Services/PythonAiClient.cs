@@ -12,7 +12,6 @@ namespace FYP.Services
         public PythonAiClient(HttpClient httpClient)
         {
             _httpClient = httpClient;
-            _httpClient.BaseAddress = new Uri("http://localhost:5000/");
         }
 
         /// <summary>

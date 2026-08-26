@@ -53,7 +53,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
            .EnableDetailedErrors());
 
 // 2. Register Custom Application Services & Microservices
-builder.Services.AddHttpClient<PythonAiClient>();
+builder.Services.AddHttpClient<PythonAiClient>(client => 
+{
+    var aiServiceUrl = builder.Configuration["AiServiceUrl"] ?? "http://localhost:5000/";
+    client.BaseAddress = new Uri(aiServiceUrl);
+});
 builder.Services.AddScoped<IOtpService, OtpService>();
 // Register TOTP Authenticator Service
 builder.Services.AddScoped<FYP.Services.TotpService>();
