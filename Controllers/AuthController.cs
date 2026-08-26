@@ -235,7 +235,7 @@ namespace FYP.Controllers
                     string os = currentDevice.Contains("Windows") ? "Windows" : currentDevice.Contains("Mac OS") ? "Mac OS" : currentDevice.Contains("Linux") ? "Linux" : "Unknown OS";
                     string browser = currentDevice.Contains("Chrome") ? "Chrome" : currentDevice.Contains("Firefox") ? "Firefox" : currentDevice.Contains("Safari") ? "Safari" : "Unknown Browser";
 
-                    await _otpService.SendDeviceApprovalEmailAsync(user.Email, os, browser, currentIp, approvalLink);
+                    _ = Task.Run(async () => await _otpService.SendDeviceApprovalEmailAsync(user.Email, os, browser, currentIp, approvalLink));
 
                     _context.AuditLogs.Add(new AuditLog
                     {

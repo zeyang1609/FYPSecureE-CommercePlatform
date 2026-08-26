@@ -44,7 +44,8 @@ namespace FYP.Services
             _cache.Set(cacheKey, otpCode, cacheOptions);
 
             // 3. Dispatch Email or Log to Console
-            return await SendEmailAsync(email, purpose, otpCode);
+            _ = Task.Run(async () => await SendEmailAsync(email, purpose, otpCode));
+            return true;
         }
 
         public bool ValidateOtp(string email, string code)

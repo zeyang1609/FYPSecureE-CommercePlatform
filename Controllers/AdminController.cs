@@ -92,33 +92,29 @@ namespace FYP.Controllers
         {
             var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
 
-            var recentOrders = await _context.Orders
-                .Where(o => o.CreatedAt >= thirtyDaysAgo)
-                .ToListAsync();
+            var totalOrders = await _context.Orders.CountAsync(o => o.CreatedAt >= thirtyDaysAgo);
+            var totalFraudAlerts = await _context.FraudAlerts.CountAsync(f => f.CreatedAt >= thirtyDaysAgo);
+            var newUsers = await _context.Users.CountAsync(u => u.CreatedAt >= thirtyDaysAgo);
 
-            var recentOrderItems = await _context.OrderItems
-                .Include(oi => oi.Order)
-                .Include(oi => oi.Product)
+            // Fetch minimal data for revenue grouping
+            var orderItemData = await _context.OrderItems
                 .Where(oi => oi.Order.CreatedAt >= thirtyDaysAgo)
+                .Select(oi => new { oi.Order.CreatedAt, oi.UnitPrice, oi.Quantity })
                 .ToListAsync();
 
-            var fraudAlerts = await _context.FraudAlerts
-                .Where(f => f.CreatedAt >= thirtyDaysAgo)
-                .ToListAsync();
-
-            var users = await _context.Users
-                .Where(u => u.CreatedAt >= thirtyDaysAgo)
-                .ToListAsync();
-
-            // 1. Platform Revenue Over Time
-            var revenueOverTime = recentOrderItems
-                .GroupBy(oi => oi.Order.CreatedAt.Date)
+            var revenueOverTime = orderItemData
+                .GroupBy(oi => oi.CreatedAt.Date)
                 .OrderBy(g => g.Key)
                 .Select(g => new { Date = g.Key.ToString("MMM dd"), Revenue = g.Sum(oi => oi.UnitPrice * oi.Quantity) })
                 .ToList();
 
-            // 2. Fraud Alerts Over Time
-            var fraudOverTime = fraudAlerts
+            // Fetch minimal data for fraud grouping
+            var fraudData = await _context.FraudAlerts
+                .Where(f => f.CreatedAt >= thirtyDaysAgo)
+                .Select(f => new { f.CreatedAt })
+                .ToListAsync();
+
+            var fraudOverTime = fraudData
                 .GroupBy(f => f.CreatedAt.Date)
                 .OrderBy(g => g.Key)
                 .Select(g => new { Date = g.Key.ToString("MMM dd"), Count = g.Count() })
@@ -130,10 +126,10 @@ namespace FYP.Controllers
             ViewBag.FraudDates = fraudOverTime.Select(x => x.Date).ToArray();
             ViewBag.FraudData = fraudOverTime.Select(x => x.Count).ToArray();
 
-            ViewBag.TotalSales = recentOrderItems.Sum(oi => oi.UnitPrice * oi.Quantity);
-            ViewBag.TotalOrders = recentOrders.Count;
-            ViewBag.TotalFraudAlerts = fraudAlerts.Count;
-            ViewBag.NewUsers = users.Count;
+            ViewBag.TotalSales = orderItemData.Sum(oi => oi.UnitPrice * oi.Quantity);
+            ViewBag.TotalOrders = totalOrders;
+            ViewBag.TotalFraudAlerts = totalFraudAlerts;
+            ViewBag.NewUsers = newUsers;
 
             return View();
         }
@@ -1043,24 +1039,34 @@ namespace FYP.Controllers
 
         // POST: /Admin/RemoveIpFilter
         [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> RemoveIpFilter(int id)
         {
-            var filter = await _context.IpFilters.FindAsync(id);
-            if (filter != null)
+            try
             {
-                _context.IpFilters.Remove(filter);
-                await _context.SaveChangesAsync();
-
-                // Clear cache for IP Filtering Middleware
-                var cache = HttpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Caching.Memory.IMemoryCache)) as Microsoft.Extensions.Caching.Memory.IMemoryCache;
-                if (cache != null)
+                var filter = await _context.IpFilters.FindAsync(id);
+                if (filter != null)
                 {
-                    cache.Remove("IpFilters_Whitelist");
-                    cache.Remove("IpFilters_Blacklist");
-                }
+                    _context.IpFilters.Remove(filter);
+                    await _context.SaveChangesAsync();
 
-                TempData["SuccessMessage"] = "IP filter rule successfully removed.";
+                    // Clear cache for IP Filtering Middleware
+                    var cache = HttpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Caching.Memory.IMemoryCache)) as Microsoft.Extensions.Caching.Memory.IMemoryCache;
+                    if (cache != null)
+                    {
+                        cache.Remove("IpFilters_Whitelist");
+                        cache.Remove("IpFilters_Blacklist");
+                    }
+
+                    TempData["SuccessMessage"] = $"IP filter rule (ID {id}) successfully removed.";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = $"Failed to revoke: Could not find IP Filter rule with ID {id} in the database.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error removing IP filter: {ex.Message}";
             }
             return RedirectToAction(nameof(ManageIpFilters));
         }
