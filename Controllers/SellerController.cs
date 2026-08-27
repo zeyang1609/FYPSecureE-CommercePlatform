@@ -1165,5 +1165,20 @@ namespace FYP.Controllers
             return View(notifications);
         }
 
+        // GET: /Seller/StoreReviews
+        [HttpGet]
+        public async Task<IActionResult> StoreReviews()
+        {
+            string sellerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            
+            var reviews = await _context.Reviews
+                .Include(r => r.Product)
+                .Include(r => r.Buyer)
+                .Where(r => r.Product.SellerID == sellerId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+
+            return View(reviews);
+        }
     }
 }
