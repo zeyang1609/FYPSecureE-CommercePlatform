@@ -1,7 +1,8 @@
 Flask
 xgboost
 shap
-opencv-python
+opencv-python-headless
+gunicorn
 numpy
 joblib
 Pillow
