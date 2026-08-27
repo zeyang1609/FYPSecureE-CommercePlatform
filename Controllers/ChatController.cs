@@ -232,11 +232,12 @@ namespace FYP.Controllers
             }
 
             var users = await _context.Users
-                .Where(u => u.UserID != currentUserId && u.Email.Contains(query))
+                .Where(u => u.UserID != currentUserId && (u.Email.Contains(query) || (u.Name != null && u.Name.Contains(query))))
                 .Select(u => new
                 {
                     id = u.UserID,
                     email = u.Email,
+                    name = string.IsNullOrEmpty(u.Name) ? u.Email : u.Name,
                     role = u.Role
                 })
                 .Take(5) // Limit to top 5 results for UI performance

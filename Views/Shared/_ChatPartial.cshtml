@@ -270,11 +270,11 @@
 
                 if (data.length > 0) {
                     list.innerHTML = data.map(u => `
-                        <div class="secure-contact-item" onclick="startSecureChat('${u.id}', '${u.email}')">
-                            <div class="secure-contact-avatar">${u.email.charAt(0).toUpperCase()}</div>
+                        <div class="secure-contact-item" onclick="startSecureChat('${u.id}', '${u.name}')">
+                            <div class="secure-contact-avatar">${u.name.charAt(0).toUpperCase()}</div>
                             <div style="flex: 1; overflow: hidden;">
-                                <div style="font-weight: 600; color: #2D3748; font-size: 13px;">${u.email}</div>
-                                <div style="font-size: 11px; color: #A0ABC0;">${u.role}</div>
+                                <div style="font-weight: 600; color: #2D3748; font-size: 13px;">${u.name}</div>
+                                <div style="font-size: 11px; color: #A0ABC0;">${u.email} • ${u.role}</div>
                             </div>
                         </div>
                     `).join('');
