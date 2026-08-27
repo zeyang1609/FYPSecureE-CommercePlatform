@@ -163,7 +163,7 @@
                                 {
                                     <div class="order-item">
                                         <div class="item-image" style="position: relative;">
-                                            <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product.Title" style="max-width: 100%; max-height: 100%; object-fit: contain;" class="@(isReturnRejected ? "return-overlay" : "")" onerror="this.src='/images/default-product.jpg';" />
+                                            <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product.Title" style="max-width: 100%; max-height: 100%; object-fit: contain;" class="@(isReturnRejected ? "return-overlay" : "")" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
                                         </div>
                                         <div class="item-details @(isReturnRejected ? "return-overlay" : "")">
                                             <div class="item-title">

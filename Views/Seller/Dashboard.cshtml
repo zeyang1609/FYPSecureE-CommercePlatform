@@ -180,7 +180,7 @@
                         {
                             <tr>
                                 <td>
-                                    <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" class="product-thumb" onerror="this.src='/images/default-product.jpg';" />
+                                    <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" class="product-thumb" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
                                 </td>
                                 <td><strong style="font-size: 0.95rem;">@item.Title</strong></td>
                                 <td><span style="background: #F0F0F0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">@(item.Category?.Name ?? "General")</span></td>

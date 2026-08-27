@@ -100,7 +100,7 @@
                                         <input type="checkbox" class="item-checkbox" id="chk-@item.ProductID" @(item.IsSelected ? "checked" : "") onchange="toggleItemSelection('@item.ProductID', this)" style="width: 18px; height: 18px; cursor: pointer;" />
                                     </td>
                                     <td>
-                                        <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" class="product-thumb" onerror="this.src='/images/default-product.jpg';" />
+                                        <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" class="product-thumb" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
                                     </td>
                                     <td>
                                         <strong style="font-size: 0.95rem; display: block;">@item.Title</strong>

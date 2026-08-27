@@ -284,7 +284,7 @@
             foreach(var item in Model.Order.OrderItems)
             {
                 <div style="display: flex; gap: 15px; margin-bottom: 10px;">
-                    <img src="/uploads/@(item.ProductID).jpg" style="width: 60px; height: 60px; object-fit: contain; border: 1px solid #eee;" onerror="this.src='/images/default-product.png';" />
+                    <img src="/uploads/@(item.ProductID).jpg" style="width: 60px; height: 60px; object-fit: contain; border: 1px solid #eee;" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
                     <div>
                         <div style="font-weight: 500; color: #333;">@item.Product?.Title</div>
                         <div style="color: #666; font-size: 0.9rem;">x@(item.Quantity)</div>

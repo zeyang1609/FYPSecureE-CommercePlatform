@@ -155,7 +155,7 @@
                 {
                     <div class="order-item">
                         <div class="item-image">
-                            <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product.Title" onerror="this.src='/images/default-product.jpg';" />
+                            <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product.Title" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
                         </div>
                         <div class="item-details">
                             <div class="item-title">@item.Product.Title</div>

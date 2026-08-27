@@ -154,7 +154,7 @@
                             {
                                 <tr style="border-bottom: 1px dashed #eee;">
                                     <td style="padding: 15px 0; display: flex; align-items: center; gap: 15px;">
-                                        <img src="~/uploads/@(item.ProductID).jpg" onerror="this.src='/images/default-product.jpg';" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e0e0e0;" />
+                                        <img src="~/uploads/@(item.ProductID).jpg" onerror="this.onerror=null; this.src='/images/default-product.jpg';" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e0e0e0;" />
                                         <span style="font-weight: 500; color: #333;">@item.Title</span>
                                     </td>
                                     <td style="padding: 15px 0; text-align: center; color: #555;">RM @item.Price.ToString("0.00")</td>

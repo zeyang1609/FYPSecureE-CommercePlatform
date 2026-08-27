@@ -54,7 +54,7 @@
     <!-- Top Details -->
     <div class="product-main-card">
         <div class="product-image-container">
-            <img src="~/uploads/@(Model.ProductID).jpg" alt="@Model.Title" onerror="this.src='/images/default-product.jpg';" />
+            <img src="~/uploads/@(Model.ProductID).jpg" alt="@Model.Title" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
         </div>
         
         <div class="product-details">

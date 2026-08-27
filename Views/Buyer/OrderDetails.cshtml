@@ -235,7 +235,7 @@
                         {
                             <div class="order-item" style="border-bottom: 1px solid #eee;">
                                 <div class="item-image" style="position: relative;">
-                                    <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product?.Title" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.src='/images/default-product.jpg';" />
+                                    <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Product?.Title" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
                                 </div>
                                 <div class="item-details">
                                     <div class="item-title" style="color: #333; font-weight: 500;">

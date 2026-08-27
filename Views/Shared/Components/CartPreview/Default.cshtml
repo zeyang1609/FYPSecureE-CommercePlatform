@@ -35,7 +35,7 @@
                 @foreach (var item in Model.RecentItems)
                 {
                     <a href="/Home/ProductDetails/@item.ProductID" class="cart-dropdown-item">
-                        <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" onerror="this.src='/images/default-product.jpg';" />
+                        <img src="~/uploads/@(item.ProductID).jpg" alt="@item.Title" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
                         <div class="cart-item-title">@item.Title</div>
                         <div class="cart-item-price">RM @item.Price.ToString("0.00")</div>
                     </a>

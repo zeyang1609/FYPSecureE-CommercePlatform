@@ -3,7 +3,7 @@
 @* Reusable product card partial for the shop profile page *@
 <div class="shop-product-card">
     <a asp-controller="Home" asp-action="ProductDetails" asp-route-id="@Model.ProductID">
-        <img src="~/uploads/@(Model.ProductID).jpg" alt="@Model.Title" class="product-img" onerror="this.src='/images/default-product.jpg';" />
+        <img src="~/uploads/@(Model.ProductID).jpg" alt="@Model.Title" class="product-img" onerror="this.onerror=null; this.src='/images/default-product.jpg';" />
         <div class="product-info">
             <div>
                 <!-- Star rating -->
