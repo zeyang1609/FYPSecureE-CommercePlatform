@@ -36,6 +36,7 @@
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body>
+    @Html.AntiForgeryToken()
 
     <header class="auth-navbar">
         <div class="nav-container">
@@ -953,7 +954,7 @@
                         const tokenData = await tokenRes.json();
                         const response = await fetch('/Cart/RetryPaymentIntent', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
                             body: JSON.stringify({ orderId: orderId, securityToken: tokenData.token })
                         });
                         
@@ -1005,7 +1006,7 @@
                         const tokenData = await tokenRes.json();
                         const payRes = await fetch('/Cart/PayExistingOrder', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
                             body: JSON.stringify({ orderId: orderId, paymentMethod: 'Credit Card', securityToken: tokenData.token })
                         });
                         
@@ -1216,7 +1217,7 @@
             try {
                 const response = await fetch('/Buyer/CancelOrder', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
                     body: JSON.stringify({ orderId: cancelOrderId, reason: reason })
                 });
                 
@@ -1258,7 +1259,7 @@
                     const tokenData = await tokenRes.json();
                     const response = await fetch('/Cart/RetryPaymentIntent', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
                         body: JSON.stringify({ orderId: orderId, securityToken: tokenData.token })
                     });
                     
