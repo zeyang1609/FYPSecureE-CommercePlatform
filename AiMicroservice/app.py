@@ -254,7 +254,7 @@ def scan_chat():
     import re
     from urllib.parse import urlparse
 
-    url_pattern = re.compile(r'https?://[^\s]+')
+    url_pattern = re.compile(r'(?:https?://)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b(?:[-a-zA-Z0-9@:%_\+.~#?&//=]*)')
     urls = url_pattern.findall(message_lower)
     
     known_safe_domains = ['shopee.com.my', 'maybank2u.com.my', 'secureplatform.com']
@@ -276,13 +276,13 @@ def scan_chat():
         domain = parsed.netloc if parsed.netloc else parsed.path.split('/')[0]
         
         # 1. Suspicious TLD check
-        if any(domain.endswith(tld) for tld in suspicious_tlds):
-            flags.append(f"Suspicious top-level domain detected: {domain}")
+        if any(tld in domain for tld in suspicious_tlds):
+            flags.append(f"Suspicious domain extension detected: {domain}")
             
         # 2. Typosquatting check
         for safe_domain in known_safe_domains:
             if domain != safe_domain:
-                if levenshtein(domain, safe_domain) <= 2 and len(domain) >= len(safe_domain) - 2:
+                if levenshtein(domain, safe_domain) <= 3 and len(domain) >= len(safe_domain) - 3:
                     flags.append(f"Potential typosquatting detected: {domain} mimics {safe_domain}")
                     break
                     
