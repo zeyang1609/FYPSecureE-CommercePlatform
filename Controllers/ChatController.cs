@@ -145,12 +145,50 @@ namespace FYP.Controllers
             // Block immediately if phishing URL detected (no delay — this is regex only)
             if (isPhishingUrl)
             {
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = senderId,
+                    Action = $"Chat message blocked (URL Shortener regex matched).",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+
                 return Json(new
                 {
                     success = false,
                     isBlocked = true,
                     message = "🚨 Message blocked: Suspicious phishing URL detected. Links to URL shorteners are not allowed for security reasons."
                 });
+            }
+
+            // DB Check: Malicious Link Blacklist
+            if (!string.IsNullOrWhiteSpace(payload))
+            {
+                var lowerPayload = payload.ToLowerInvariant();
+                var blacklistedUrls = await _context.UrlBlacklists.Select(b => b.Domain).ToListAsync();
+                var matchedDomain = blacklistedUrls.FirstOrDefault(d => lowerPayload.Contains(d));
+                
+                if (matchedDomain != null)
+                {
+                    _context.AuditLogs.Add(new AuditLog
+                    {
+                        LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                        UserID = senderId,
+                        Action = $"Chat message blocked (Matched DB Blacklist: {matchedDomain}).",
+                        IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                        Timestamp = DateTime.UtcNow
+                    });
+                    await _context.SaveChangesAsync();
+
+                    return Json(new
+                    {
+                        success = false,
+                        isBlocked = true,
+                        message = $"🚨 Message blocked: The link '{matchedDomain}' is blacklisted by the admin for security reasons."
+                    });
+                }
             }
 
             // Save and deliver instantly — zero delay for the user
@@ -197,8 +235,18 @@ namespace FYP.Controllers
                             if (msg != null)
                             {
                                 msg.NLP_Flag = true;
-                                await bgContext.SaveChangesAsync();
                             }
+
+                            bgContext.AuditLogs.Add(new AuditLog
+                            {
+                                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                                UserID = capturedSenderId,
+                                Action = $"Chat message flagged by AI: {scanResult.Reason}",
+                                IP_Address = "BackgroundWorker",
+                                Timestamp = DateTime.UtcNow
+                            });
+
+                            await bgContext.SaveChangesAsync();
 
                             // Push warning to sender
                             await _hubContext.Clients.User(capturedSenderId).SendAsync("MessageFlagged", savedChatId,

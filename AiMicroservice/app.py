@@ -250,6 +250,46 @@ def scan_chat():
         except Exception as e:
             print(f"Multilingual classifier error: {e}")
 
+    # --- Layer 4: AI Heuristic Malicious Link Detection ---
+    import re
+    from urllib.parse import urlparse
+
+    url_pattern = re.compile(r'https?://[^\s]+')
+    urls = url_pattern.findall(message_lower)
+    
+    known_safe_domains = ['shopee.com.my', 'maybank2u.com.my', 'secureplatform.com']
+    suspicious_tlds = ['.xyz', '.top', '.tk', '.cc', '.ru']
+    
+    def levenshtein(s1, s2):
+        if len(s1) < len(s2): return levenshtein(s2, s1)
+        if len(s2) == 0: return len(s1)
+        prev = range(len(s2) + 1)
+        for i, c1 in enumerate(s1):
+            curr = [i + 1]
+            for j, c2 in enumerate(s2):
+                curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (c1 != c2)))
+            prev = curr
+        return prev[-1]
+
+    for url in urls:
+        parsed = urlparse(url)
+        domain = parsed.netloc if parsed.netloc else parsed.path.split('/')[0]
+        
+        # 1. Suspicious TLD check
+        if any(domain.endswith(tld) for tld in suspicious_tlds):
+            flags.append(f"Suspicious top-level domain detected: {domain}")
+            
+        # 2. Typosquatting check
+        for safe_domain in known_safe_domains:
+            if domain != safe_domain:
+                if levenshtein(domain, safe_domain) <= 2 and len(domain) >= len(safe_domain) - 2:
+                    flags.append(f"Potential typosquatting detected: {domain} mimics {safe_domain}")
+                    break
+                    
+        # 3. Subdomain abuse
+        if len(domain.split('.')) > 3 and not (domain.endswith('com.my') or domain.endswith('co.uk')):
+            flags.append(f"Suspicious number of subdomains detected: {domain}")
+
     # --- Final Decision ---
     is_malicious = len(flags) > 0
     is_blocked = len(flags) >= 1  # Block if any layer flags it

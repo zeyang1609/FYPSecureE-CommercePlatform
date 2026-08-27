@@ -1170,5 +1170,85 @@ namespace FYP.Controllers
             
             return RedirectToAction(nameof(ManageOrders));
         }
+
+        // GET: /Admin/ManageUrlBlacklist
+        [HttpGet]
+        public async Task<IActionResult> ManageUrlBlacklist()
+        {
+            var blacklist = await _context.UrlBlacklists
+                .OrderByDescending(b => b.CreatedAt)
+                .ToListAsync();
+            return View(blacklist);
+        }
+
+        // POST: /Admin/AddUrlBlacklist
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddUrlBlacklist(string domain, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(domain))
+            {
+                TempData["ErrorMessage"] = "Domain cannot be empty.";
+                return RedirectToAction(nameof(ManageUrlBlacklist));
+            }
+
+            var cleanDomain = domain.Trim().ToLowerInvariant();
+            bool exists = await _context.UrlBlacklists.AnyAsync(b => b.Domain == cleanDomain);
+            if (exists)
+            {
+                TempData["ErrorMessage"] = "This domain is already blacklisted.";
+                return RedirectToAction(nameof(ManageUrlBlacklist));
+            }
+
+            var newBlacklist = new FYP.Models.Entities.UrlBlacklist
+            {
+                BlacklistID = "URL-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                Domain = cleanDomain,
+                Reason = reason ?? "No reason provided",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.UrlBlacklists.Add(newBlacklist);
+
+            var adminId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+            _context.AuditLogs.Add(new FYP.Models.Entities.AuditLog
+            {
+                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                UserID = adminId,
+                Action = $"Added domain to Malicious URL Blacklist: {cleanDomain} (Reason: {reason ?? "No reason"})",
+                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Successfully blacklisted domain {cleanDomain}.";
+            return RedirectToAction(nameof(ManageUrlBlacklist));
+        }
+
+        // POST: /Admin/RemoveUrlBlacklist
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveUrlBlacklist(string id)
+        {
+            var entity = await _context.UrlBlacklists.FindAsync(id);
+            if (entity != null)
+            {
+                var adminId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
+                _context.AuditLogs.Add(new FYP.Models.Entities.AuditLog
+                {
+                    LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                    UserID = adminId,
+                    Action = $"Removed domain from Malicious URL Blacklist: {entity.Domain}",
+                    IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+                    Timestamp = DateTime.UtcNow
+                });
+
+                _context.UrlBlacklists.Remove(entity);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Domain removed from blacklist.";
+            }
+            return RedirectToAction(nameof(ManageUrlBlacklist));
+        }
     }
 }

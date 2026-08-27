@@ -1,0 +1,106 @@
+@model IEnumerable<FYP.Models.Entities.UrlBlacklist>
+@{
+    ViewData["Title"] = "AdminOS - URL Blacklist";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AdminOS</title>
+    <link rel="stylesheet" href="~/css/auth-login.css" />
+    <link rel="stylesheet" href="~/css/seller-dashboard.css" />
+    <link rel="stylesheet" href="~/css/admin-dashboard-sidebar-v2.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body style="background-color: #F8F9FA;">
+
+    @await Html.PartialAsync("_AdminNavigationBar")
+
+    <main class="dashboard-container" style="max-width: 1400px;">
+        <div class="dashboard-header" style="border-left: 4px solid #EE4D2D;">
+            <div style="flex: 1;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h1 style="margin:0;">Malicious URL Blacklist</h1>
+                    <span class="qr-pill" style="font-size: 0.9rem; padding: 8px 14px; background: #FFF5F3; color: #D63031;">● Chat Phishing Protection</span>
+                </div>
+                <p>Manage domains that are immediately blocked if a user attempts to send them in a chat message.</p>
+            </div>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div style="background: #E8F5E9; color: #2E7D32; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #C8E6C9;">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div style="background: #FFEBEE; color: #C62828; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #FFCDD2;">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
+        <div class="stats-grid" style="grid-template-columns: 1fr;">
+            <div class="stat-card">
+                <h3>Add New Malicious Domain</h3>
+                <form asp-action="AddUrlBlacklist" method="post" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+                    <div>
+                        <label style="font-weight: 600; color: #495057; display: block; margin-bottom: 5px;">Domain / URL Snippet</label>
+                        <input type="text" name="domain" placeholder="e.g., scam-store.com" required style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; color: #495057; display: block; margin-bottom: 5px;">Reason</label>
+                        <input type="text" name="reason" placeholder="e.g., Reported phishing site for fake promos" required style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px;" />
+                    </div>
+                    <button type="submit" class="btn-primary" style="align-self: flex-start;">Add to Blacklist</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-card mt-4">
+            <h3 style="padding: 20px 20px 0 20px; margin: 0;">Active Blacklist</h3>
+            <div class="table-responsive" style="padding: 20px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #dee2e6; text-align: left;">
+                            <th style="padding: 12px 15px; color: #495057;">Domain</th>
+                            <th style="padding: 12px 15px; color: #495057;">Reason</th>
+                            <th style="padding: 12px 15px; color: #495057;">Added Date</th>
+                            <th style="padding: 12px 15px; color: #495057; width: 100px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.Any())
+                        {
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 30px; color: #6c757d;">No domains currently blacklisted.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var item in Model)
+                            {
+                                <tr style="border-bottom: 1px solid #e9ecef;">
+                                    <td style="padding: 12px 15px; font-family: monospace; font-size: 14px;">@item.Domain</td>
+                                    <td style="padding: 12px 15px;">@item.Reason</td>
+                                    <td style="padding: 12px 15px; font-size: 14px; color: #6c757d;">@item.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                    <td style="padding: 12px 15px;">
+                                        <form asp-action="RemoveUrlBlacklist" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to remove this domain from the blacklist?');">
+                                            <input type="hidden" name="id" value="@item.BlacklistID" />
+                                            <button type="submit" style="background: none; border: none; color: #dc3545; cursor: pointer; text-decoration: underline;">Remove</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</body>
+</html>

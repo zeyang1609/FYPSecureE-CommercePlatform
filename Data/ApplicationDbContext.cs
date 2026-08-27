@@ -42,6 +42,7 @@ namespace FYP.Data
         public DbSet<BlacklistedImageHash> BlacklistedImageHashes { get; set; }
         public DbSet<IpFilter> IpFilters { get; set; }
         public DbSet<Wishlist> Wishlists { get; set; }
+        public DbSet<UrlBlacklist> UrlBlacklists { get; set; }
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
