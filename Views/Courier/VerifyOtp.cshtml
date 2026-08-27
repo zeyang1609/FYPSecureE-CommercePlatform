@@ -164,8 +164,34 @@
                 });
 
                 let resendTimer = null;
+                var storageKey = 'otpResendTimer_' + '@(Model.Email)';
+        @if (TempData["ResetOtpTimer"] != null)
+        {
+            <text>
+            localStorage.removeItem(storageKey);
+            </text>
+        }
+
                 function startResendTimer() {
-                    let timeLeft = 60;
+                    let now = Math.floor(Date.now() / 1000);
+                    let sentTime = localStorage.getItem(storageKey);
+                    
+                    if (!sentTime) {
+                        sentTime = now;
+                        localStorage.setItem(storageKey, sentTime);
+                    }
+                    
+                    let elapsed = now - parseInt(sentTime);
+                    let timeLeft = 60 - elapsed;
+                    
+                    if (timeLeft <= 0) {
+                        resendLink.classList.add("active");
+                        resendLink.style.pointerEvents = "auto";
+                        resendLink.style.color = "#EE4D2D";
+                        resendLink.textContent = "Resend Verification Code";
+                        return;
+                    }
+
                     resendLink.classList.remove("active");
                     resendLink.style.pointerEvents = "none";
                     resendLink.style.color = "#999";
@@ -173,14 +199,14 @@
                     
                     resendTimer = setInterval(() => {
                         timeLeft--;
-                        resendLink.innerHTML = `Resend Code <span id="timerSpan">(${timeLeft}s)</span>`;
-                        
                         if (timeLeft <= 0) {
                             clearInterval(resendTimer);
                             resendLink.classList.add("active");
                             resendLink.style.pointerEvents = "auto";
                             resendLink.style.color = "#EE4D2D";
                             resendLink.textContent = "Resend Verification Code";
+                        } else {
+                            resendLink.innerHTML = `Resend Code <span id="timerSpan">(${timeLeft}s)</span>`;
                         }
                     }, 1000);
                 }
@@ -207,6 +233,8 @@
 
                         if (response.ok) {
                             alert("A new 6-digit security code has been dispatched to your email address.");
+                            localStorage.setItem(storageKey, Math.floor(Date.now() / 1000));
+                            if (resendTimer) clearInterval(resendTimer);
                             startResendTimer();
                         } else {
                             alert("Failed to resend code. Please try again.");

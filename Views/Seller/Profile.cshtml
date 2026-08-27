@@ -286,10 +286,9 @@
                     <div class="form-row" style="margin-top: 5px;">
                         <label></label>
                         <div class="form-field">
-                            <div id="otp-timer-container" style="font-size: 13px; color: #666;">
-                                Code expires in <span id="time-left" style="font-weight: 500; color: #ee4d2d;">05:00</span>
+                            <div id="resend-container" style="margin-top: 4px;">
+                                <button type="button" id="btnResendOtp" class="btn-submit-primary" style="width: 140px; background-color: #fff; color: #EE4D2D; border: 1px solid #EE4D2D; padding: 10px; cursor: pointer; font-size: 0.85rem;">Resend Code</button>
                             </div>
-                            <div id="resend-container" style="display: none; margin-top: 4px;"></div>
                         </div>
                     </div>
                     <div class="form-row" style="margin-top: 30px;">
@@ -357,39 +356,73 @@
         }
 
         // OTP Timer Logic
-        const timerSpan = document.getElementById('time-left');
+        const btnResend = document.getElementById('btnResendOtp');
         const resendForm = document.getElementById('resend-form');
-        const resendContainer = document.getElementById('resend-container');
-        const timerContainer = document.getElementById('otp-timer-container');
         
-        if (timerSpan) {
-            // Always reset the timer on a fresh server-rendered page load
-            // The page only renders step2 after a redirect from InitiateEmailChange
-            sessionStorage.removeItem('otpEndTime');
-            let endTime = Date.now() + 5 * 60 * 1000;
-            sessionStorage.setItem('otpEndTime', endTime);
+        if (btnResend && resendForm) {
+            const storageKey = 'otpResendProfile_' + '@(Model.Email)';
+        @if (TempData["ResetOtpTimer"] != null)
+        {
+            <text>
+            localStorage.removeItem(storageKey);
+            </text>
+        }
+            let interval = null;
 
-            const timer = setInterval(() => {
-                let timeLeft = Math.round((parseInt(endTime) - Date.now()) / 1000);
+            function startProfileResendTimer() {
+                let now = Math.floor(Date.now() / 1000);
+                let sentTime = localStorage.getItem(storageKey);
                 
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    timerContainer.innerHTML = "Code expired.";
-                    if (resendContainer && resendForm) {
-                        resendContainer.style.display = 'block';
-                        resendContainer.innerHTML = '<a href="#" id="resend-link" style="font-size: 13px; color: #0055AA; text-decoration: underline; cursor: pointer;">Resend Code</a>';
-                        document.getElementById('resend-link').addEventListener('click', function(e) {
-                            e.preventDefault();
-                            sessionStorage.removeItem('otpEndTime');
-                            resendForm.submit();
-                        });
-                    }
-                } else {
-                    let m = Math.floor(timeLeft / 60);
-                    let s = timeLeft % 60;
-                    timerSpan.innerText = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+                if (!sentTime) {
+                    sentTime = now;
+                    localStorage.setItem(storageKey, sentTime);
                 }
-            }, 1000);
+                
+                let elapsed = now - parseInt(sentTime);
+                let timer = 60 - elapsed;
+                
+                if (timer <= 0) {
+                    btnResend.disabled = false;
+                    btnResend.textContent = 'Resend Code';
+                    btnResend.style.backgroundColor = '#fff';
+                    btnResend.style.color = '#EE4D2D';
+                    btnResend.style.cursor = 'pointer';
+                    btnResend.style.borderColor = '#EE4D2D';
+                    return;
+                }
+
+                btnResend.disabled = true;
+                btnResend.style.backgroundColor = '#f5f5f5';
+                btnResend.style.color = '#888';
+                btnResend.style.cursor = 'not-allowed';
+                btnResend.style.borderColor = '#ddd';
+                btnResend.textContent = 'Resend (' + timer + 's)';
+                
+                interval = setInterval(function() {
+                    timer--;
+                    if (timer <= 0) {
+                        clearInterval(interval);
+                        btnResend.disabled = false;
+                        btnResend.textContent = 'Resend Code';
+                        btnResend.style.backgroundColor = '#fff';
+                        btnResend.style.color = '#EE4D2D';
+                        btnResend.style.cursor = 'pointer';
+                        btnResend.style.borderColor = '#EE4D2D';
+                    } else {
+                        btnResend.textContent = 'Resend (' + timer + 's)';
+                    }
+                }, 1000);
+            }
+
+            startProfileResendTimer();
+
+            btnResend.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (this.disabled) return;
+                
+                localStorage.setItem(storageKey, Math.floor(Date.now() / 1000));
+                resendForm.submit();
+            });
         }
         
         // Auto-prefix phone number

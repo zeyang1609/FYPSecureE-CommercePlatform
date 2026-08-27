@@ -49,18 +49,44 @@
         const btnResend = document.getElementById("btnResend");
         let resendTimer = null;
 
+        const storageKey = 'otpCheckoutTimer';
+        @if (TempData["ResetOtpTimer"] != null)
+        {
+            <text>
+            localStorage.removeItem(storageKey);
+            </text>
+        }
+
         function startResendTimer() {
-            let timeLeft = 60;
+            let now = Math.floor(Date.now() / 1000);
+            let sentTime = localStorage.getItem(storageKey);
+            
+            if (!sentTime) {
+                sentTime = now;
+                localStorage.setItem(storageKey, sentTime);
+            }
+            
+            let elapsed = now - parseInt(sentTime);
+            let timeLeft = 60 - elapsed;
+            
+            if (timeLeft <= 0) {
+                btnResend.disabled = false;
+                btnResend.textContent = "Resend Verification Code";
+                return;
+            }
+
             btnResend.disabled = true;
             btnResend.textContent = `Resend (${timeLeft}s)`;
             
             resendTimer = setInterval(() => {
                 timeLeft--;
-                btnResend.textContent = `Resend (${timeLeft}s)`;
+                
                 if (timeLeft <= 0) {
                     clearInterval(resendTimer);
                     btnResend.disabled = false;
                     btnResend.textContent = "Resend Verification Code";
+                } else {
+                    btnResend.textContent = `Resend (${timeLeft}s)`;
                 }
             }, 1000);
         }
@@ -86,6 +112,8 @@
 
                     if (response.ok) {
                         alert("A new 6-digit security code has been dispatched to your email address.");
+                        localStorage.setItem(storageKey, Math.floor(Date.now() / 1000));
+                        if (resendTimer) clearInterval(resendTimer);
                         startResendTimer();
                     } else {
                         alert("Failed to resend code. Please try again.");

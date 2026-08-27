@@ -741,7 +741,7 @@ namespace FYP.Controllers
             // Store pending email securely in session/tempdata
             TempData["PendingNewEmail"] = newEmail;
             TempData["EmailChangeStep"] = 2; // Trigger step 2 UI
-
+            TempData["ResetOtpTimer"] = true;
             return RedirectToAction("Profile");
         }
 
@@ -1236,6 +1236,7 @@ namespace FYP.Controllers
                 if (Argon2idHasher.VerifyHash(model.CurrentPassword, user.PasswordHash))
                 {
                     await _otpService.GenerateAndSendOtpAsync(user.Email, "Change Password");
+                    TempData["ResetOtpTimer"] = true;
                     return RedirectToAction("ChangePasswordOtp");
                 }
                 ModelState.AddModelError("CurrentPassword", "Incorrect current password.");

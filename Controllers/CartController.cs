@@ -598,6 +598,7 @@ namespace FYP.Controllers
                     if (user != null) {
                         await _otpService.GenerateAndSendOtpAsync(user.Email, "Checkout Verification");
                     }
+                    TempData["ResetOtpTimer"] = true;
                     return RedirectToAction("VerifyCheckoutOtp");
                 }
             }

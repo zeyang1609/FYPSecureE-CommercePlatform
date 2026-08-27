@@ -117,10 +117,32 @@
                 }
             });
 
-            // Phone number formatting (Numbers only)
+            // Phone number formatting (01X-XXXX XXXX)
             if (phoneInput) {
                 phoneInput.addEventListener('input', function() {
-                    this.value = this.value.replace(/[^\d]/g, '');
+                    let val = this.value.replace(/[^\d]/g, '');
+                    if (val.length > 0 && !val.startsWith('01')) {
+                        val = '01'; // Force start with 01
+                    }
+                    if (val.length > 11) {
+                        val = val.substring(0, 11); // Max 11 digits
+                    }
+                    // Format: 01X-XXX XXXX or 011-XXXX XXXX
+                    let formatted = '';
+                    let is011 = val.startsWith('011');
+                    
+                    if (val.length > 3) {
+                        formatted += val.substring(0, 3) + '-';
+                        let secondPartLength = is011 ? 4 : 3;
+                        if (val.length > 3 + secondPartLength) {
+                            formatted += val.substring(3, 3 + secondPartLength) + ' ' + val.substring(3 + secondPartLength);
+                        } else {
+                            formatted += val.substring(3);
+                        }
+                    } else {
+                        formatted = val;
+                    }
+                    this.value = formatted;
                 });
             }
 
@@ -140,8 +162,9 @@
                         isValid = false;
                     }
 
-                    if (phoneInput.value.length < 9) {
-                        alert("Please enter a valid phone number.");
+                    const phoneRegex = /^(011-\d{4}\s\d{4}|01[02-9]-\d{3}\s\d{4})$/;
+                    if (!phoneRegex.test(phoneInput.value)) {
+                        alert("Please enter a valid phone number. Format should be 01X-XXX XXXX (10 digits) or 011-XXXX XXXX (11 digits).");
                         phoneInput.focus();
                         isValid = false;
                     }

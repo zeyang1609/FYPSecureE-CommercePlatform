@@ -39,7 +39,7 @@ namespace FYP.Services
             // 2. Store in MemoryCache for 5 minutes
             string cacheKey = $"OTP_{email.Trim().ToLower()}";
             var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(1));
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(3));
 
             _cache.Set(cacheKey, otpCode, cacheOptions);
 

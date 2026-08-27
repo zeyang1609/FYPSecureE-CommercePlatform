@@ -86,6 +86,7 @@ namespace FYP.Controllers
                 await _otpService.GenerateAndSendOtpAsync(model.Email, "Account Registration");
 
                 TempData["SuccessMessage"] = "Registration successful! Please check your email for the verification OTP.";
+                TempData["ResetOtpTimer"] = true;
                 return RedirectToAction("VerifyOtp", new { email = model.Email });
             }
             if (model.Role == "Courier") return View("~/Views/Courier/Register.cshtml", model);
@@ -286,6 +287,7 @@ namespace FYP.Controllers
                     {
                         // Fallback to traditional Email OTP
                         await _otpService.GenerateAndSendOtpAsync(user.Email, "Login Multi-Factor Authentication");
+                        TempData["ResetOtpTimer"] = true;
                         return RedirectToAction("VerifyOtp", new { email = user.Email });
                     }
                 }
@@ -556,7 +558,8 @@ namespace FYP.Controllers
                 if (user != null)
                 {
                     await _otpService.GenerateAndSendOtpAsync(model.Email, "Password Reset");
-                    return RedirectToAction("ResetPasswordOtp", new { email = model.Email });
+                    TempData["ResetOtpTimer"] = true;
+                return RedirectToAction("ResetPasswordOtp", new { email = model.Email });
                 }
                 ModelState.AddModelError("", "Email address not found.");
             }

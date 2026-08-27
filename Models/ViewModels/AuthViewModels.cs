@@ -22,7 +22,7 @@ namespace FYP.Models.ViewModels
         [Display(Name = "Password")]
         public string Password { get; set; } = string.Empty;
 
-        [RegularExpression(@"^[0-9]{9,15}$", ErrorMessage = "Phone number can only contain digits (9-15 digits).")]
+        [RegularExpression(@"^(011-\d{4}\s\d{4}|01[02-9]-\d{3}\s\d{4})$", ErrorMessage = "Format should be 01X-XXX XXXX (10 digits) or 011-XXXX XXXX (11 digits).")]
         [Display(Name = "Phone Number")]
         public string? PhoneNumber { get; set; }
 
