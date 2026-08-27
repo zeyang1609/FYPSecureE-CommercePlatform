@@ -781,6 +781,10 @@
                         });
                         
                         const data = await response.json();
+                        if (data.requiresMfa && data.redirectUrl) {
+                            window.location.href = data.redirectUrl;
+                            return;
+                        }
                         if (data.error) {
                             throw new Error(data.error);
                         }

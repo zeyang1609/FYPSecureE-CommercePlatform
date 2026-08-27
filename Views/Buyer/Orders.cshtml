@@ -958,6 +958,10 @@
                         });
                         
                         const data = await response.json();
+                        if (data.requiresMfa && data.redirectUrl) {
+                            window.location.href = data.redirectUrl;
+                            return;
+                        }
                         if (data.error) throw new Error(data.error);
                         
                         const returnUrl = window.location.origin + '/Cart/PaymentComplete?orderId=' + data.orderId;
@@ -1259,6 +1263,10 @@
                     });
                     
                     const data = await response.json();
+                    if (data.requiresMfa && data.redirectUrl) {
+                        window.location.href = data.redirectUrl;
+                        return;
+                    }
                     if (data.error) throw new Error(data.error);
                     
                     const returnUrl = window.location.origin + '/Cart/PaymentComplete?orderId=' + data.orderId;

@@ -81,4 +81,12 @@ namespace FYP.Models.ViewModels
         public decimal OriginalFee { get; set; }
         public decimal FinalFee { get; set; }
     }
+
+    public class FpxRedirectViewModel
+    {
+        public string PublishableKey { get; set; } = string.Empty;
+        public string ClientSecret { get; set; } = string.Empty;
+        public string OrderId { get; set; } = string.Empty;
+        public string Bank { get; set; } = string.Empty;
+    }
 }

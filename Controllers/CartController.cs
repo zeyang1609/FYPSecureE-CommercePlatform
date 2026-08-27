@@ -936,9 +936,38 @@ namespace FYP.Controllers
 
                 FraudEvaluationResult aiVerdict = await _aiClient.EvaluateTransactionRiskAsync(transactionPayload);
 
-                if (aiVerdict.RiskScore > 0.50m && aiVerdict.RiskScore <= 0.80m && !aiVerdict.IsBlocked)
+                if (TempData["SkipRiskCheck"] != null)
                 {
-                    return BadRequest(new { error = "SECURITY CHECK REQUIRED: Please use Credit Card checkout to complete MFA verification for this transaction." });
+                    aiVerdict = new FraudEvaluationResult { RiskScore = 0.0m, IsBlocked = false, ShapData = "{}" };
+                }
+
+                if (TempData["SkipRiskCheck"] == null && aiVerdict.RiskScore > 0.50m && aiVerdict.RiskScore <= 0.80m && !aiVerdict.IsBlocked)
+                {
+                    var user = await _context.Users.FindAsync(userId);
+                    var pendingFpx = new
+                    {
+                        PaymentType = "FPX",
+                        Bank = bankCode,
+                        AddressId = addressId,
+                        SecurityToken = validatedNonce
+                    };
+                    TempData["PendingCheckout"] = System.Text.Json.JsonSerializer.Serialize(pendingFpx);
+                    TempData.Keep("PendingCheckout");
+
+                    string redirectUrl = (user != null && !string.IsNullOrEmpty(user.TotpSecret))
+                        ? Url.Action("VerifyCheckoutTotp", "Cart")
+                        : Url.Action("VerifyCheckoutOtp", "Cart");
+
+                    if (user != null && string.IsNullOrEmpty(user.TotpSecret))
+                    {
+                        await _otpService.GenerateAndSendOtpAsync(user.Email, "Checkout Verification");
+                        TempData["ResetOtpTimer"] = true;
+                    }
+
+                    return Ok(new { 
+                        requiresMfa = true, 
+                        redirectUrl = redirectUrl 
+                    });
                 }
 
                 string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
@@ -1147,9 +1176,37 @@ namespace FYP.Controllers
 
                 FraudEvaluationResult aiVerdict = await _aiClient.EvaluateTransactionRiskAsync(transactionPayload);
 
-                if (aiVerdict.RiskScore > 0.50m && aiVerdict.RiskScore <= 0.80m && !aiVerdict.IsBlocked)
+                if (TempData["SkipRiskCheck"] != null)
                 {
-                    return BadRequest(new { error = "SECURITY CHECK REQUIRED: Please use Credit Card checkout to complete MFA verification for this transaction." });
+                    aiVerdict = new FraudEvaluationResult { RiskScore = 0.0m, IsBlocked = false, ShapData = "{}" };
+                }
+
+                if (TempData["SkipRiskCheck"] == null && aiVerdict.RiskScore > 0.50m && aiVerdict.RiskScore <= 0.80m && !aiVerdict.IsBlocked)
+                {
+                    var user = await _context.Users.FindAsync(userId);
+                    var pendingFpx = new
+                    {
+                        PaymentType = "FPX_RETRY",
+                        OrderId = orderId,
+                        Bank = order.ServiceType != null && order.ServiceType.StartsWith("FPX|") ? order.ServiceType.Replace("FPX|", "") : ""
+                    };
+                    TempData["PendingCheckout"] = System.Text.Json.JsonSerializer.Serialize(pendingFpx);
+                    TempData.Keep("PendingCheckout");
+
+                    string redirectUrl = (user != null && !string.IsNullOrEmpty(user.TotpSecret))
+                        ? Url.Action("VerifyCheckoutTotp", "Cart")
+                        : Url.Action("VerifyCheckoutOtp", "Cart");
+
+                    if (user != null && string.IsNullOrEmpty(user.TotpSecret))
+                    {
+                        await _otpService.GenerateAndSendOtpAsync(user.Email, "Checkout Verification");
+                        TempData["ResetOtpTimer"] = true;
+                    }
+
+                    return Ok(new { 
+                        requiresMfa = true, 
+                        redirectUrl = redirectUrl 
+                    });
                 }
 
                 if (aiVerdict.RiskScore > 0.80m || aiVerdict.IsBlocked)
@@ -1466,11 +1523,183 @@ namespace FYP.Controllers
             var pendingJson = TempData["PendingCheckout"] as string;
             if (string.IsNullOrEmpty(pendingJson)) return RedirectToAction("Index");
 
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(pendingJson);
+                if (doc.RootElement.TryGetProperty("PaymentType", out var ptProp))
+                {
+                    string pType = ptProp.GetString() ?? "";
+                    if (pType == "FPX")
+                    {
+                        string bank = doc.RootElement.TryGetProperty("Bank", out var bProp) ? bProp.GetString() ?? "" : "";
+                        int addressId = doc.RootElement.TryGetProperty("AddressId", out var aProp) ? aProp.GetInt32() : 0;
+
+                        // Re-run FPX creation with SkipRiskCheck active
+                        TempData["SkipRiskCheck"] = true;
+                        var (clientSecret, orderId, error) = await ExecuteFpxCheckoutAsync(bank, addressId);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            TempData["ErrorMessage"] = error;
+                            return RedirectToAction("Checkout");
+                        }
+
+                        return View("FpxRedirect", new FpxRedirectViewModel
+                        {
+                            PublishableKey = _configuration["PaymentGateway:PublishableKey"] ?? "",
+                            ClientSecret = clientSecret,
+                            OrderId = orderId,
+                            Bank = bank
+                        });
+                    }
+                    else if (pType == "FPX_RETRY")
+                    {
+                        string orderId = doc.RootElement.TryGetProperty("OrderId", out var oProp) ? oProp.GetString() ?? "" : "";
+                        string bank = doc.RootElement.TryGetProperty("Bank", out var bProp) ? bProp.GetString() ?? "" : "";
+
+                        TempData["SkipRiskCheck"] = true;
+                        var (clientSecret, error) = await ExecuteFpxRetryAsync(orderId);
+                        if (!string.IsNullOrEmpty(error))
+                        {
+                            TempData["ErrorMessage"] = error;
+                            return RedirectToAction("Orders", "Buyer");
+                        }
+
+                        return View("FpxRedirect", new FpxRedirectViewModel
+                        {
+                            PublishableKey = _configuration["PaymentGateway:PublishableKey"] ?? "",
+                            ClientSecret = clientSecret,
+                            OrderId = orderId,
+                            Bank = bank
+                        });
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback to standard CheckoutViewModel deserialization
+            }
+
             var model = System.Text.Json.JsonSerializer.Deserialize<CheckoutViewModel>(pendingJson);
             
             // Re-run ProcessCheckout with SkipRiskCheck active
             TempData["SkipRiskCheck"] = true;
             return await ProcessCheckout(model);
+        }
+
+        private async Task<(string clientSecret, string orderId, string error)> ExecuteFpxCheckoutAsync(string bankCode, int addressId)
+        {
+            var userId = GetUserId();
+            var cart = await GetOrCreateCartForUserAsync();
+            var cartViewModel = await MapCartToViewModelAsync(cart);
+            
+            if (!cart.Items.Any(i => i.IsSelected))
+            {
+                return ("", "", "Cart is empty or no items selected.");
+            }
+
+            var checkoutItems = cart.Items.Where(i => i.IsSelected).ToList();
+            decimal totalAmount = cartViewModel.Items.Where(i => i.IsSelected).Sum(i => i.Subtotal);
+
+            decimal finalShippingFee = 0;
+            string finalCourierId = "COUR_JNT";
+            var defaultAddress = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressID == addressId)
+                                ?? await _context.Addresses.FirstOrDefaultAsync(a => a.UserID == userId && a.IsDefault);
+            if (defaultAddress != null)
+            {
+                var addressString = $"{defaultAddress.HouseBuildingStreet}, {defaultAddress.StateArea} {defaultAddress.PostalCode}";
+                var shippingItems = checkoutItems.Select(i => (i.ProductID, i.Quantity));
+                var (originalFee, fee, courier) = await _shippingService.CalculateAndAssignShippingAsync(shippingItems, cartViewModel.GrandTotal, addressString);
+                finalShippingFee = fee;
+                if (courier != null) finalCourierId = courier.CourierID;
+            }
+
+            totalAmount += finalShippingFee;
+
+            StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
+
+            var options = new PaymentIntentCreateOptions
+            {
+                Amount = (long)(totalAmount * 100), // RM to cents
+                Currency = "myr",
+                PaymentMethodTypes = new List<string> { "fpx" },
+            };
+
+            var requestOptions = new RequestOptions { IdempotencyKey = Guid.NewGuid().ToString("N").ToUpper() };
+            var service = new PaymentIntentService();
+            var paymentIntent = await service.CreateAsync(options, requestOptions);
+
+            string orderId = "ORD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper();
+            string serviceType = string.IsNullOrEmpty(bankCode) ? "FPX Online Banking" : $"FPX|{bankCode}";
+
+            var order = new Order
+            {
+                OrderID = orderId,
+                BuyerID = userId,
+                TotalAmount = totalAmount,
+                Status = "Pending Payment",
+                CreatedAt = DateTime.UtcNow,
+                ServiceType = serviceType 
+            };
+            
+            var orderItems = checkoutItems.Select(item => new OrderItem
+            {
+                OrderItemID = "OIT-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                OrderID = orderId,
+                ProductID = item.ProductID,
+                Quantity = item.Quantity,
+                UnitPrice = item.Product.Price
+            }).ToList();
+
+            var delivery = new Delivery
+            {
+                DeliveryID = "DEL-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
+                OrderID = orderId,
+                CourierID = finalCourierId,
+                ShippingFee = finalShippingFee,
+                Status = "Pending"
+            };
+
+            _context.Orders.Add(order);
+            _context.OrderItems.AddRange(orderItems);
+            _context.Deliveries.Add(delivery);
+
+            foreach (var item in checkoutItems)
+            {
+                if (item.Product != null)
+                {
+                    item.Product.StockLevel = Math.Max(0, item.Product.StockLevel - item.Quantity);
+                }
+            }
+            _context.CartItems.RemoveRange(checkoutItems);
+
+            await _context.SaveChangesAsync();
+
+            return (paymentIntent.ClientSecret, orderId, null);
+        }
+
+        private async Task<(string clientSecret, string error)> ExecuteFpxRetryAsync(string orderId)
+        {
+            var userId = GetUserId();
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == userId);
+            if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
+            {
+                return ("", "Order not found or not pending payment.");
+            }
+
+            StripeConfiguration.ApiKey = _configuration["PaymentGateway:SecretKey"];
+
+            var options = new PaymentIntentCreateOptions
+            {
+                Amount = (long)(order.TotalAmount * 100),
+                Currency = "myr",
+                PaymentMethodTypes = new List<string> { "fpx" },
+            };
+
+            var requestOptions = new RequestOptions { IdempotencyKey = Guid.NewGuid().ToString("N").ToUpper() };
+            var service = new PaymentIntentService();
+            var paymentIntent = await service.CreateAsync(options, requestOptions);
+
+            return (paymentIntent.ClientSecret, null);
         }
 
     }

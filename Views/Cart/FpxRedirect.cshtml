@@ -1,0 +1,43 @@
+@model FYP.Models.ViewModels.FpxRedirectViewModel
+@{
+    ViewData["Title"] = "Redirecting to Online Banking...";
+}
+
+<div class="container text-center my-5" style="min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+    <div class="spinner-border text-danger" role="status" style="width: 3.5rem; height: 3.5rem; margin-bottom: 25px; border-width: 4px; color: #ee4d2d !important;">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <h3 style="color: #333; font-weight: 600;">Security Check Passed</h3>
+    <p style="color: #666; font-size: 1.05rem; max-width: 500px; margin-top: 10px;">
+        Redirecting you securely to your online banking portal to complete payment...
+    </p>
+</div>
+
+@section Scripts {
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function () {
+            const stripe = Stripe('@Model.PublishableKey');
+            const returnUrl = window.location.origin + '/Cart/PaymentComplete?orderId=' + '@Model.OrderId';
+            
+            try {
+                const { error } = await stripe.confirmFpxPayment('@Model.ClientSecret', {
+                    payment_method: {
+                        fpx: {
+                            bank: '@Model.Bank'
+                        }
+                    },
+                    return_url: returnUrl
+                });
+
+                if (error) {
+                    alert(error.message || 'Payment confirmation failed.');
+                    window.location.href = '/Buyer/Orders';
+                }
+            } catch (err) {
+                alert(err.message || 'Payment initialization error.');
+                window.location.href = '/Buyer/Orders';
+            }
+        });
+    </script>
+}
