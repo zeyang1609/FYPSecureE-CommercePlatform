@@ -94,9 +94,9 @@ builder.Services.AddRateLimiter(options =>
 
             // Exempt explicitly whitelisted IPs
             var cache = httpContext.RequestServices.GetService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
-            if (cache != null && cache.TryGetValue("IpFilters_Whitelist", out System.Collections.Generic.List<string> whitelist))
+            if (cache != null && cache.TryGetValue("IpFilters_Whitelist", out object cachedObj) && cachedObj is System.Collections.Generic.List<string> whitelist)
             {
-                if (whitelist != null && whitelist.Contains(ipString))
+                if (whitelist.Contains(ipString))
                 {
                     return RateLimitPartition.GetNoLimiter(ipString);
                 }
