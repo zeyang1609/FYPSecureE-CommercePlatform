@@ -257,7 +257,7 @@ def scan_chat():
     url_pattern = re.compile(r'(?:https?://)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b(?:[-a-zA-Z0-9@:%_\+.~#?&//=]*)')
     urls = url_pattern.findall(message_lower)
     
-    known_safe_domains = ['shopee.com.my', 'maybank2u.com.my', 'secureplatform.com']
+    known_safe_domains = ['shopee.com.my', 'shopee.com', 'maybank2u.com.my', 'secureplatform.com']
     suspicious_tlds = ['.xyz', '.top', '.tk', '.cc', '.ru']
     
     def levenshtein(s1, s2):
