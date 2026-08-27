@@ -2,6 +2,11 @@
 @{
     ViewData["Title"] = "My Profile - Seller Centre";
     Layout = null;
+    var userEmail = Model.Email ?? "";
+    var emailParts = userEmail.Split('@');
+    var maskedEmail = emailParts.Length == 2 && emailParts[0].Length > 2 
+        ? emailParts[0].Substring(0, 2) + new string('x', emailParts[0].Length - 2) + "@" + emailParts[1] 
+        : userEmail;
 }
 
 <!DOCTYPE html>
@@ -115,15 +120,8 @@
                         <label>Email</label>
                         <div class="form-field">
                             <input type="hidden" asp-for="Email" />
-                            @{
-                                var email = Model.Email ?? "";
-                                var parts = email.Split('@');
-                                var maskedEmail = parts.Length == 2 && parts[0].Length > 2 
-                                    ? parts[0].Substring(0, 2) + new string('x', parts[0].Length - 2) + "@" + parts[1] 
-                                    : email;
-                            }
                             <span class="static-text" style="color: #333;">@maskedEmail</span>
-                            <button type="button" onclick="showEmailChange()" class="btn btn-link p-0 ms-3 text-decoration-underline" style="color: #0055AA; font-size: 13px; border: none; cursor: pointer;">Change</button>
+                            <button type="button" onclick="document.getElementById('start-email-change-form').submit();" class="btn btn-link p-0 ms-3 text-decoration-underline" style="color: #0055AA; font-size: 13px; border: none; cursor: pointer;">Change</button>
                             <span asp-validation-for="Email" class="text-danger"></span>
                         </div>
                     </div>
@@ -152,8 +150,8 @@
                     <div class="form-row">
                         <label asp-for="SSMNumber"></label>
                         <div class="form-field">
-                            <input asp-for="SSMNumber" class="form-control" />
-                            <span asp-validation-for="SSMNumber" class="text-danger"></span>
+                            <input asp-for="SSMNumber" class="form-control" readonly style="background-color: #f5f5f5; cursor: not-allowed;" />
+                            <div style="font-size: 12px; color: #888; margin-top: 5px;">SSM registration number cannot be changed.</div>
                         </div>
                     </div>
                     <div class="form-row" style="align-items: flex-start;">
@@ -164,10 +162,14 @@
                         </div>
                     </div>
 
-                    <div class="form-actions">
-                        <button type="submit" class="btn-save">Save</button>
+                    <div class="form-row" style="margin-top: 30px;">
+                        <label></label>
+                        <div class="form-field">
+                            <button type="submit" class="btn-save">Save</button>
+                        </div>
                     </div>
                 </form>
+                <form id="start-email-change-form" asp-action="StartEmailChange" method="post" style="display: none;"></form>
             </div>
             <div class="profile-avatar-section">
                 <div style="position: relative; width: 100px; height: 100px; margin: 0 auto 15px; cursor: pointer;" onclick="viewFullImage()">
@@ -205,7 +207,6 @@
             </div>
             <div class="content-body" style="padding-top: 10px;">
                 <form asp-action="ChangePhoneNumber" method="post" style="width: 100%;">
-
                     <div class="form-row">
                         <label>New Phone Number</label>
                         <div class="form-field">
@@ -232,20 +233,60 @@
             </div>
         </div>
 
-        <div id="change-email-step1" style="display: none;">
+        @if (ViewBag.EmailChangeStep as int? == 1)
+        {
+        <div id="change-email-step1" style="display: block;">
             <div class="content-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <h2>Change Email Address</h2>
-                    <p>Enter your new email address for verification</p>
+                    <h2>Security Verification (Step 1/2)</h2>
+                    <p>Enter the 6-digit verification code sent to your current email: <strong>@maskedEmail</strong></p>
                 </div>
-                <button type="button" onclick="showProfileView()" class="btn btn-outline-secondary" style="font-size: 13px; border-radius: 2px; padding: 6px 12px; background: white; border: 1px solid #ccc; cursor: pointer;">&larr; Back to Profile</button>
+                <a href="/Seller/Profile" class="btn btn-outline-secondary" style="font-size: 13px; border-radius: 2px; padding: 6px 12px; background: white; border: 1px solid #ccc; cursor: pointer; text-decoration: none; color: #333;">&larr; Cancel</a>
+            </div>
+            <div class="content-body" style="padding-top: 10px;">
+                <form id="current-email-verify-form" asp-action="VerifyCurrentEmailOtp" method="post" style="width: 100%;">
+                    <div class="form-row">
+                        <label>Verification Code</label>
+                        <div class="form-field">
+                            <input type="text" name="otpCode" class="form-control" placeholder="123456" required maxlength="6" style="max-width: 150px; letter-spacing: 4px; font-weight: bold; text-align: center;" />
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-top: 5px;">
+                        <label></label>
+                        <div class="form-field">
+                            <div id="resend-container-step1" style="margin-top: 4px;">
+                                <button type="button" id="btnResendCurrentOtp" class="btn-submit-primary" style="width: 140px; background-color: #fff; color: #EE4D2D; border: 1px solid #EE4D2D; padding: 10px; cursor: pointer; font-size: 0.85rem;">Resend Code</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-top: 30px;">
+                        <label></label>
+                        <div class="form-field">
+                            <button type="submit" class="btn-save" style="padding: 10px 40px; background-color: #ee4d2d; color: #fff; border: none; border-radius: 2px; cursor: pointer;">Next &rarr;</button>
+                        </div>
+                    </div>
+                </form>
+                <form id="resend-current-form" asp-action="ResendCurrentEmailOtp" method="post" style="display: none;"></form>
+            </div>
+        </div>
+        }
+
+        @if (ViewBag.EmailChangeStep as int? == 2)
+        {
+        <div id="change-email-step2" style="display: block;">
+            <div class="content-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2>Enter New Email (Step 2/2)</h2>
+                    <p>Enter the new email address you want to link to your account.</p>
+                </div>
+                <a href="/Seller/Profile" class="btn btn-outline-secondary" style="font-size: 13px; border-radius: 2px; padding: 6px 12px; background: white; border: 1px solid #ccc; cursor: pointer; text-decoration: none; color: #333;">&larr; Cancel</a>
             </div>
             <div class="content-body" style="padding-top: 10px;">
                 <form id="email-change-form" asp-action="InitiateEmailChange" method="post" style="width: 100%;">
                     <div class="form-row">
                         <label>Current Email</label>
                         <div class="form-field">
-                            <span class="static-text" style="color: #333; font-weight: 500;">@Model.Email</span>
+                            <span class="static-text" style="color: #333; font-weight: 500;">@maskedEmail</span>
                         </div>
                     </div>
                     <div class="form-row">
@@ -257,19 +298,20 @@
                     <div class="form-row" style="margin-top: 40px;">
                         <label></label>
                         <div class="form-field">
-                            <button type="submit" class="btn-save" style="padding: 10px 40px; background-color: #ee4d2d; color: #fff; border: none; border-radius: 2px; cursor: pointer;">Next</button>
+                            <button type="submit" class="btn-save" style="padding: 10px 40px; background-color: #ee4d2d; color: #fff; border: none; border-radius: 2px; cursor: pointer;">Send OTP &rarr;</button>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
+        }
 
-        @if (ViewBag.EmailChangeStep as int? == 2)
+        @if (ViewBag.EmailChangeStep as int? == 3)
         {
-        <div id="change-email-step2" style="display: block;">
+        <div id="change-email-step3" style="display: block;">
             <div class="content-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <h2>Verification Required</h2>
+                    <h2>Verify New Email</h2>
                     <p>Enter the 6-digit code sent to <strong>@ViewBag.PendingNewEmail</strong></p>
                 </div>
                 <a href="/Seller/Profile" class="btn btn-outline-secondary" style="font-size: 13px; border-radius: 2px; padding: 6px 12px; background: white; border: 1px solid #ccc; cursor: pointer; text-decoration: none; color: #333;">&larr; Cancel</a>
@@ -286,20 +328,19 @@
                     <div class="form-row" style="margin-top: 5px;">
                         <label></label>
                         <div class="form-field">
-                            <div id="resend-container" style="margin-top: 4px;">
-                                <button type="button" id="btnResendOtp" class="btn-submit-primary" style="width: 140px; background-color: #fff; color: #EE4D2D; border: 1px solid #EE4D2D; padding: 10px; cursor: pointer; font-size: 0.85rem;">Resend Code</button>
+                            <div id="resend-container-step3" style="margin-top: 4px;">
+                                <button type="button" id="btnResendNewOtp" class="btn-submit-primary" style="width: 140px; background-color: #fff; color: #EE4D2D; border: 1px solid #EE4D2D; padding: 10px; cursor: pointer; font-size: 0.85rem;">Resend Code</button>
                             </div>
                         </div>
                     </div>
                     <div class="form-row" style="margin-top: 30px;">
                         <label></label>
                         <div class="form-field">
-                            <button type="submit" class="btn-save" style="padding: 10px 40px;">Verify & Save</button>
+                            <button type="submit" class="btn-save" style="padding: 10px 40px; background-color: #ee4d2d; color: #fff; border: none; border-radius: 2px; cursor: pointer;">Verify & Save</button>
                         </div>
                     </div>
                 </form>
-                <!-- Resend form is separate (not nested) -->
-                <form id="resend-form" asp-action="InitiateEmailChange" method="post" style="display: none;">
+                <form id="resend-new-form" asp-action="InitiateEmailChange" method="post" style="display: none;">
                     <input type="hidden" name="newEmail" value="@ViewBag.PendingNewEmail" />
                 </form>
             </div>
@@ -314,12 +355,7 @@
 <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
 <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
 <script>
-        function showEmailChange() {
-            document.getElementById('profile-view-block').style.display = 'none';
-            document.getElementById('change-email-step1').style.display = 'block';
-        }
         function showProfileView() {
-            document.getElementById('change-email-step1').style.display = 'none';
             document.getElementById('change-phone').style.display = 'none';
             document.getElementById('profile-view-block').style.display = 'block';
         }
@@ -327,105 +363,75 @@
             document.getElementById('profile-view-block').style.display = 'none';
             document.getElementById('change-phone').style.display = 'block';
         }
-        function showDobEdit() {
-            document.getElementById('dob-display-section').style.display = 'none';
-            document.getElementById('dob-edit-section').style.display = 'flex';
-        }
 
-        // DOB Dropdown Logic
-        const dobDay = document.getElementById('dob-day');
-        const dobMonth = document.getElementById('dob-month');
-        const dobYear = document.getElementById('dob-year');
-        const hiddenDob = document.getElementById('hidden-dob');
+        function setupOtpTimer(btnId, formId, storageKey) {
+            const btn = document.getElementById(btnId);
+            const form = document.getElementById(formId);
+            if (!btn || !form) return;
 
-        function updateHiddenDob() {
-            if (dobDay.value && dobMonth.value && dobYear.value) {
-                // format: YYYY-MM-DD for model binding
-                let m = dobMonth.value.padStart(2, '0');
-                let d = dobDay.value.padStart(2, '0');
-                hiddenDob.value = `${dobYear.value}-${m}-${d}`;
-            } else {
-                hiddenDob.value = '';
+            @if (TempData["ResetOtpTimer"] != null)
+            {
+                <text>
+                localStorage.removeItem(storageKey);
+                </text>
             }
-        }
 
-        if (dobDay && dobMonth && dobYear) {
-            dobDay.addEventListener('change', updateHiddenDob);
-            dobMonth.addEventListener('change', updateHiddenDob);
-            dobYear.addEventListener('change', updateHiddenDob);
-        }
-
-        // OTP Timer Logic
-        const btnResend = document.getElementById('btnResendOtp');
-        const resendForm = document.getElementById('resend-form');
-        
-        if (btnResend && resendForm) {
-            const storageKey = 'otpResendProfile_' + '@(Model.Email)';
-        @if (TempData["ResetOtpTimer"] != null)
-        {
-            <text>
-            localStorage.removeItem(storageKey);
-            </text>
-        }
-            let interval = null;
-
-            function startProfileResendTimer() {
+            function startTimer() {
                 let now = Math.floor(Date.now() / 1000);
                 let sentTime = localStorage.getItem(storageKey);
-                
                 if (!sentTime) {
                     sentTime = now;
                     localStorage.setItem(storageKey, sentTime);
                 }
-                
                 let elapsed = now - parseInt(sentTime);
                 let timer = 60 - elapsed;
-                
+
                 if (timer <= 0) {
-                    btnResend.disabled = false;
-                    btnResend.textContent = 'Resend Code';
-                    btnResend.style.backgroundColor = '#fff';
-                    btnResend.style.color = '#EE4D2D';
-                    btnResend.style.cursor = 'pointer';
-                    btnResend.style.borderColor = '#EE4D2D';
+                    btn.disabled = false;
+                    btn.textContent = 'Resend Code';
+                    btn.style.backgroundColor = '#fff';
+                    btn.style.color = '#EE4D2D';
+                    btn.style.cursor = 'pointer';
+                    btn.style.borderColor = '#EE4D2D';
                     return;
                 }
 
-                btnResend.disabled = true;
-                btnResend.style.backgroundColor = '#f5f5f5';
-                btnResend.style.color = '#888';
-                btnResend.style.cursor = 'not-allowed';
-                btnResend.style.borderColor = '#ddd';
-                btnResend.textContent = 'Resend (' + timer + 's)';
-                
-                interval = setInterval(function() {
+                btn.disabled = true;
+                btn.style.backgroundColor = '#f5f5f5';
+                btn.style.color = '#888';
+                btn.style.cursor = 'not-allowed';
+                btn.style.borderColor = '#ddd';
+                btn.textContent = 'Resend (' + timer + 's)';
+
+                let interval = setInterval(function() {
                     timer--;
                     if (timer <= 0) {
                         clearInterval(interval);
-                        btnResend.disabled = false;
-                        btnResend.textContent = 'Resend Code';
-                        btnResend.style.backgroundColor = '#fff';
-                        btnResend.style.color = '#EE4D2D';
-                        btnResend.style.cursor = 'pointer';
-                        btnResend.style.borderColor = '#EE4D2D';
+                        btn.disabled = false;
+                        btn.textContent = 'Resend Code';
+                        btn.style.backgroundColor = '#fff';
+                        btn.style.color = '#EE4D2D';
+                        btn.style.cursor = 'pointer';
+                        btn.style.borderColor = '#EE4D2D';
                     } else {
-                        btnResend.textContent = 'Resend (' + timer + 's)';
+                        btn.textContent = 'Resend (' + timer + 's)';
                     }
                 }, 1000);
             }
 
-            startProfileResendTimer();
+            startTimer();
 
-            btnResend.addEventListener('click', function(e) {
+            btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 if (this.disabled) return;
-                
                 localStorage.setItem(storageKey, Math.floor(Date.now() / 1000));
-                resendForm.submit();
+                form.submit();
             });
         }
-        
-        // Auto-prefix phone number
+
+        setupOtpTimer('btnResendCurrentOtp', 'resend-current-form', 'otpResendCurrent_' + '@(Model.Email)');
+        setupOtpTimer('btnResendNewOtp', 'resend-new-form', 'otpResendNew_' + '@(ViewBag.PendingNewEmail ?? "")');
+
         const phoneInput = document.getElementById('newPhoneNumberInput');
         if (phoneInput) {
             phoneInput.addEventListener('focus', function() {
@@ -434,7 +440,6 @@
                 }
             });
             phoneInput.addEventListener('input', function() {
-                // Handle pasting or modifying prefix
                 if (!this.value.startsWith('+601')) {
                     if (this.value.startsWith('01')) {
                         this.value = '+60' + this.value.substring(1);
@@ -444,7 +449,6 @@
                         this.value = '+601';
                     }
                 }
-                // Strip non-digits after the prefix
                 const prefix = '+601';
                 const rest = this.value.substring(prefix.length).replace(/[^\d]/g, '');
                 this.value = prefix + rest;
@@ -454,7 +458,6 @@
                     this.value = '';
                 }
             });
-        }
         }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>

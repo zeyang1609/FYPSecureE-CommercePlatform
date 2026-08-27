@@ -559,13 +559,18 @@ namespace FYP.Controllers
             // Transfer email-change state to ViewBag (one-time read, won't persist across visits)
             var emailStep = TempData["EmailChangeStep"];
             var pendingEmail = TempData["PendingNewEmail"];
+            var currentVerified = TempData["CurrentEmailVerified"];
             
             if (emailStep != null)
             {
                 ViewBag.EmailChangeStep = (int)emailStep;
                 ViewBag.PendingNewEmail = pendingEmail?.ToString();
-                // Re-store PendingNewEmail so VerifyEmailChange can read it on form submit
                 TempData["PendingNewEmail"] = pendingEmail;
+                if (currentVerified != null)
+                {
+                    ViewBag.CurrentEmailVerified = (bool)currentVerified;
+                    TempData["CurrentEmailVerified"] = currentVerified;
+                }
             }
 
             // Phone change state
@@ -639,25 +644,180 @@ namespace FYP.Controllers
             user.AllowPersonalizedAds = model.AllowPersonalizedAds;
             user.ShareDataWithThirdParties = model.ShareDataWithThirdParties;
 
-            if (!string.IsNullOrWhiteSpace(model.NewPassword))
-            {
-                user.PasswordHash = Argon2idHasher.HashPassword(model.NewPassword);
-            }
-
-            var auditLog = new AuditLog
-            {
-                LogID = "LOG-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper(),
-                UserID = user.UserID,
-                Action = $"Updated security profile (MFA: {user.MFA_Enabled}, Password Changed: {!string.IsNullOrWhiteSpace(model.NewPassword)})",
-                IP_Address = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
-                Timestamp = DateTime.UtcNow
-            };
-
-            _context.AuditLogs.Add(auditLog);
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
 
-            TempData["SuccessMessage"] = "Your profile has been updated!";
+            TempData["SuccessMessage"] = "Profile updated successfully.";
+            return RedirectToAction("Profile");
+        }
+
+        // ==========================================
+        // TWO-STEP EMAIL CHANGE
+        // ==========================================
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> StartEmailChange()
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user == null) return NotFound("User profile not found.");
+
+            // Generate and send OTP to current registered email
+            await _otpService.GenerateAndSendOtpAsync(user.Email, "Email Change Verification");
+
+            TempData["EmailChangeStep"] = 1; // Step 1: Verify current email OTP
+            TempData["ResetOtpTimer"] = true;
+            return RedirectToAction("Profile");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResendCurrentEmailOtp()
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user == null) return NotFound("User profile not found.");
+
+            await _otpService.GenerateAndSendOtpAsync(user.Email, "Email Change Verification");
+
+            TempData["EmailChangeStep"] = 1;
+            TempData["ResetOtpTimer"] = true;
+            return RedirectToAction("Profile");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VerifyCurrentEmailOtp(string otpCode)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user == null) return NotFound("User profile not found.");
+
+            if (string.IsNullOrWhiteSpace(otpCode))
+            {
+                TempData["ErrorMessage"] = "Please enter the verification code.";
+                TempData["EmailChangeStep"] = 1;
+                return RedirectToAction("Profile");
+            }
+
+            var isValid = _otpService.ValidateOtp(user.Email, otpCode);
+            if (!isValid)
+            {
+                TempData["ErrorMessage"] = "Invalid or expired verification code. Please try again.";
+                TempData["EmailChangeStep"] = 1;
+                return RedirectToAction("Profile");
+            }
+
+            // Current email successfully verified! Move to Step 2: Enter new email
+            TempData["CurrentEmailVerified"] = true;
+            TempData["EmailChangeStep"] = 2;
+            return RedirectToAction("Profile");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> InitiateEmailChange(string newEmail)
+        {
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return RedirectToAction("Login", "Auth");
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user == null) return NotFound("User profile not found.");
+
+            var isCurrentVerified = TempData["CurrentEmailVerified"] as bool? ?? false;
+            if (!isCurrentVerified)
+            {
+                TempData["ErrorMessage"] = "Security verification required. Please verify your current email first.";
+                return RedirectToAction("Profile");
+            }
+
+            if (string.IsNullOrWhiteSpace(newEmail) || !newEmail.Contains("@"))
+            {
+                TempData["ErrorMessage"] = "Please enter a valid email address.";
+                TempData["CurrentEmailVerified"] = true;
+                TempData["EmailChangeStep"] = 2;
+                return RedirectToAction("Profile");
+            }
+
+            if (user.Email.Equals(newEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["ErrorMessage"] = "The new email address cannot be the same as your current email address.";
+                TempData["CurrentEmailVerified"] = true;
+                TempData["EmailChangeStep"] = 2;
+                return RedirectToAction("Profile");
+            }
+
+            var emailInUse = await _context.Users.AnyAsync(u => u.Email == newEmail && u.UserID != userId);
+            if (emailInUse)
+            {
+                TempData["ErrorMessage"] = "This email address is already in use by another account.";
+                TempData["CurrentEmailVerified"] = true;
+                TempData["EmailChangeStep"] = 2;
+                return RedirectToAction("Profile");
+            }
+
+            // Generate and send OTP to the new email
+            await _otpService.GenerateAndSendOtpAsync(newEmail, "New Email Verification");
+
+            // Move to Step 3: Verify new email OTP
+            TempData["PendingNewEmail"] = newEmail;
+            TempData["CurrentEmailVerified"] = true;
+            TempData["EmailChangeStep"] = 3;
+            TempData["ResetOtpTimer"] = true;
+            return RedirectToAction("Profile");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VerifyEmailChange(string otpCode, string pendingEmail)
+        {
+            if (string.IsNullOrEmpty(pendingEmail) || string.IsNullOrEmpty(otpCode))
+            {
+                TempData["ErrorMessage"] = "Session expired or invalid request. Please try again.";
+                return RedirectToAction("Profile");
+            }
+
+            var isValid = _otpService.ValidateOtp(pendingEmail, otpCode);
+            if (!isValid)
+            {
+                TempData["ErrorMessage"] = "Invalid or expired verification code. Please try again.";
+                TempData["PendingNewEmail"] = pendingEmail;
+                TempData["CurrentEmailVerified"] = true;
+                TempData["EmailChangeStep"] = 3;
+                return RedirectToAction("Profile");
+            }
+
+            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var emailInUse = await _context.Users.AnyAsync(u => u.Email == pendingEmail && u.UserID != userId);
+            if (emailInUse)
+            {
+                TempData["ErrorMessage"] = "This email address is already in use by another account.";
+                return RedirectToAction("Profile");
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
+            if (user != null)
+            {
+                user.Email = pendingEmail;
+                _context.Users.Update(user);
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Email address successfully updated.";
+                }
+                catch (DbUpdateException)
+                {
+                    TempData["ErrorMessage"] = "This email address is already in use by another account.";
+                }
+            }
+
             return RedirectToAction("Profile");
         }
 
@@ -718,35 +878,6 @@ namespace FYP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> InitiateEmailChange(string newEmail)
-        {
-            if (string.IsNullOrWhiteSpace(newEmail) || !newEmail.Contains("@"))
-            {
-                TempData["ErrorMessage"] = "Please enter a valid email address.";
-                return RedirectToAction("Profile");
-            }
-
-            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
-
-            if (user != null && user.Email.Equals(newEmail, StringComparison.OrdinalIgnoreCase))
-            {
-                TempData["ErrorMessage"] = "The new email address cannot be the same as your current email address.";
-                return RedirectToAction("Profile");
-            }
-
-            // Generate and send OTP to the new email
-            await _otpService.GenerateAndSendOtpAsync(newEmail, "Email Update Verification");
-
-            // Store pending email securely in session/tempdata
-            TempData["PendingNewEmail"] = newEmail;
-            TempData["EmailChangeStep"] = 2; // Trigger step 2 UI
-            TempData["ResetOtpTimer"] = true;
-            return RedirectToAction("Profile");
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangePhoneNumber(string newPhoneNumber)
         {
             var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -759,7 +890,6 @@ namespace FYP.Controllers
             var cleaned = (newPhoneNumber ?? "").Replace(" ", "").Replace("-", "").Replace("+", "").Trim();
 
             // Malaysian phone number validation
-            // Valid: 60 + 1x + 7-8 digits (total 11-12) or 01x + 7-8 digits (total 10-11)
             bool isValid = false;
             if (cleaned.StartsWith("60") && cleaned.Length >= 11 && cleaned.Length <= 12)
             {
@@ -796,45 +926,6 @@ namespace FYP.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = "Phone number successfully updated.";
-            return RedirectToAction("Profile");
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> VerifyEmailChange(string otpCode, string pendingEmail)
-        {
-            Console.WriteLine($"[VerifyEmailChange] pendingEmail='{pendingEmail}', otpCode='{otpCode}'");
-            
-            if (string.IsNullOrEmpty(pendingEmail) || string.IsNullOrEmpty(otpCode))
-            {
-                Console.WriteLine("[VerifyEmailChange] FAILED: pendingEmail or otpCode is null/empty");
-                TempData["ErrorMessage"] = "Session expired or invalid request. Please try again.";
-                return RedirectToAction("Profile");
-            }
-
-            var isValid = _otpService.ValidateOtp(pendingEmail, otpCode);
-            Console.WriteLine($"[VerifyEmailChange] ValidateOtp result: {isValid}");
-            
-            if (!isValid)
-            {
-                TempData["ErrorMessage"] = "Invalid or expired verification code. Please try again.";
-                TempData["PendingNewEmail"] = pendingEmail;
-                TempData["EmailChangeStep"] = 2;
-                return RedirectToAction("Profile");
-            }
-
-            var userId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userId);
-            
-            if (user != null)
-            {
-                user.Email = pendingEmail;
-                _context.Users.Update(user);
-                await _context.SaveChangesAsync();
-                
-                TempData["SuccessMessage"] = "Email address successfully updated.";
-            }
-
             return RedirectToAction("Profile");
         }
 
