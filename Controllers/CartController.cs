@@ -1174,7 +1174,15 @@ namespace FYP.Controllers
                     device_ip_flags = deviceIpFlags
                 };
 
-                FraudEvaluationResult aiVerdict = await _aiClient.EvaluateTransactionRiskAsync(transactionPayload);
+                FraudEvaluationResult aiVerdict;
+                if (order.Status == "Approved")
+                {
+                    aiVerdict = new FraudEvaluationResult { RiskScore = 0.0m, IsBlocked = false, ShapData = "{}" };
+                }
+                else
+                {
+                    aiVerdict = await _aiClient.EvaluateTransactionRiskAsync(transactionPayload);
+                }
 
                 if (TempData["SkipRiskCheck"] != null)
                 {
