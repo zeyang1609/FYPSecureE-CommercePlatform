@@ -1515,7 +1515,7 @@ namespace FYP.Controllers
                 .ThenInclude(oi => oi.Product)
                 .FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == userId);
             
-            if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
+            if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment" && order.Status != "Approved"))
             {
                 return BadRequest(new { success = false, message = "Order cannot be cancelled at this stage." });
             }
