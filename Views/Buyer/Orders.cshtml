@@ -266,7 +266,7 @@
                                                     </div>
                                                 </div>
                                             }
-                                            else if (order.Status == "Processing" || order.Status == "Shipped" || order.Status == "Delivered")
+                                            else if (order.Status == "Processing" || order.Status == "Pending Pickup" || order.Status == "Shipped" || order.Status == "Delivered")
                                             {
                                                 @if (order.Status == "Delivered")
                                                 {
@@ -1111,9 +1111,9 @@
                     if (activeTab === "all") {
                         tabMatch = true;
                     } else if (activeTab === "topay") {
-                        tabMatch = status.includes("pending") || status.includes("approved");
+                        tabMatch = (status.includes("pending") && !status.includes("pickup")) || status.includes("approved");
                     } else if (activeTab === "toship") {
-                        tabMatch = status.includes("processing");
+                        tabMatch = status.includes("processing") || status.includes("pickup");
                     } else if (activeTab === "toreceive") {
                         tabMatch = status.includes("shipped") || status.includes("delivered");
                     } else if (activeTab === "completed") {
