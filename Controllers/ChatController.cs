@@ -264,7 +264,19 @@ namespace FYP.Controllers
                 });
             }
 
-            return Json(new { success = true, data = chatMessage });
+            return Json(new { 
+                success = true, 
+                data = new
+                {
+                    chatId = chatMessage.ChatID,
+                    isMine = true,
+                    payload = payload,
+                    timestamp = chatMessage.Timestamp.ToLocalTime().ToString("HH:mm"),
+                    attachmentUrl = chatMessage.AttachmentUrl,
+                    attachmentType = chatMessage.AttachmentType,
+                    nlpFlag = chatMessage.NLP_Flag
+                }
+            });
         }
 
         // GET: /Chat/SearchUsers?query=justin
