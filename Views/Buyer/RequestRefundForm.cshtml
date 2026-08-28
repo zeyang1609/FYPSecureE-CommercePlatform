@@ -225,7 +225,8 @@
                                     <span style="font-size: 10px; color: #999;">Add Photo</span>
                                     <span id="refundImageCount" style="font-size: 10px; color: #bbb;">(0/5)</span>
                                 </div>
-                                <div style="font-size: 10px; color: #999; margin-top: 4px;">Max: 20MB</div>
+                                </div>
+                                <div style="font-size: 10px; color: #999; margin-top: 4px;">Max: 10MB</div>
                             </div>
                             <input type="file" name="imageFiles" id="imageUpload" style="display: none;" accept="image/*" multiple onchange="handleRefundImageUpload(this);" />
 
@@ -238,9 +239,9 @@
                                     <span style="font-size: 10px; color: #999;">Add Video</span>
                                     <span id="refundVideoCount" style="font-size: 10px; color: #bbb;">(0/1)</span>
                                 </div>
-                                <div style="font-size: 10px; color: #999; margin-top: 4px;">Max: 200MB</div>
+                                <div style="font-size: 10px; color: #999; margin-top: 4px;">Max: 100MB</div>
                             </div>
-                            <input type="file" name="videoFile" id="videoUpload" style="display: none;" accept="video/*" onchange="handleRefundVideoUpload(this);" />
+                            <input type="file" name="videoFiles" id="videoUpload" style="display: none;" accept="video/*" multiple onchange="handleRefundVideoUpload(this);" />
                         </div>
 
                         <script>
@@ -274,16 +275,28 @@
                             let refundVideoDT = new DataTransfer();
 
                             function handleRefundImageUpload(input) {
+                                let exceed = false;
+                                let invalid = false;
+                                let sizeExceed = false;
+                                
                                 for (let i = 0; i < input.files.length; i++) {
-                                    if (refundImageDT.items.length >= 5) break;
-                                    refundImageDT.items.add(input.files[i]);
+                                    let file = input.files[i];
+                                    if (!file.type.startsWith('image/')) { invalid = true; continue; }
+                                    if (file.size > 10 * 1024 * 1024) { sizeExceed = true; continue; }
+                                    if (refundImageDT.items.length >= 5) { exceed = true; continue; }
+                                    refundImageDT.items.add(file);
                                 }
-                                if (refundImageDT.items.length > 5) {
+                                
+                                if (exceed || input.files.length > 5) {
                                     alert('You can only upload a maximum of 5 images.');
-                                    const trimmed = new DataTransfer();
-                                    for (let i = 0; i < 5; i++) trimmed.items.add(refundImageDT.files[i]);
-                                    refundImageDT = trimmed;
                                 }
+                                if (invalid) {
+                                    alert('Invalid image format. Only images are allowed.');
+                                }
+                                if (sizeExceed) {
+                                    alert('Image size cannot exceed 10MB.');
+                                }
+                                
                                 input.files = refundImageDT.files;
                                 renderRefundImagePreviews();
                             }
@@ -299,7 +312,7 @@
                                 for (let i = 0; i < count; i++) {
                                     const file = refundImageDT.files[i];
                                     const wrapper = document.createElement('div');
-                                    wrapper.style.cssText = 'position:relative; width:72px; height:72px;';
+                                    wrapper.style.cssText = 'position:relative; width:72px; height:72px; margin-right:8px;';
 
                                     const img = document.createElement('img');
                                     img.src = URL.createObjectURL(file);
@@ -333,9 +346,25 @@
                             }
 
                             function handleRefundVideoUpload(input) {
+                                if (input.files.length > 1) {
+                                    alert('You can only upload a maximum of 1 video.');
+                                    input.value = '';
+                                    return;
+                                }
                                 if (input.files.length > 0) {
+                                    let file = input.files[0];
+                                    if (!file.type.startsWith('video/')) {
+                                        alert('Invalid video format. Only videos are allowed.');
+                                        input.value = '';
+                                        return;
+                                    }
+                                    if (file.size > 100 * 1024 * 1024) {
+                                        alert('Video size cannot exceed 100MB.');
+                                        input.value = '';
+                                        return;
+                                    }
                                     refundVideoDT = new DataTransfer();
-                                    refundVideoDT.items.add(input.files[0]);
+                                    refundVideoDT.items.add(file);
                                     input.files = refundVideoDT.files;
                                 }
                                 renderRefundVideoPreviews();
@@ -352,7 +381,7 @@
                                 if (count > 0) {
                                     const file = refundVideoDT.files[0];
                                     const wrapper = document.createElement('div');
-                                    wrapper.style.cssText = 'position:relative; width:72px; height:72px;';
+                                    wrapper.style.cssText = 'position:relative; width:72px; height:72px; margin-right:8px;';
 
                                     const video = document.createElement('video');
                                     video.src = URL.createObjectURL(file);

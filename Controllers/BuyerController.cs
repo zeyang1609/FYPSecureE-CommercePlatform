@@ -346,7 +346,7 @@ namespace FYP.Controllers
         // POST: /Buyer/SubmitRefundRequest
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SubmitRefundRequest(string orderId, string issueType, string reason, string description, string refundEmail, List<IFormFile> imageFiles, IFormFile videoFile, string returnMethod, int? pickupAddressId)
+        public async Task<IActionResult> SubmitRefundRequest(string orderId, string issueType, string reason, string description, string refundEmail, List<IFormFile> imageFiles, List<IFormFile> videoFiles, string returnMethod, int? pickupAddressId)
         {
             var buyerId = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var order = await _context.Orders
@@ -377,12 +377,16 @@ namespace FYP.Controllers
             string uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "refunds");
             if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
 
+            if (imageFiles != null && imageFiles.Count > 5)
+            {
+                TempData["ErrorMessage"] = "You can only upload a maximum of 5 images.";
+                return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+            }
+
             if (imageFiles != null && imageFiles.Count > 0)
             {
-                int maxImages = Math.Min(imageFiles.Count, 5); // Limit to 5 images
-                for (int i = 0; i < maxImages; i++)
+                foreach (var file in imageFiles)
                 {
-                    var file = imageFiles[i];
                     if (!IsValidImage(file))
                     {
                         TempData["ErrorMessage"] = "Invalid image format. Only .jpg, .jpeg, and .png are allowed.";
@@ -404,8 +408,15 @@ namespace FYP.Controllers
                 }
             }
 
-            if (videoFile != null && videoFile.Length > 0)
+            if (videoFiles != null && videoFiles.Count > 1)
             {
+                TempData["ErrorMessage"] = "You can only upload a maximum of 1 video.";
+                return RedirectToAction("RequestRefundForm", new { orderId, issueType });
+            }
+
+            if (videoFiles != null && videoFiles.Count > 0)
+            {
+                var videoFile = videoFiles[0];
                 if (!IsValidVideo(videoFile))
                 {
                     TempData["ErrorMessage"] = "Invalid video format. Only .mp4 is allowed.";
