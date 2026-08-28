@@ -86,6 +86,7 @@
         </div>
         
         <form id="payment-form" style="display: flex; flex-direction: column; gap: 20px;">
+            @Html.AntiForgeryToken()
             <!-- SetupIntent ClientSecret will be fetched dynamically -->
             
             <div style="display: flex; flex-direction: column; gap: 5px;">
@@ -209,10 +210,14 @@
             }
 
             try {
+                const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
                 // 1. Ask backend for a SetupIntent client secret
                 const response = await fetch('/Buyer/CreateSetupIntent', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    }
                 });
                 
                 const data = await response.json();
@@ -245,7 +250,8 @@
                     const syncResponse = await fetch('/Buyer/SyncSavedCard', {
                         method: 'POST',
                         headers: { 
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': token
                         },
                         body: JSON.stringify({ 
                             paymentMethodId: result.setupIntent.payment_method,

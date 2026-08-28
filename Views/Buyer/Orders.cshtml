@@ -982,7 +982,7 @@
                             
                             const setupRes = await fetch('/Buyer/CreateSetupIntent', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' }
+                                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' }
                             });
                             const setupData = await setupRes.json();
                             if (!setupData.clientSecret) throw new Error(setupData.error || 'Failed to init setup');
