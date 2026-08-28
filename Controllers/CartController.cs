@@ -1150,7 +1150,7 @@ namespace FYP.Controllers
 
                 string orderId = requestData.GetProperty("orderId").GetString();
                 var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == GetUserId());
-                if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
+                if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment" && order.Status != "Approved"))
                 {
                     return BadRequest(new { error = "Order not found or not pending payment." });
                 }
@@ -1681,7 +1681,7 @@ namespace FYP.Controllers
         {
             var userId = GetUserId();
             var order = await _context.Orders.FirstOrDefaultAsync(o => o.OrderID == orderId && o.BuyerID == userId);
-            if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment"))
+            if (order == null || (order.Status != "Pending" && order.Status != "Pending Payment" && order.Status != "Approved"))
             {
                 return ("", "Order not found or not pending payment.");
             }
