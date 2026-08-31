@@ -70,8 +70,8 @@ namespace FYP.Security
 
             byte[] actualHash = argon2.GetBytes(16);
 
-            // Mathematically compare the two hashes
-            return actualHash.SequenceEqual(expectedHash);
+            // Compare the two hashes using constant time comparison to prevent timing attacks
+            return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
         }
     }
 }
